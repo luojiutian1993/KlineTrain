@@ -1,5 +1,40 @@
-.DS_Store
-__pycache__/
-.idea/
-.vscode/
+# 编译输出
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+*.iml
 
+# 环境变量
+.env
+.env.local
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 测试输出
+coverage/
+test_report/
+
+# macOS
+.DS_Store
+
+# iOS
+ios/Pods/
+ios/Runner.xcworkspace/xcshareddata/
+ios/Runner.xcodeproj/xcshareddata/
+
+# Android
+android/build/
+android/app/build/
+
+# macOS
+macos/Flutter/ephemeral/
+macos/Pods/
+
+# Windows
+windows/flutter/ephemeral/

@@ -23,7 +23,7 @@
     },
     {
       "name": "example-skills",
-      "description": "Collection of example skills demonstrating various capabilities including skill creation, MCP building, visual design, algorithmic art, internal communications, web testing, artifact building, Slack GIFs, and theme styling",
+      "description": "Collection of example skills demonstrating various capabilities including skill creation, MCP building, visual design, algorithmic art, internal communications, web testing, artifact building, Slack GIFs, and theme styling.",
       "source": "./",
       "strict": false,
       "skills": [
@@ -40,8 +40,40 @@
         "./skills/web-artifacts-builder",
         "./skills/webapp-testing"
       ]
-    }
-    ,
+    },
+    {
+      "name": "community-skills",
+      "description": "Community-contributed skills including product management, full-stack development, UI/UX design, and UI interface design review.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/product-manager",
+        "./skills/fullstack-developer",
+        "./skills/ui-ux-pro-max",
+        "./skills/UI-Interface-Design-Review"
+      ]
+    },
+    {
+      "name": "dev-workflow",
+      "description": "Development workflow skills including bugfix workflow, project management, and feature development.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/bugfix-workflow",
+        "./skills/project/project-structure",
+        "./skills/project/project-tech-stack",
+        "./skills/project/project-product-overview",
+        "./skills/project/project-dev-standards",
+        "./skills/project/project-requirements-clarification",
+        "./skills/project/project-roadmap-planning",
+        "./skills/project/project-initialization",
+        "./skills/feature/feature-task-planning",
+        "./skills/feature/feature-evolution",
+        "./skills/feature/feature-implementation",
+        "./skills/feature/feature-requirements-clarification",
+        "./skills/feature/feature-tech-design"
+      ]
+    },
     {
       "name": "claude-api",
       "description": "Claude API and SDK documentation skill for building LLM-powered applications",
