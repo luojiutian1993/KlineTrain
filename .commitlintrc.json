@@ -9,7 +9,7 @@
     "scope-enum": [
       2,
       "always",
-      ["chart", "battle", "training", "home", "mine", "nav", "theme", "api", "ui", "widgets", "state", "routes", "docs", "build", "ci"]
+      ["chart", "battle", "training", "home", "mine", "nav", "theme", "api", "ui", "widgets", "state", "routes", "docs", "build", "ci", "database"]
     ],
     "subject-case": [2, "always", ["sentence-case", "lower-case"]],
     "subject-max-length": [2, "always", 60],
