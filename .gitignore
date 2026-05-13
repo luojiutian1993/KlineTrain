@@ -1,40 +1,77 @@
-# 编译输出
+# Flutter/Dart specific
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
 build/
-*.iml
+.fvm/
 
-# 环境变量
-.env
-.env.local
-
-# IDE配置
-.vscode/
+# IDE
 .idea/
-*.swp
-*.swo
-*~
-
-# 测试输出
-coverage/
-test_report/
-
-# macOS
-.DS_Store
+.vscode/
+*.iml
+*.ipr
+*.iws
 
 # iOS
 ios/Pods/
-ios/Runner.xcworkspace/xcshareddata/
-ios/Runner.xcodeproj/xcshareddata/
+ios/Runner.xcworkspace/
+ios/Runner/GeneratedPluginRegistrant.m
+ios/Flutter/App.framework/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+ios/Runner.xcodeproj/project.pbxproj
+ios/Runner.xcodeproj/xcuserdata/
 
 # Android
+android/.gradle/
 android/build/
 android/app/build/
+android/key.properties
+
+# Environment
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Logs and cache
+*.log
+*.log.*
+.cache/
+*.crash
+
+# Sensitive files
+*.pem
+*.key
+*.cert
+secrets/
+credentials/
 
 # macOS
-macos/Flutter/ephemeral/
-macos/Pods/
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
 
 # Windows
-windows/flutter/ephemeral/
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Testing
+coverage/
+test_reports/
+
+# CI/CD
+.github/workflows/*.yml.bak
+
+# Node.js (for commitlint/husky)
+node_modules/
+package-lock.json
+yarn.lock

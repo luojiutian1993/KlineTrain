@@ -1,14 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:kline_trainer/providers/course_provider.dart';
 import 'package:kline_trainer/data/models/course_model.dart';
 
-class CourseListScreen extends ConsumerWidget {
+class CourseListScreen extends ConsumerStatefulWidget {
   const CourseListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CourseListScreen> createState() => _CourseListScreenState();
+}
+
+class _CourseListScreenState extends ConsumerState<CourseListScreen> {
+  int _selectedIndex = 1;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    switch (index) {
+      case 0:
+        context.go('/');
+        break;
+      case 1:
+        context.go('/course');
+        break;
+      case 2:
+        context.go('/trading');
+        break;
+      case 3:
+        context.go('/profile');
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final courses = ref.watch(coursesProvider);
 
     return Scaffold(
@@ -25,6 +54,30 @@ class CourseListScreen extends ConsumerWidget {
           itemCount: data.length,
           itemBuilder: (context, index) => _buildCourseCard(context, data[index]),
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'K线',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book),
+            label: '课程',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.trending_up),
+            label: '交易',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '我的',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).primaryColor,
+        onTap: _onItemTapped,
       ),
     );
   }

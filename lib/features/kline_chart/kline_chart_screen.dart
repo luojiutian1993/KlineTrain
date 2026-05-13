@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:kline_trainer/providers/kline_provider.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
@@ -16,6 +17,28 @@ class KlineChartScreen extends ConsumerStatefulWidget {
 class _KlineChartScreenState extends ConsumerState<KlineChartScreen> {
   final List<String> _timeFrames = ['1分', '5分', '15分', '1小时', '日', '周', '月'];
   int _selectedTimeFrame = 4;
+  int _selectedIndex = 0;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    switch (index) {
+      case 0:
+        context.go('/');
+        break;
+      case 1:
+        context.go('/course');
+        break;
+      case 2:
+        context.go('/trading');
+        break;
+      case 3:
+        context.go('/profile');
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +69,30 @@ class _KlineChartScreenState extends ConsumerState<KlineChartScreen> {
             ),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'K线',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book),
+            label: '课程',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.trending_up),
+            label: '交易',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '我的',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).primaryColor,
+        onTap: _onItemTapped,
       ),
     );
   }

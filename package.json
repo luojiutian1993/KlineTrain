@@ -1,0 +1,34 @@
+{
+  "name": "klinetrain",
+  "version": "1.0.0",
+  "description": "一款帮助用户学习和练习股票K线分析的跨平台教育类应用。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "husky",
+    "commitlint": "commitlint --edit",
+    "lint:commit": "commitlint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luojiutian1993/KlineTrain.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/luojiutian1993/KlineTrain/issues"
+  },
+  "homepage": "https://github.com/luojiutian1993/KlineTrain#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
+    "husky": "^9.1.7"
+  }
+}

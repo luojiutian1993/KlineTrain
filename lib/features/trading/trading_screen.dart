@@ -1,14 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:kline_trainer/providers/trading_provider.dart';
 import 'package:kline_trainer/data/models/account_model.dart';
 
-class TradingScreen extends ConsumerWidget {
+class TradingScreen extends ConsumerStatefulWidget {
   const TradingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TradingScreen> createState() => _TradingScreenState();
+}
+
+class _TradingScreenState extends ConsumerState<TradingScreen> {
+  int _selectedIndex = 2;
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    
+    switch (index) {
+      case 0:
+        context.go('/');
+        break;
+      case 1:
+        context.go('/course');
+        break;
+      case 2:
+        context.go('/trading');
+        break;
+      case 3:
+        context.go('/profile');
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final account = ref.watch(accountProvider);
     final positions = ref.watch(positionsProvider);
 
@@ -27,6 +56,30 @@ class TradingScreen extends ConsumerWidget {
             _buildPositionList(positions.valueOrNull ?? []),
           ],
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: 'K线',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.book),
+            label: '课程',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.trending_up),
+            label: '交易',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: '我的',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Theme.of(context).primaryColor,
+        onTap: _onItemTapped,
       ),
     );
   }

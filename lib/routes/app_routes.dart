@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:kline_trainer/features/kline_chart/kline_chart_screen.dart';
-import 'package:kline_trainer/features/course/course_list_screen.dart';
-import 'package:kline_trainer/features/trading/trading_screen.dart';
-import 'package:kline_trainer/features/user/profile_screen.dart';
+import 'package:kline_trainer/features/home/home_screen.dart';
+import 'package:kline_trainer/features/battle/battle_screen.dart';
+import 'package:kline_trainer/features/mine/mine_screen.dart';
+import 'package:kline_trainer/features/training/training_screen.dart';
 import 'package:kline_trainer/features/user/login_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -17,22 +17,22 @@ class AppRoutes {
       GoRoute(
         path: '/',
         name: 'home',
-        builder: (context, state) => const KlineChartScreen(),
+        builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
-        path: '/course',
-        name: 'course',
-        builder: (context, state) => const CourseListScreen(),
+        path: '/battle',
+        name: 'battle',
+        builder: (context, state) => const BattleScreen(),
       ),
       GoRoute(
-        path: '/trading',
-        name: 'trading',
-        builder: (context, state) => const TradingScreen(),
+        path: '/mine',
+        name: 'mine',
+        builder: (context, state) => const MineScreen(),
       ),
       GoRoute(
-        path: '/profile',
-        name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
+        path: '/training',
+        name: 'training',
+        builder: (context, state) => const TrainingScreen(),
       ),
       GoRoute(
         path: '/login',
