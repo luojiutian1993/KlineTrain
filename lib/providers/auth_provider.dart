@@ -1,4 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../data/repositories/user_repository.dart';
+import '../data/models/user_model.dart';
 
 part 'auth_provider.g.dart';
 
@@ -9,9 +11,15 @@ class AuthState extends _$AuthState {
     return false;
   }
 
-  Future<void> login(String username, String password) async {
+  Future<void> login(String phone, String password) async {
     await Future.delayed(const Duration(seconds: 1));
-    state = true;
+    
+    final userRepository = UserRepository();
+    final user = await userRepository.getUserByPhone(phone);
+    
+    if (user != null) {
+      state = true;
+    }
   }
 
   Future<void> logout() async {
@@ -19,9 +27,34 @@ class AuthState extends _$AuthState {
     state = false;
   }
 
-  Future<void> register(String username, String password, String email) async {
+  Future<bool> register(String phone, String password, String email) async {
     await Future.delayed(const Duration(seconds: 1));
-    state = true;
+    
+    try {
+      final userRepository = UserRepository();
+      
+      // 创建新用户模型
+      final newUser = UserModel(
+        userId: DateTime.now().millisecondsSinceEpoch.toString(),
+        phone: phone,
+        nickname: 'K线新手',
+        avatarUrl: '',
+        level: MemberLevel.bronze,
+        trainingCount: 0,
+        totalReturnPercent: 0.0,
+        winCount: 0,
+        totalTrades: 0,
+        learningProgress: 0,
+        createdAt: DateTime.now(),
+      );
+      
+      // 保存到数据库
+      await userRepository.saveUserToDatabase(newUser);
+      state = true;
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }
 

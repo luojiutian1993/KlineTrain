@@ -17,6 +17,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   int? _verifyCodeCooldown;
+  bool _isLoading = false;
 
   Future<void> _sendVerifyCode() async {
     if (_phoneController.text.length != 11) {
@@ -32,7 +33,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
   }
 
-  void _register() {
+  void _register() async {
     if (_phoneController.text.length != 11) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('请输入正确的手机号')));
       return;
@@ -45,8 +46,27 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('密码至少6位')));
       return;
     }
-    ref.read(authStateProvider.notifier).register(_phoneController.text, _passwordController.text, '');
-    context.go(AppRoutes.mine);
+
+    setState(() => _isLoading = true);
+    
+    final success = await ref.read(authStateProvider.notifier).register(
+      _phoneController.text, 
+      _passwordController.text, 
+      ''
+    );
+    
+    setState(() => _isLoading = false);
+    
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('注册成功！'), backgroundColor: Colors.green)
+      );
+      Future.delayed(const Duration(seconds: 1), () => context.go(AppRoutes.mine));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('注册失败，请重试'), backgroundColor: Colors.red)
+      );
+    }
   }
 
   @override
@@ -123,12 +143,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _register,
+                          onPressed: _isLoading ? null : _register,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.accent,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
-                          child: const Text('注册', style: TextStyle(fontSize: 16)),
+                          child: _isLoading 
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : const Text('注册', style: TextStyle(fontSize: 16)),
                         ),
                       ),
                     ],
