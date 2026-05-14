@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "sprint-planner": {
+      "source": "shubhamsaboo/awesome-llm-apps",
+      "sourceType": "github",
+      "skillPath": "awesome_agent_skills/sprint-planner/SKILL.md",
+      "computedHash": "a3836dd84fe070fb78e777300332c3c9e293718af642518d776eeb66bc8665dd"
+    }
+  }
+}

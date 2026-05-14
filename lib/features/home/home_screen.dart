@@ -188,15 +188,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 8),
             Row(
               children: const [
-                Expanded(child: StatBadge(label: '本月收益', value: '+¥12,300', color: Colors.red)),
-                Expanded(child: StatBadge(label: '最大回撤', value: '-12.5%', color: Colors.green)),
+                StatBadge(label: '本月收益', value: '+¥12,300', color: Colors.red),
+                StatBadge(label: '最大回撤', value: '-12.5%', color: Colors.green),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: const [
-                Expanded(child: StatBadge(label: '夏普比率', value: '1.85')),
-                Expanded(child: StatBadge(label: '盈亏比', value: '2.3:1')),
+                StatBadge(label: '夏普比率', value: '1.85'),
+                StatBadge(label: '盈亏比', value: '2.3:1'),
               ],
             ),
           ],
@@ -345,20 +345,20 @@ class StatBadge extends StatelessWidget {
   final String label;
   final String value;
   final Color? color;
+  final bool expanded;
 
-  const StatBadge({required this.label, required this.value, this.color});
+  const StatBadge({required this.label, required this.value, this.color, this.expanded = true});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color ?? AppTheme.fg)),
-        ],
-      ),
+    Widget content = Column(
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color ?? AppTheme.fg)),
+      ],
     );
+    return expanded ? Expanded(child: content) : content;
   }
 }
 
