@@ -6,6 +6,66 @@
       "sourceType": "github",
       "skillPath": "awesome_agent_skills/sprint-planner/SKILL.md",
       "computedHash": "a3836dd84fe070fb78e777300332c3c9e293718af642518d776eeb66bc8665dd"
+    },
+    "brainstorming": {
+      "source": "obra/superpowers-skills",
+      "sourceType": "github",
+      "skillPath": "brainstorming/SKILL.md",
+      "computedHash": ""
+    },
+    "ui-ux-pro-max": {
+      "source": "nextlevelbuilder/ui-ux-pro-max-skill",
+      "sourceType": "github",
+      "skillPath": "ui-ux-pro-max/SKILL.md",
+      "computedHash": ""
+    },
+    "systematic-debugging": {
+      "source": "alexanderop/workouttracker",
+      "sourceType": "github",
+      "skillPath": "systematic-debugging/SKILL.md",
+      "computedHash": ""
+    },
+    "writing-plans": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "writing-plans/SKILL.md",
+      "computedHash": ""
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "skillPath": "find-skills/SKILL.md",
+      "computedHash": ""
+    },
+    "using-superpowers": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "using-superpowers/SKILL.md",
+      "computedHash": ""
+    },
+    "karpathy-guidelines": {
+      "source": "skezu/skills",
+      "sourceType": "github",
+      "skillPath": "karpathy-guidelines/SKILL.md",
+      "computedHash": ""
+    },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "webapp-testing/SKILL.md",
+      "computedHash": ""
+    },
+    "agent-browser": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "agent-browser/SKILL.md",
+      "computedHash": ""
+    },
+    "pua": {
+      "source": "tanweai/pua",
+      "sourceType": "github",
+      "skillPath": "pua/SKILL.md",
+      "computedHash": ""
     }
   }
 }

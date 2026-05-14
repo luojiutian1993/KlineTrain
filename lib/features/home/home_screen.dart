@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
+import 'package:kline_trainer/features/home/widgets/market_sector_selector.dart';
+import 'package:kline_trainer/features/home/widgets/stock_condition_selector.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -216,33 +218,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         const SizedBox(height: 12),
+        const MarketSectorSelector(),
+        const SizedBox(height: 16),
         Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _conditions.map((condition) => ChoiceChip(
-                    label: Text(condition),
-                    selected: _selectedCondition == condition,
-                    onSelected: (selected) {
-                      setState(() {
-                        _selectedCondition = condition;
-                      });
-                    },
-                    selectedColor: AppTheme.accent,
-                    backgroundColor: AppTheme.bg,
-                  )).toList(),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  alignment: Alignment.centerLeft,
-                  child: const Text('当前满足条件: 12 支股票', style: TextStyle(color: AppTheme.muted)),
-                ),
-              ],
+            child: StockConditionSelector(
+              selectedCondition: _selectedCondition,
+              onChanged: (value) {
+                setState(() {
+                  _selectedCondition = value;
+                });
+              },
             ),
           ),
         ),

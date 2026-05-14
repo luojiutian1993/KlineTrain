@@ -1,7 +1,7 @@
 # K线训练营App - Skills 说明管理文档
 
-> **文档版本**: v1.1  
-> **最后更新**: 2026-05-13  
+> **文档版本**: v1.2  
+> **最后更新**: 2026-05-14  
 > **维护者**: 开发团队  
 > **描述**: 本项目所有 skills 能力说明文档，用于快速查询和管理各技能的功能、用途和调用方式。
 
@@ -23,14 +23,18 @@
 |------|--------|---------|
 | **项目管理** | project-* | 项目初始化、产品设计、技术选型、架构设计 |
 | **功能开发** | feature-* | 需求澄清、技术方案、任务规划、编码实现 |
-| **开发工具** | development-essentials | 日常开发命令（代码、调试、测试等） |
+| **开发工具** | development-essentials, brainstorming, systematic-debugging | 日常开发命令、头脑风暴、系统化调试 |
 | **Bug修复** | bugfix-workflow | 问题定位、修复、验证 |
-| **文档协作** | doc-coauthoring | 文档写作工作流 |
+| **文档协作** | doc-coauthoring, writing-plans | 文档写作工作流、实施计划生成 |
 | **前端设计** | frontend-design, ui-ux-pro-max | UI界面设计 |
 | **Git工作流** | git-workflow | Git规范和提交指南 |
 | **敏捷管理** | sprint-planner | 敏捷冲刺规划 |
 | **数据工程** | explore-data, sql-queries, statistical-analysis | K线数据探索、数据库查询、收益率统计 |
 | **工程部署** | deploy-checklist | iOS/Android部署检查 |
+| **框架工具** | using-superpowers, find-skills | Superpowers框架核心、Skill发现工具 |
+| **编码准则** | karpathy-guidelines | Karpathy编码准则 |
+| **自动化测试** | webapp-testing, agent-browser | Web应用测试、浏览器自动化 |
+| **治理调试** | pua | 高能动性治理调试 |
 | **其他工具** | pdf, pptx, docx, xlsx 等 | 文档处理、艺术生成等 |
 
 ---
@@ -261,6 +265,28 @@
 - **名称**: 开发必备工具集
 - **路径**: `skills/development-essentials`
 - **功能**: 提供日常开发的子命令
+
+#### **brainstorming**
+- **名称**: 头脑风暴工具
+- **路径**: `skills/brainstorming/SKILL.md`
+- **功能**: 前置设计与需求分析，支持创意思维和方案探索
+- **触发时机**: 项目启动前的需求分析、方案讨论阶段
+- **核心能力**:
+  - 需求澄清与分析
+  - 创意方案生成
+  - 可行性评估
+- **调用方式**: `Use Skill: brainstorming`
+
+#### **systematic-debugging**
+- **名称**: 系统化调试工具
+- **路径**: `skills/systematic-debugging/SKILL.md`
+- **功能**: 系统化的调试方法论和工具
+- **触发时机**: 复杂问题定位、性能调试、系统故障排查时
+- **核心能力**:
+  - 问题复现与分析
+  - 调试策略制定
+  - 根因追踪
+- **调用方式**: `Use Skill: systematic-debugging`
 - **子命令列表**:
 
 | 命令 | 功能 | 触发词 | 文档 |
@@ -290,6 +316,14 @@
   3. **Reader Testing** - 读者测试
 - **触发时机**: 用户想写文档、提案、技术规格、决策文档等
 - **调用方式**: `Use Skill: doc-coauthoring`
+
+#### **writing-plans**
+- **名称**: 实施计划生成器
+- **路径**: `skills/writing-plans/SKILL.md`
+- **功能**: 根据规格或需求生成多步骤任务的实施计划
+- **触发时机**: 在编写代码之前，需要制定详细的实施计划时
+- **前置条件**: 需要有 spec 或需求文档
+- **调用方式**: `Use Skill: writing-plans`
 
 ---
 
@@ -324,7 +358,83 @@
 
 ---
 
-### 2.11 其他工具类
+### 2.11 框架工具类
+
+#### **using-superpowers**
+- **名称**: Superpowers框架核心
+- **路径**: `skills/using-superpowers/SKILL.md`
+- **功能**: Superpowers框架的核心功能，提供技能编排和工作流管理能力
+- **核心能力**:
+  - 技能组合编排
+  - 工作流自动化
+  - 上下文管理
+- **调用方式**: `Use Skill: using-superpowers`
+
+#### **find-skills**
+- **名称**: Skill发现工具
+- **路径**: `skills/find-skills/SKILL.md`
+- **功能**: 发现和搜索可用的技能，帮助用户找到合适的工具
+- **核心能力**:
+  - 技能搜索和发现
+  - 技能分类浏览
+  - 技能推荐
+- **调用方式**: `Use Skill: find-skills`
+
+---
+
+### 2.12 编码准则类
+
+#### **karpathy-guidelines**
+- **名称**: Karpathy编码准则
+- **路径**: `skills/karpathy-guidelines/SKILL.md`
+- **功能**: 基于Andrej Karpathy的编码理念，提供代码质量和架构指导
+- **核心原则**:
+  - 简洁清晰的代码风格
+  - 模块化设计
+  - 可维护性优先
+- **调用方式**: `Use Skill: karpathy-guidelines`
+
+---
+
+### 2.13 自动化测试类
+
+#### **webapp-testing**
+- **名称**: Web应用测试
+- **路径**: `skills/webapp-testing/SKILL.md`
+- **功能**: Web应用的自动化测试工具
+- **核心能力**:
+  - 端到端测试
+  - 功能测试
+  - 性能测试
+- **调用方式**: `Use Skill: webapp-testing`
+
+#### **agent-browser**
+- **名称**: 浏览器自动化
+- **路径**: `skills/agent-browser/SKILL.md`
+- **功能**: 自动化浏览器操作，支持网页交互和数据采集
+- **核心能力**:
+  - 页面导航和操作
+  - 表单填写和提交
+  - 数据抓取和分析
+- **调用方式**: `Use Skill: agent-browser`
+
+---
+
+### 2.14 治理调试类
+
+#### **pua**
+- **名称**: 高能动性治理调试
+- **路径**: `skills/pua/SKILL.md`
+- **功能**: 高能动性系统的治理和调试工具
+- **核心能力**:
+  - 系统状态监控
+  - 性能调优
+  - 问题诊断
+- **调用方式**: `Use Skill: pua`
+
+---
+
+### 2.15 其他工具类
 
 #### **skill-creator**
 - **名称**: 技能创建器
@@ -494,6 +604,10 @@ Use Skill: explore-data
    - 敏捷管理
    - 数据工程
    - 工程部署
+   - 框架工具
+   - 编码准则
+   - 自动化测试
+   - 治理调试
    - 其他工具
 
 3. **在对应分类下添加说明**
@@ -530,6 +644,7 @@ Use Skill: explore-data
 |------|------|---------|--------|
 | v1.0 | 2026-05-13 | 初始版本，整理现有所有 skills | DevOps Engineer |
 | v1.1 | 2026-05-13 | 添加 sprint-planner 敏捷冲刺规划技能；添加数据工程类技能（explore-data、sql-queries、statistical-analysis）；添加工程部署类技能（deploy-checklist）；添加 git-commit 技能 | DevOps Engineer |
+| v1.2 | 2026-05-14 | 添加10个新技能：brainstorming、ui-ux-pro-max、systematic-debugging、writing-plans、find-skills、using-superpowers、karpathy-guidelines、webapp-testing、agent-browser、pua；新增框架工具、编码准则、自动化测试、治理调试分类 | DevOps Engineer |
 
 ---
 
@@ -560,27 +675,35 @@ Use Skill: explore-data
 | 19 | deploy-checklist | 工程部署 | `skills/knowledge-work-plugins-main/engineering/skills/deploy-checklist/SKILL.md` |
 | 20 | bugfix-workflow | Bug修复 | `skills/bugfix-workflow/SKILL.md` |
 | 21 | development-essentials | 开发工具 | `skills/development-essentials` |
-| 22 | doc-coauthoring | 文档协作 | `skills/doc-coauthoring/SKILL.md` |
-| 23 | frontend-design | 前端设计 | `skills/frontend-design/SKILL.md` |
-| 24 | ui-ux-pro-max | 前端设计 | `skills/ui-ux-pro-max/SKILL.md` |
-| 25 | UI-Interface-Design-Review | 前端设计 | `skills/UI-Interface-Design-Review/SKILL.md` |
-| 26 | theme-factory | 其他工具 | `skills/theme-factory/SKILL.md` |
-| 27 | product-manager | 其他工具 | `skills/product-manager/SKILL.md` |
-| 28 | skill-creator | 其他工具 | `skills/skill-creator/SKILL.md` |
-| 29 | pdf | 其他工具 | `skills/pdf/SKILL.md` |
-| 30 | docx | 其他工具 | `skills/docx/SKILL.md` |
-| 31 | pptx | 其他工具 | `skills/pptx/SKILL.md` |
-| 32 | xlsx | 其他工具 | `skills/xlsx/SKILL.md` |
-| 33 | algorithmic-art | 其他工具 | `skills/algorithmic-art/SKILL.md` |
-| 34 | canvas-design | 其他工具 | `skills/canvas-design/SKILL.md` |
-| 35 | slack-gif-creator | 其他工具 | `skills/slack-gif-creator/SKILL.md` |
-| 36 | claude-api | 其他工具 | `skills/claude-api/SKILL.md` |
-| 37 | mcp-builder | 其他工具 | `skills/mcp-builder/SKILL.md` |
-| 38 | fullstack-developer | 其他工具 | `skills/fullstack-developer/SKILL.md` |
-| 39 | brand-guidelines | 其他工具 | `skills/brand-guidelines/SKILL.md` |
-| 40 | internal-comms | 其他工具 | `skills/internal-comms/SKILL.md` |
-| 41 | web-artifacts-builder | 其他工具 | `skills/web-artifacts-builder/SKILL.md` |
-| 42 | webapp-testing | 其他工具 | `skills/webapp-testing/SKILL.md` |
+| 22 | brainstorming | 开发工具 | `skills/brainstorming/SKILL.md` |
+| 23 | systematic-debugging | 开发工具 | `skills/systematic-debugging/SKILL.md` |
+| 24 | doc-coauthoring | 文档协作 | `skills/doc-coauthoring/SKILL.md` |
+| 25 | writing-plans | 文档协作 | `skills/writing-plans/SKILL.md` |
+| 26 | frontend-design | 前端设计 | `skills/frontend-design/SKILL.md` |
+| 27 | ui-ux-pro-max | 前端设计 | `skills/ui-ux-pro-max/SKILL.md` |
+| 28 | UI-Interface-Design-Review | 前端设计 | `skills/UI-Interface-Design-Review/SKILL.md` |
+| 29 | using-superpowers | 框架工具 | `skills/using-superpowers/SKILL.md` |
+| 30 | find-skills | 框架工具 | `skills/find-skills/SKILL.md` |
+| 31 | karpathy-guidelines | 编码准则 | `skills/karpathy-guidelines/SKILL.md` |
+| 32 | webapp-testing | 自动化测试 | `skills/webapp-testing/SKILL.md` |
+| 33 | agent-browser | 自动化测试 | `skills/agent-browser/SKILL.md` |
+| 34 | pua | 治理调试 | `skills/pua/SKILL.md` |
+| 35 | theme-factory | 其他工具 | `skills/theme-factory/SKILL.md` |
+| 36 | product-manager | 其他工具 | `skills/product-manager/SKILL.md` |
+| 37 | skill-creator | 其他工具 | `skills/skill-creator/SKILL.md` |
+| 38 | pdf | 其他工具 | `skills/pdf/SKILL.md` |
+| 39 | docx | 其他工具 | `skills/docx/SKILL.md` |
+| 40 | pptx | 其他工具 | `skills/pptx/SKILL.md` |
+| 41 | xlsx | 其他工具 | `skills/xlsx/SKILL.md` |
+| 42 | algorithmic-art | 其他工具 | `skills/algorithmic-art/SKILL.md` |
+| 43 | canvas-design | 其他工具 | `skills/canvas-design/SKILL.md` |
+| 44 | slack-gif-creator | 其他工具 | `skills/slack-gif-creator/SKILL.md` |
+| 45 | claude-api | 其他工具 | `skills/claude-api/SKILL.md` |
+| 46 | mcp-builder | 其他工具 | `skills/mcp-builder/SKILL.md` |
+| 47 | fullstack-developer | 其他工具 | `skills/fullstack-developer/SKILL.md` |
+| 48 | brand-guidelines | 其他工具 | `skills/brand-guidelines/SKILL.md` |
+| 49 | internal-comms | 其他工具 | `skills/internal-comms/SKILL.md` |
+| 50 | web-artifacts-builder | 其他工具 | `skills/web-artifacts-builder/SKILL.md` |
 
 ---
 

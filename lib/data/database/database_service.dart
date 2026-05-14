@@ -62,6 +62,9 @@ class DatabaseService {
   /// 获取K线DAO
   KlineDao get klineDao => db.klineDao;
 
+  /// 获取市场DAO
+  MarketDao get marketDao => db.marketDao;
+
   /// 获取训练DAO
   TrainingDao get trainingDao => db.trainingDao;
 

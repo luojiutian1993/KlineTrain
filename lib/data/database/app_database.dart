@@ -43,6 +43,7 @@ part 'app_database.g.dart';
   daos: [
     UserDao,
     KlineDao,
+    MarketDao,
     TrainingDao,
     TradeDao,
     AnalysisDao,

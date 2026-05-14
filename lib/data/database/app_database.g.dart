@@ -11839,6 +11839,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $VersionHistoryTable versionHistory = $VersionHistoryTable(this);
   late final UserDao userDao = UserDao(this as AppDatabase);
   late final KlineDao klineDao = KlineDao(this as AppDatabase);
+  late final MarketDao marketDao = MarketDao(this as AppDatabase);
   late final TrainingDao trainingDao = TrainingDao(this as AppDatabase);
   late final TradeDao tradeDao = TradeDao(this as AppDatabase);
   late final AnalysisDao analysisDao = AnalysisDao(this as AppDatabase);
