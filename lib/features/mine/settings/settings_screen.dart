@@ -1,8 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
+import 'package:kline_trainer/data/repositories/user_repository.dart';
+import 'package:kline_trainer/routes/app_routes.dart';
+import 'package:kline_trainer/providers/auth_provider.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isDeleting = false;
+
+  void _showDeleteAccountConfirm() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除账户'),
+        content: const Text(
+          '删除账户后，您的所有数据将被永久清除，此操作无法撤销。\n\n请确认是否继续？',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: _handleDeleteAccount,
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.red),
+            child: _isDeleting
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    setState(() => _isDeleting = true);
+    
+    try {
+      final userRepository = UserRepository();
+      await userRepository.deleteAccount();
+      
+      if (mounted) {
+        Navigator.pop(context);
+        ref.read(authStateProvider.notifier).logout();
+        context.go(AppRoutes.login);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('账户已成功删除')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('删除失败: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isDeleting = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +95,18 @@ class SettingsScreen extends StatelessWidget {
             children: [
               _ListTile(title: '清除缓存', onTap: () {}),
               _ListTile(title: '检查更新', onTap: () {}),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _SettingsSection(
+            title: '账户安全',
+            children: [
+              _ListTile(
+                title: '删除账户',
+                subtitle: '永久删除所有数据',
+                onTap: _showDeleteAccountConfirm,
+                isDestructive: true,
+              ),
             ],
           ),
         ],
@@ -85,13 +161,19 @@ class _ListTile extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback onTap;
+  final bool isDestructive;
 
-  const _ListTile({required this.title, this.subtitle, required this.onTap});
+  const _ListTile({
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+    this.isDestructive = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(title, style: const TextStyle(fontSize: 16)),
+      title: Text(title, style: TextStyle(fontSize: 16, color: isDestructive ? AppTheme.red : null)),
       subtitle: subtitle != null ? Text(subtitle!, style: TextStyle(color: AppTheme.muted)) : null,
       trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.muted),
       onTap: onTap,

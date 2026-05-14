@@ -12,7 +12,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepare": "husky",
     "commitlint": "commitlint --edit",
-    "lint:commit": "commitlint"
+    "lint:commit": "commitlint",
+    "ios:check": "bash scripts/ios_checklist.sh",
+    "ios:check:ci": "bash scripts/ios_checklist.sh || exit 1"
   },
   "repository": {
     "type": "git",

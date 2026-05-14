@@ -59,4 +59,9 @@ class UserDao extends DatabaseAccessor<AppDatabase> with _$UserDaoMixin {
           ..limit(limit))
         .get();
   }
+
+  /// 删除用户
+  Future<int> deleteUser(int userId) {
+    return (delete(users)..where((t) => t.id.equals(userId))).go();
+  }
 }

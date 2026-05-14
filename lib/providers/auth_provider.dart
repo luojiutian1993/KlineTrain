@@ -15,10 +15,14 @@ class AuthState extends _$AuthState {
     await Future.delayed(const Duration(seconds: 1));
     
     final userRepository = UserRepository();
-    final user = await userRepository.getUserByPhone(phone);
     
-    if (user != null) {
+    // 验证密码
+    final isValid = await userRepository.verifyPassword(phone, password);
+    
+    if (isValid) {
       state = true;
+    } else {
+      throw Exception('手机号或密码错误');
     }
   }
 
@@ -48,8 +52,8 @@ class AuthState extends _$AuthState {
         createdAt: DateTime.now(),
       );
       
-      // 保存到数据库
-      await userRepository.saveUserToDatabase(newUser);
+      // 保存到数据库（带密码哈希）
+      await userRepository.saveUserToDatabase(newUser, password: password);
       state = true;
       return true;
     } catch (e) {

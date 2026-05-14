@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# iOS App Store 上架规范检查
+echo "🔍 正在执行 iOS 上架规范检查..."
+bash scripts/ios_checklist.sh
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ iOS 上架规范检查未通过，请修复上述问题后再提交"
+    exit 1
+fi
+
+echo "✅ iOS 上架规范检查通过"

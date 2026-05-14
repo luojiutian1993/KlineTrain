@@ -9,7 +9,10 @@ class Users extends Table {
   TextColumn get phone => text().unique().withLength(min: 11, max: 11)();
 
   /// 加密密码
-  TextColumn get password => text()();
+  TextColumn get password => text().nullable()();
+
+  /// 密码盐
+  TextColumn get salt => text().nullable()();
 
   /// 用户昵称
   TextColumn get nickname => text().nullable()();

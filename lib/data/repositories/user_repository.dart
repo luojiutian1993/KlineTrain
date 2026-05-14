@@ -5,6 +5,7 @@ import '../database/tables/tables.dart';
 import '../models/user_model.dart';
 import '../models/notice_model.dart';
 import '../../shared/utils/logger.dart';
+import '../../shared/utils/security_utils.dart';
 
 class UserRepository {
   final DatabaseService _dbService = DatabaseService.instance;
@@ -65,7 +66,7 @@ class UserRepository {
   }
 
   /// 将用户模型保存到数据库
-  Future<void> saveUserToDatabase(UserModel user) async {
+  Future<void> saveUserToDatabase(UserModel user, {String? password}) async {
     try {
       // 检查是否已存在该手机号的用户
       final existingUser = await _dbService.userDao.getUserByPhone(user.phone);
@@ -76,7 +77,6 @@ class UserRepository {
           existingUser.id,
           UsersCompanion(
             phone: Value(user.phone),
-            password: const Value('test_password'),
             nickname: Value(user.nickname.isNotEmpty ? user.nickname : null),
             avatar: Value(user.avatarUrl.isNotEmpty ? user.avatarUrl : null),
             memberLevel: Value(user.level.value),
@@ -89,11 +89,21 @@ class UserRepository {
         );
         appLogger.i('用户更新到数据库成功: ${user.phone}');
       } else {
+        // 生成密码哈希（如果提供了密码）
+        String? hashedPassword;
+        String? salt;
+        
+        if (password != null && password.isNotEmpty) {
+          salt = SecurityUtils.generateSalt();
+          hashedPassword = SecurityUtils.hashPassword(password, salt);
+        }
+
         // 插入新用户
         await _dbService.userDao.createUser(
           UsersCompanion(
             phone: Value(user.phone),
-            password: const Value('test_password'), // 实际应用中需要加密
+            password: hashedPassword != null ? Value(hashedPassword) : const Value.absent(),
+            salt: salt != null ? Value(salt) : const Value.absent(),
             nickname: Value(user.nickname.isNotEmpty ? user.nickname : null),
             avatar: Value(user.avatarUrl.isNotEmpty ? user.avatarUrl : null),
             memberLevel: Value(user.level.value),
@@ -245,6 +255,40 @@ class UserRepository {
     } catch (e, stackTrace) {
       appLogger.e('通过手机号查找用户失败', error: e, stackTrace: stackTrace);
       return null;
+    }
+  }
+
+  /// 验证用户密码
+  Future<bool> verifyPassword(String phone, String password) async {
+    try {
+      final user = await _dbService.userDao.getUserByPhone(phone);
+      if (user == null || user.password == null || user.salt == null) {
+        return false;
+      }
+      
+      return SecurityUtils.verifyPassword(password, user.password!, user.salt!);
+    } catch (e, stackTrace) {
+      appLogger.e('验证密码失败', error: e, stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  /// 删除当前用户账户（完整删除所有相关数据）
+  Future<void> deleteAccount() async {
+    try {
+      final activeUsers = await _dbService.userDao.getActiveUsers(limit: 1);
+      if (activeUsers.isEmpty) {
+        throw Exception('没有可删除的用户');
+      }
+
+      final userId = activeUsers.first.id;
+      
+      await _dbService.userDao.deleteUser(userId);
+      
+      appLogger.i('用户账户删除成功: userId=$userId');
+    } catch (e, stackTrace) {
+      appLogger.e('删除用户账户失败', error: e, stackTrace: stackTrace);
+      rethrow;
     }
   }
 }
