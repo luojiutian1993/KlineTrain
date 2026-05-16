@@ -5,3 +5,4 @@ export 'training_dao.dart';
 export 'trade_dao.dart';
 export 'analysis_dao.dart';
 export 'config_dao.dart';
+export 'stock_filter_dao.dart';

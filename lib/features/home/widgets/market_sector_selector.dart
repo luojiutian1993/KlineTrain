@@ -49,19 +49,15 @@ class MarketSectorSelector extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            sector.name,
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                          ),
-                          Text(
-                            sector.marketType.label,
-                            style: TextStyle(fontSize: 11, color: AppTheme.muted),
-                          ),
-                        ],
+                      child: Text(
+                        sector.name,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        overflow: TextOverflow.ellipsis,
                       ),
+                    ),
+                    Text(
+                      sector.marketType.label,
+                      style: TextStyle(fontSize: 11, color: AppTheme.muted),
                     ),
                   ],
                 ),

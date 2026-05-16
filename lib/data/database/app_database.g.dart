@@ -4106,6 +4106,1597 @@ class KlineDataCompanion extends UpdateCompanion<KlineDataData> {
   }
 }
 
+class $StockFilterResultsTable extends StockFilterResults
+    with TableInfo<$StockFilterResultsTable, StockFilterResult> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StockFilterResultsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _filterDateMeta =
+      const VerificationMeta('filterDate');
+  @override
+  late final GeneratedColumn<DateTime> filterDate = GeneratedColumn<DateTime>(
+      'filter_date', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _conditionTypeMeta =
+      const VerificationMeta('conditionType');
+  @override
+  late final GeneratedColumn<String> conditionType = GeneratedColumn<String>(
+      'condition_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _symbolMeta = const VerificationMeta('symbol');
+  @override
+  late final GeneratedColumn<String> symbol = GeneratedColumn<String>(
+      'symbol', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _marketCodeMeta =
+      const VerificationMeta('marketCode');
+  @override
+  late final GeneratedColumn<String> marketCode = GeneratedColumn<String>(
+      'market_code', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _symbolNameMeta =
+      const VerificationMeta('symbolName');
+  @override
+  late final GeneratedColumn<String> symbolName = GeneratedColumn<String>(
+      'symbol_name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _closePriceMeta =
+      const VerificationMeta('closePrice');
+  @override
+  late final GeneratedColumn<double> closePrice = GeneratedColumn<double>(
+      'close_price', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _changePercentMeta =
+      const VerificationMeta('changePercent');
+  @override
+  late final GeneratedColumn<double> changePercent = GeneratedColumn<double>(
+      'change_percent', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _extraDataMeta =
+      const VerificationMeta('extraData');
+  @override
+  late final GeneratedColumn<String> extraData = GeneratedColumn<String>(
+      'extra_data', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        filterDate,
+        conditionType,
+        symbol,
+        marketCode,
+        symbolName,
+        closePrice,
+        changePercent,
+        extraData,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'stock_filter_results';
+  @override
+  VerificationContext validateIntegrity(Insertable<StockFilterResult> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('filter_date')) {
+      context.handle(
+          _filterDateMeta,
+          filterDate.isAcceptableOrUnknown(
+              data['filter_date']!, _filterDateMeta));
+    } else if (isInserting) {
+      context.missing(_filterDateMeta);
+    }
+    if (data.containsKey('condition_type')) {
+      context.handle(
+          _conditionTypeMeta,
+          conditionType.isAcceptableOrUnknown(
+              data['condition_type']!, _conditionTypeMeta));
+    } else if (isInserting) {
+      context.missing(_conditionTypeMeta);
+    }
+    if (data.containsKey('symbol')) {
+      context.handle(_symbolMeta,
+          symbol.isAcceptableOrUnknown(data['symbol']!, _symbolMeta));
+    } else if (isInserting) {
+      context.missing(_symbolMeta);
+    }
+    if (data.containsKey('market_code')) {
+      context.handle(
+          _marketCodeMeta,
+          marketCode.isAcceptableOrUnknown(
+              data['market_code']!, _marketCodeMeta));
+    } else if (isInserting) {
+      context.missing(_marketCodeMeta);
+    }
+    if (data.containsKey('symbol_name')) {
+      context.handle(
+          _symbolNameMeta,
+          symbolName.isAcceptableOrUnknown(
+              data['symbol_name']!, _symbolNameMeta));
+    } else if (isInserting) {
+      context.missing(_symbolNameMeta);
+    }
+    if (data.containsKey('close_price')) {
+      context.handle(
+          _closePriceMeta,
+          closePrice.isAcceptableOrUnknown(
+              data['close_price']!, _closePriceMeta));
+    } else if (isInserting) {
+      context.missing(_closePriceMeta);
+    }
+    if (data.containsKey('change_percent')) {
+      context.handle(
+          _changePercentMeta,
+          changePercent.isAcceptableOrUnknown(
+              data['change_percent']!, _changePercentMeta));
+    } else if (isInserting) {
+      context.missing(_changePercentMeta);
+    }
+    if (data.containsKey('extra_data')) {
+      context.handle(_extraDataMeta,
+          extraData.isAcceptableOrUnknown(data['extra_data']!, _extraDataMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  StockFilterResult map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StockFilterResult(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      filterDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}filter_date'])!,
+      conditionType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}condition_type'])!,
+      symbol: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}symbol'])!,
+      marketCode: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}market_code'])!,
+      symbolName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}symbol_name'])!,
+      closePrice: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}close_price'])!,
+      changePercent: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}change_percent'])!,
+      extraData: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}extra_data']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $StockFilterResultsTable createAlias(String alias) {
+    return $StockFilterResultsTable(attachedDatabase, alias);
+  }
+}
+
+class StockFilterResult extends DataClass
+    implements Insertable<StockFilterResult> {
+  final int id;
+  final DateTime filterDate;
+  final String conditionType;
+  final String symbol;
+  final String marketCode;
+  final String symbolName;
+  final double closePrice;
+  final double changePercent;
+  final String? extraData;
+  final DateTime createdAt;
+  const StockFilterResult(
+      {required this.id,
+      required this.filterDate,
+      required this.conditionType,
+      required this.symbol,
+      required this.marketCode,
+      required this.symbolName,
+      required this.closePrice,
+      required this.changePercent,
+      this.extraData,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['filter_date'] = Variable<DateTime>(filterDate);
+    map['condition_type'] = Variable<String>(conditionType);
+    map['symbol'] = Variable<String>(symbol);
+    map['market_code'] = Variable<String>(marketCode);
+    map['symbol_name'] = Variable<String>(symbolName);
+    map['close_price'] = Variable<double>(closePrice);
+    map['change_percent'] = Variable<double>(changePercent);
+    if (!nullToAbsent || extraData != null) {
+      map['extra_data'] = Variable<String>(extraData);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  StockFilterResultsCompanion toCompanion(bool nullToAbsent) {
+    return StockFilterResultsCompanion(
+      id: Value(id),
+      filterDate: Value(filterDate),
+      conditionType: Value(conditionType),
+      symbol: Value(symbol),
+      marketCode: Value(marketCode),
+      symbolName: Value(symbolName),
+      closePrice: Value(closePrice),
+      changePercent: Value(changePercent),
+      extraData: extraData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(extraData),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory StockFilterResult.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StockFilterResult(
+      id: serializer.fromJson<int>(json['id']),
+      filterDate: serializer.fromJson<DateTime>(json['filterDate']),
+      conditionType: serializer.fromJson<String>(json['conditionType']),
+      symbol: serializer.fromJson<String>(json['symbol']),
+      marketCode: serializer.fromJson<String>(json['marketCode']),
+      symbolName: serializer.fromJson<String>(json['symbolName']),
+      closePrice: serializer.fromJson<double>(json['closePrice']),
+      changePercent: serializer.fromJson<double>(json['changePercent']),
+      extraData: serializer.fromJson<String?>(json['extraData']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'filterDate': serializer.toJson<DateTime>(filterDate),
+      'conditionType': serializer.toJson<String>(conditionType),
+      'symbol': serializer.toJson<String>(symbol),
+      'marketCode': serializer.toJson<String>(marketCode),
+      'symbolName': serializer.toJson<String>(symbolName),
+      'closePrice': serializer.toJson<double>(closePrice),
+      'changePercent': serializer.toJson<double>(changePercent),
+      'extraData': serializer.toJson<String?>(extraData),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  StockFilterResult copyWith(
+          {int? id,
+          DateTime? filterDate,
+          String? conditionType,
+          String? symbol,
+          String? marketCode,
+          String? symbolName,
+          double? closePrice,
+          double? changePercent,
+          Value<String?> extraData = const Value.absent(),
+          DateTime? createdAt}) =>
+      StockFilterResult(
+        id: id ?? this.id,
+        filterDate: filterDate ?? this.filterDate,
+        conditionType: conditionType ?? this.conditionType,
+        symbol: symbol ?? this.symbol,
+        marketCode: marketCode ?? this.marketCode,
+        symbolName: symbolName ?? this.symbolName,
+        closePrice: closePrice ?? this.closePrice,
+        changePercent: changePercent ?? this.changePercent,
+        extraData: extraData.present ? extraData.value : this.extraData,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  StockFilterResult copyWithCompanion(StockFilterResultsCompanion data) {
+    return StockFilterResult(
+      id: data.id.present ? data.id.value : this.id,
+      filterDate:
+          data.filterDate.present ? data.filterDate.value : this.filterDate,
+      conditionType: data.conditionType.present
+          ? data.conditionType.value
+          : this.conditionType,
+      symbol: data.symbol.present ? data.symbol.value : this.symbol,
+      marketCode:
+          data.marketCode.present ? data.marketCode.value : this.marketCode,
+      symbolName:
+          data.symbolName.present ? data.symbolName.value : this.symbolName,
+      closePrice:
+          data.closePrice.present ? data.closePrice.value : this.closePrice,
+      changePercent: data.changePercent.present
+          ? data.changePercent.value
+          : this.changePercent,
+      extraData: data.extraData.present ? data.extraData.value : this.extraData,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StockFilterResult(')
+          ..write('id: $id, ')
+          ..write('filterDate: $filterDate, ')
+          ..write('conditionType: $conditionType, ')
+          ..write('symbol: $symbol, ')
+          ..write('marketCode: $marketCode, ')
+          ..write('symbolName: $symbolName, ')
+          ..write('closePrice: $closePrice, ')
+          ..write('changePercent: $changePercent, ')
+          ..write('extraData: $extraData, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, filterDate, conditionType, symbol,
+      marketCode, symbolName, closePrice, changePercent, extraData, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StockFilterResult &&
+          other.id == this.id &&
+          other.filterDate == this.filterDate &&
+          other.conditionType == this.conditionType &&
+          other.symbol == this.symbol &&
+          other.marketCode == this.marketCode &&
+          other.symbolName == this.symbolName &&
+          other.closePrice == this.closePrice &&
+          other.changePercent == this.changePercent &&
+          other.extraData == this.extraData &&
+          other.createdAt == this.createdAt);
+}
+
+class StockFilterResultsCompanion extends UpdateCompanion<StockFilterResult> {
+  final Value<int> id;
+  final Value<DateTime> filterDate;
+  final Value<String> conditionType;
+  final Value<String> symbol;
+  final Value<String> marketCode;
+  final Value<String> symbolName;
+  final Value<double> closePrice;
+  final Value<double> changePercent;
+  final Value<String?> extraData;
+  final Value<DateTime> createdAt;
+  const StockFilterResultsCompanion({
+    this.id = const Value.absent(),
+    this.filterDate = const Value.absent(),
+    this.conditionType = const Value.absent(),
+    this.symbol = const Value.absent(),
+    this.marketCode = const Value.absent(),
+    this.symbolName = const Value.absent(),
+    this.closePrice = const Value.absent(),
+    this.changePercent = const Value.absent(),
+    this.extraData = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  StockFilterResultsCompanion.insert({
+    this.id = const Value.absent(),
+    required DateTime filterDate,
+    required String conditionType,
+    required String symbol,
+    required String marketCode,
+    required String symbolName,
+    required double closePrice,
+    required double changePercent,
+    this.extraData = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : filterDate = Value(filterDate),
+        conditionType = Value(conditionType),
+        symbol = Value(symbol),
+        marketCode = Value(marketCode),
+        symbolName = Value(symbolName),
+        closePrice = Value(closePrice),
+        changePercent = Value(changePercent);
+  static Insertable<StockFilterResult> custom({
+    Expression<int>? id,
+    Expression<DateTime>? filterDate,
+    Expression<String>? conditionType,
+    Expression<String>? symbol,
+    Expression<String>? marketCode,
+    Expression<String>? symbolName,
+    Expression<double>? closePrice,
+    Expression<double>? changePercent,
+    Expression<String>? extraData,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (filterDate != null) 'filter_date': filterDate,
+      if (conditionType != null) 'condition_type': conditionType,
+      if (symbol != null) 'symbol': symbol,
+      if (marketCode != null) 'market_code': marketCode,
+      if (symbolName != null) 'symbol_name': symbolName,
+      if (closePrice != null) 'close_price': closePrice,
+      if (changePercent != null) 'change_percent': changePercent,
+      if (extraData != null) 'extra_data': extraData,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  StockFilterResultsCompanion copyWith(
+      {Value<int>? id,
+      Value<DateTime>? filterDate,
+      Value<String>? conditionType,
+      Value<String>? symbol,
+      Value<String>? marketCode,
+      Value<String>? symbolName,
+      Value<double>? closePrice,
+      Value<double>? changePercent,
+      Value<String?>? extraData,
+      Value<DateTime>? createdAt}) {
+    return StockFilterResultsCompanion(
+      id: id ?? this.id,
+      filterDate: filterDate ?? this.filterDate,
+      conditionType: conditionType ?? this.conditionType,
+      symbol: symbol ?? this.symbol,
+      marketCode: marketCode ?? this.marketCode,
+      symbolName: symbolName ?? this.symbolName,
+      closePrice: closePrice ?? this.closePrice,
+      changePercent: changePercent ?? this.changePercent,
+      extraData: extraData ?? this.extraData,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (filterDate.present) {
+      map['filter_date'] = Variable<DateTime>(filterDate.value);
+    }
+    if (conditionType.present) {
+      map['condition_type'] = Variable<String>(conditionType.value);
+    }
+    if (symbol.present) {
+      map['symbol'] = Variable<String>(symbol.value);
+    }
+    if (marketCode.present) {
+      map['market_code'] = Variable<String>(marketCode.value);
+    }
+    if (symbolName.present) {
+      map['symbol_name'] = Variable<String>(symbolName.value);
+    }
+    if (closePrice.present) {
+      map['close_price'] = Variable<double>(closePrice.value);
+    }
+    if (changePercent.present) {
+      map['change_percent'] = Variable<double>(changePercent.value);
+    }
+    if (extraData.present) {
+      map['extra_data'] = Variable<String>(extraData.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StockFilterResultsCompanion(')
+          ..write('id: $id, ')
+          ..write('filterDate: $filterDate, ')
+          ..write('conditionType: $conditionType, ')
+          ..write('symbol: $symbol, ')
+          ..write('marketCode: $marketCode, ')
+          ..write('symbolName: $symbolName, ')
+          ..write('closePrice: $closePrice, ')
+          ..write('changePercent: $changePercent, ')
+          ..write('extraData: $extraData, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $DailyStockStatsTable extends DailyStockStats
+    with TableInfo<$DailyStockStatsTable, DailyStockStat> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DailyStockStatsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _tradeDateMeta =
+      const VerificationMeta('tradeDate');
+  @override
+  late final GeneratedColumn<DateTime> tradeDate = GeneratedColumn<DateTime>(
+      'trade_date', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _symbolMeta = const VerificationMeta('symbol');
+  @override
+  late final GeneratedColumn<String> symbol = GeneratedColumn<String>(
+      'symbol', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _marketCodeMeta =
+      const VerificationMeta('marketCode');
+  @override
+  late final GeneratedColumn<String> marketCode = GeneratedColumn<String>(
+      'market_code', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _closePriceMeta =
+      const VerificationMeta('closePrice');
+  @override
+  late final GeneratedColumn<double> closePrice = GeneratedColumn<double>(
+      'close_price', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _openPriceMeta =
+      const VerificationMeta('openPrice');
+  @override
+  late final GeneratedColumn<double> openPrice = GeneratedColumn<double>(
+      'open_price', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _highPriceMeta =
+      const VerificationMeta('highPrice');
+  @override
+  late final GeneratedColumn<double> highPrice = GeneratedColumn<double>(
+      'high_price', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _lowPriceMeta =
+      const VerificationMeta('lowPrice');
+  @override
+  late final GeneratedColumn<double> lowPrice = GeneratedColumn<double>(
+      'low_price', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _volumeMeta = const VerificationMeta('volume');
+  @override
+  late final GeneratedColumn<double> volume = GeneratedColumn<double>(
+      'volume', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _return15dMeta =
+      const VerificationMeta('return15d');
+  @override
+  late final GeneratedColumn<double> return15d = GeneratedColumn<double>(
+      'return15d', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _return30dMeta =
+      const VerificationMeta('return30d');
+  @override
+  late final GeneratedColumn<double> return30d = GeneratedColumn<double>(
+      'return30d', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _ma10Meta = const VerificationMeta('ma10');
+  @override
+  late final GeneratedColumn<double> ma10 = GeneratedColumn<double>(
+      'ma10', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _ma20Meta = const VerificationMeta('ma20');
+  @override
+  late final GeneratedColumn<double> ma20 = GeneratedColumn<double>(
+      'ma20', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _ma50Meta = const VerificationMeta('ma50');
+  @override
+  late final GeneratedColumn<double> ma50 = GeneratedColumn<double>(
+      'ma50', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _ma200Meta = const VerificationMeta('ma200');
+  @override
+  late final GeneratedColumn<double> ma200 = GeneratedColumn<double>(
+      'ma200', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _historicalHighMeta =
+      const VerificationMeta('historicalHigh');
+  @override
+  late final GeneratedColumn<double> historicalHigh = GeneratedColumn<double>(
+      'historical_high', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _historicalLowMeta =
+      const VerificationMeta('historicalLow');
+  @override
+  late final GeneratedColumn<double> historicalLow = GeneratedColumn<double>(
+      'historical_low', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _yearHighMeta =
+      const VerificationMeta('yearHigh');
+  @override
+  late final GeneratedColumn<double> yearHigh = GeneratedColumn<double>(
+      'year_high', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _yearLowMeta =
+      const VerificationMeta('yearLow');
+  @override
+  late final GeneratedColumn<double> yearLow = GeneratedColumn<double>(
+      'year_low', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _isLimitUpMeta =
+      const VerificationMeta('isLimitUp');
+  @override
+  late final GeneratedColumn<bool> isLimitUp = GeneratedColumn<bool>(
+      'is_limit_up', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_limit_up" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _isLimitDownMeta =
+      const VerificationMeta('isLimitDown');
+  @override
+  late final GeneratedColumn<bool> isLimitDown = GeneratedColumn<bool>(
+      'is_limit_down', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("is_limit_down" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _listingDaysMeta =
+      const VerificationMeta('listingDays');
+  @override
+  late final GeneratedColumn<int> listingDays = GeneratedColumn<int>(
+      'listing_days', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _isSuspendedMeta =
+      const VerificationMeta('isSuspended');
+  @override
+  late final GeneratedColumn<bool> isSuspended = GeneratedColumn<bool>(
+      'is_suspended', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("is_suspended" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime,
+      requiredDuringInsert: false,
+      defaultValue: currentDateAndTime);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        tradeDate,
+        symbol,
+        marketCode,
+        closePrice,
+        openPrice,
+        highPrice,
+        lowPrice,
+        volume,
+        return15d,
+        return30d,
+        ma10,
+        ma20,
+        ma50,
+        ma200,
+        historicalHigh,
+        historicalLow,
+        yearHigh,
+        yearLow,
+        isLimitUp,
+        isLimitDown,
+        listingDays,
+        isSuspended,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'daily_stock_stats';
+  @override
+  VerificationContext validateIntegrity(Insertable<DailyStockStat> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('trade_date')) {
+      context.handle(_tradeDateMeta,
+          tradeDate.isAcceptableOrUnknown(data['trade_date']!, _tradeDateMeta));
+    } else if (isInserting) {
+      context.missing(_tradeDateMeta);
+    }
+    if (data.containsKey('symbol')) {
+      context.handle(_symbolMeta,
+          symbol.isAcceptableOrUnknown(data['symbol']!, _symbolMeta));
+    } else if (isInserting) {
+      context.missing(_symbolMeta);
+    }
+    if (data.containsKey('market_code')) {
+      context.handle(
+          _marketCodeMeta,
+          marketCode.isAcceptableOrUnknown(
+              data['market_code']!, _marketCodeMeta));
+    } else if (isInserting) {
+      context.missing(_marketCodeMeta);
+    }
+    if (data.containsKey('close_price')) {
+      context.handle(
+          _closePriceMeta,
+          closePrice.isAcceptableOrUnknown(
+              data['close_price']!, _closePriceMeta));
+    } else if (isInserting) {
+      context.missing(_closePriceMeta);
+    }
+    if (data.containsKey('open_price')) {
+      context.handle(_openPriceMeta,
+          openPrice.isAcceptableOrUnknown(data['open_price']!, _openPriceMeta));
+    } else if (isInserting) {
+      context.missing(_openPriceMeta);
+    }
+    if (data.containsKey('high_price')) {
+      context.handle(_highPriceMeta,
+          highPrice.isAcceptableOrUnknown(data['high_price']!, _highPriceMeta));
+    } else if (isInserting) {
+      context.missing(_highPriceMeta);
+    }
+    if (data.containsKey('low_price')) {
+      context.handle(_lowPriceMeta,
+          lowPrice.isAcceptableOrUnknown(data['low_price']!, _lowPriceMeta));
+    } else if (isInserting) {
+      context.missing(_lowPriceMeta);
+    }
+    if (data.containsKey('volume')) {
+      context.handle(_volumeMeta,
+          volume.isAcceptableOrUnknown(data['volume']!, _volumeMeta));
+    } else if (isInserting) {
+      context.missing(_volumeMeta);
+    }
+    if (data.containsKey('return15d')) {
+      context.handle(_return15dMeta,
+          return15d.isAcceptableOrUnknown(data['return15d']!, _return15dMeta));
+    }
+    if (data.containsKey('return30d')) {
+      context.handle(_return30dMeta,
+          return30d.isAcceptableOrUnknown(data['return30d']!, _return30dMeta));
+    }
+    if (data.containsKey('ma10')) {
+      context.handle(
+          _ma10Meta, ma10.isAcceptableOrUnknown(data['ma10']!, _ma10Meta));
+    }
+    if (data.containsKey('ma20')) {
+      context.handle(
+          _ma20Meta, ma20.isAcceptableOrUnknown(data['ma20']!, _ma20Meta));
+    }
+    if (data.containsKey('ma50')) {
+      context.handle(
+          _ma50Meta, ma50.isAcceptableOrUnknown(data['ma50']!, _ma50Meta));
+    }
+    if (data.containsKey('ma200')) {
+      context.handle(
+          _ma200Meta, ma200.isAcceptableOrUnknown(data['ma200']!, _ma200Meta));
+    }
+    if (data.containsKey('historical_high')) {
+      context.handle(
+          _historicalHighMeta,
+          historicalHigh.isAcceptableOrUnknown(
+              data['historical_high']!, _historicalHighMeta));
+    }
+    if (data.containsKey('historical_low')) {
+      context.handle(
+          _historicalLowMeta,
+          historicalLow.isAcceptableOrUnknown(
+              data['historical_low']!, _historicalLowMeta));
+    }
+    if (data.containsKey('year_high')) {
+      context.handle(_yearHighMeta,
+          yearHigh.isAcceptableOrUnknown(data['year_high']!, _yearHighMeta));
+    }
+    if (data.containsKey('year_low')) {
+      context.handle(_yearLowMeta,
+          yearLow.isAcceptableOrUnknown(data['year_low']!, _yearLowMeta));
+    }
+    if (data.containsKey('is_limit_up')) {
+      context.handle(
+          _isLimitUpMeta,
+          isLimitUp.isAcceptableOrUnknown(
+              data['is_limit_up']!, _isLimitUpMeta));
+    }
+    if (data.containsKey('is_limit_down')) {
+      context.handle(
+          _isLimitDownMeta,
+          isLimitDown.isAcceptableOrUnknown(
+              data['is_limit_down']!, _isLimitDownMeta));
+    }
+    if (data.containsKey('listing_days')) {
+      context.handle(
+          _listingDaysMeta,
+          listingDays.isAcceptableOrUnknown(
+              data['listing_days']!, _listingDaysMeta));
+    }
+    if (data.containsKey('is_suspended')) {
+      context.handle(
+          _isSuspendedMeta,
+          isSuspended.isAcceptableOrUnknown(
+              data['is_suspended']!, _isSuspendedMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DailyStockStat map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DailyStockStat(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      tradeDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}trade_date'])!,
+      symbol: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}symbol'])!,
+      marketCode: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}market_code'])!,
+      closePrice: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}close_price'])!,
+      openPrice: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}open_price'])!,
+      highPrice: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}high_price'])!,
+      lowPrice: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}low_price'])!,
+      volume: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}volume'])!,
+      return15d: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}return15d']),
+      return30d: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}return30d']),
+      ma10: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}ma10']),
+      ma20: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}ma20']),
+      ma50: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}ma50']),
+      ma200: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}ma200']),
+      historicalHigh: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}historical_high']),
+      historicalLow: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}historical_low']),
+      yearHigh: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}year_high']),
+      yearLow: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}year_low']),
+      isLimitUp: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_limit_up'])!,
+      isLimitDown: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_limit_down'])!,
+      listingDays: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}listing_days'])!,
+      isSuspended: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_suspended'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $DailyStockStatsTable createAlias(String alias) {
+    return $DailyStockStatsTable(attachedDatabase, alias);
+  }
+}
+
+class DailyStockStat extends DataClass implements Insertable<DailyStockStat> {
+  final int id;
+  final DateTime tradeDate;
+  final String symbol;
+  final String marketCode;
+  final double closePrice;
+  final double openPrice;
+  final double highPrice;
+  final double lowPrice;
+  final double volume;
+  final double? return15d;
+  final double? return30d;
+  final double? ma10;
+  final double? ma20;
+  final double? ma50;
+  final double? ma200;
+  final double? historicalHigh;
+  final double? historicalLow;
+  final double? yearHigh;
+  final double? yearLow;
+  final bool isLimitUp;
+  final bool isLimitDown;
+  final int listingDays;
+  final bool isSuspended;
+  final DateTime createdAt;
+  const DailyStockStat(
+      {required this.id,
+      required this.tradeDate,
+      required this.symbol,
+      required this.marketCode,
+      required this.closePrice,
+      required this.openPrice,
+      required this.highPrice,
+      required this.lowPrice,
+      required this.volume,
+      this.return15d,
+      this.return30d,
+      this.ma10,
+      this.ma20,
+      this.ma50,
+      this.ma200,
+      this.historicalHigh,
+      this.historicalLow,
+      this.yearHigh,
+      this.yearLow,
+      required this.isLimitUp,
+      required this.isLimitDown,
+      required this.listingDays,
+      required this.isSuspended,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['trade_date'] = Variable<DateTime>(tradeDate);
+    map['symbol'] = Variable<String>(symbol);
+    map['market_code'] = Variable<String>(marketCode);
+    map['close_price'] = Variable<double>(closePrice);
+    map['open_price'] = Variable<double>(openPrice);
+    map['high_price'] = Variable<double>(highPrice);
+    map['low_price'] = Variable<double>(lowPrice);
+    map['volume'] = Variable<double>(volume);
+    if (!nullToAbsent || return15d != null) {
+      map['return15d'] = Variable<double>(return15d);
+    }
+    if (!nullToAbsent || return30d != null) {
+      map['return30d'] = Variable<double>(return30d);
+    }
+    if (!nullToAbsent || ma10 != null) {
+      map['ma10'] = Variable<double>(ma10);
+    }
+    if (!nullToAbsent || ma20 != null) {
+      map['ma20'] = Variable<double>(ma20);
+    }
+    if (!nullToAbsent || ma50 != null) {
+      map['ma50'] = Variable<double>(ma50);
+    }
+    if (!nullToAbsent || ma200 != null) {
+      map['ma200'] = Variable<double>(ma200);
+    }
+    if (!nullToAbsent || historicalHigh != null) {
+      map['historical_high'] = Variable<double>(historicalHigh);
+    }
+    if (!nullToAbsent || historicalLow != null) {
+      map['historical_low'] = Variable<double>(historicalLow);
+    }
+    if (!nullToAbsent || yearHigh != null) {
+      map['year_high'] = Variable<double>(yearHigh);
+    }
+    if (!nullToAbsent || yearLow != null) {
+      map['year_low'] = Variable<double>(yearLow);
+    }
+    map['is_limit_up'] = Variable<bool>(isLimitUp);
+    map['is_limit_down'] = Variable<bool>(isLimitDown);
+    map['listing_days'] = Variable<int>(listingDays);
+    map['is_suspended'] = Variable<bool>(isSuspended);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  DailyStockStatsCompanion toCompanion(bool nullToAbsent) {
+    return DailyStockStatsCompanion(
+      id: Value(id),
+      tradeDate: Value(tradeDate),
+      symbol: Value(symbol),
+      marketCode: Value(marketCode),
+      closePrice: Value(closePrice),
+      openPrice: Value(openPrice),
+      highPrice: Value(highPrice),
+      lowPrice: Value(lowPrice),
+      volume: Value(volume),
+      return15d: return15d == null && nullToAbsent
+          ? const Value.absent()
+          : Value(return15d),
+      return30d: return30d == null && nullToAbsent
+          ? const Value.absent()
+          : Value(return30d),
+      ma10: ma10 == null && nullToAbsent ? const Value.absent() : Value(ma10),
+      ma20: ma20 == null && nullToAbsent ? const Value.absent() : Value(ma20),
+      ma50: ma50 == null && nullToAbsent ? const Value.absent() : Value(ma50),
+      ma200:
+          ma200 == null && nullToAbsent ? const Value.absent() : Value(ma200),
+      historicalHigh: historicalHigh == null && nullToAbsent
+          ? const Value.absent()
+          : Value(historicalHigh),
+      historicalLow: historicalLow == null && nullToAbsent
+          ? const Value.absent()
+          : Value(historicalLow),
+      yearHigh: yearHigh == null && nullToAbsent
+          ? const Value.absent()
+          : Value(yearHigh),
+      yearLow: yearLow == null && nullToAbsent
+          ? const Value.absent()
+          : Value(yearLow),
+      isLimitUp: Value(isLimitUp),
+      isLimitDown: Value(isLimitDown),
+      listingDays: Value(listingDays),
+      isSuspended: Value(isSuspended),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory DailyStockStat.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DailyStockStat(
+      id: serializer.fromJson<int>(json['id']),
+      tradeDate: serializer.fromJson<DateTime>(json['tradeDate']),
+      symbol: serializer.fromJson<String>(json['symbol']),
+      marketCode: serializer.fromJson<String>(json['marketCode']),
+      closePrice: serializer.fromJson<double>(json['closePrice']),
+      openPrice: serializer.fromJson<double>(json['openPrice']),
+      highPrice: serializer.fromJson<double>(json['highPrice']),
+      lowPrice: serializer.fromJson<double>(json['lowPrice']),
+      volume: serializer.fromJson<double>(json['volume']),
+      return15d: serializer.fromJson<double?>(json['return15d']),
+      return30d: serializer.fromJson<double?>(json['return30d']),
+      ma10: serializer.fromJson<double?>(json['ma10']),
+      ma20: serializer.fromJson<double?>(json['ma20']),
+      ma50: serializer.fromJson<double?>(json['ma50']),
+      ma200: serializer.fromJson<double?>(json['ma200']),
+      historicalHigh: serializer.fromJson<double?>(json['historicalHigh']),
+      historicalLow: serializer.fromJson<double?>(json['historicalLow']),
+      yearHigh: serializer.fromJson<double?>(json['yearHigh']),
+      yearLow: serializer.fromJson<double?>(json['yearLow']),
+      isLimitUp: serializer.fromJson<bool>(json['isLimitUp']),
+      isLimitDown: serializer.fromJson<bool>(json['isLimitDown']),
+      listingDays: serializer.fromJson<int>(json['listingDays']),
+      isSuspended: serializer.fromJson<bool>(json['isSuspended']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'tradeDate': serializer.toJson<DateTime>(tradeDate),
+      'symbol': serializer.toJson<String>(symbol),
+      'marketCode': serializer.toJson<String>(marketCode),
+      'closePrice': serializer.toJson<double>(closePrice),
+      'openPrice': serializer.toJson<double>(openPrice),
+      'highPrice': serializer.toJson<double>(highPrice),
+      'lowPrice': serializer.toJson<double>(lowPrice),
+      'volume': serializer.toJson<double>(volume),
+      'return15d': serializer.toJson<double?>(return15d),
+      'return30d': serializer.toJson<double?>(return30d),
+      'ma10': serializer.toJson<double?>(ma10),
+      'ma20': serializer.toJson<double?>(ma20),
+      'ma50': serializer.toJson<double?>(ma50),
+      'ma200': serializer.toJson<double?>(ma200),
+      'historicalHigh': serializer.toJson<double?>(historicalHigh),
+      'historicalLow': serializer.toJson<double?>(historicalLow),
+      'yearHigh': serializer.toJson<double?>(yearHigh),
+      'yearLow': serializer.toJson<double?>(yearLow),
+      'isLimitUp': serializer.toJson<bool>(isLimitUp),
+      'isLimitDown': serializer.toJson<bool>(isLimitDown),
+      'listingDays': serializer.toJson<int>(listingDays),
+      'isSuspended': serializer.toJson<bool>(isSuspended),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  DailyStockStat copyWith(
+          {int? id,
+          DateTime? tradeDate,
+          String? symbol,
+          String? marketCode,
+          double? closePrice,
+          double? openPrice,
+          double? highPrice,
+          double? lowPrice,
+          double? volume,
+          Value<double?> return15d = const Value.absent(),
+          Value<double?> return30d = const Value.absent(),
+          Value<double?> ma10 = const Value.absent(),
+          Value<double?> ma20 = const Value.absent(),
+          Value<double?> ma50 = const Value.absent(),
+          Value<double?> ma200 = const Value.absent(),
+          Value<double?> historicalHigh = const Value.absent(),
+          Value<double?> historicalLow = const Value.absent(),
+          Value<double?> yearHigh = const Value.absent(),
+          Value<double?> yearLow = const Value.absent(),
+          bool? isLimitUp,
+          bool? isLimitDown,
+          int? listingDays,
+          bool? isSuspended,
+          DateTime? createdAt}) =>
+      DailyStockStat(
+        id: id ?? this.id,
+        tradeDate: tradeDate ?? this.tradeDate,
+        symbol: symbol ?? this.symbol,
+        marketCode: marketCode ?? this.marketCode,
+        closePrice: closePrice ?? this.closePrice,
+        openPrice: openPrice ?? this.openPrice,
+        highPrice: highPrice ?? this.highPrice,
+        lowPrice: lowPrice ?? this.lowPrice,
+        volume: volume ?? this.volume,
+        return15d: return15d.present ? return15d.value : this.return15d,
+        return30d: return30d.present ? return30d.value : this.return30d,
+        ma10: ma10.present ? ma10.value : this.ma10,
+        ma20: ma20.present ? ma20.value : this.ma20,
+        ma50: ma50.present ? ma50.value : this.ma50,
+        ma200: ma200.present ? ma200.value : this.ma200,
+        historicalHigh:
+            historicalHigh.present ? historicalHigh.value : this.historicalHigh,
+        historicalLow:
+            historicalLow.present ? historicalLow.value : this.historicalLow,
+        yearHigh: yearHigh.present ? yearHigh.value : this.yearHigh,
+        yearLow: yearLow.present ? yearLow.value : this.yearLow,
+        isLimitUp: isLimitUp ?? this.isLimitUp,
+        isLimitDown: isLimitDown ?? this.isLimitDown,
+        listingDays: listingDays ?? this.listingDays,
+        isSuspended: isSuspended ?? this.isSuspended,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  DailyStockStat copyWithCompanion(DailyStockStatsCompanion data) {
+    return DailyStockStat(
+      id: data.id.present ? data.id.value : this.id,
+      tradeDate: data.tradeDate.present ? data.tradeDate.value : this.tradeDate,
+      symbol: data.symbol.present ? data.symbol.value : this.symbol,
+      marketCode:
+          data.marketCode.present ? data.marketCode.value : this.marketCode,
+      closePrice:
+          data.closePrice.present ? data.closePrice.value : this.closePrice,
+      openPrice: data.openPrice.present ? data.openPrice.value : this.openPrice,
+      highPrice: data.highPrice.present ? data.highPrice.value : this.highPrice,
+      lowPrice: data.lowPrice.present ? data.lowPrice.value : this.lowPrice,
+      volume: data.volume.present ? data.volume.value : this.volume,
+      return15d: data.return15d.present ? data.return15d.value : this.return15d,
+      return30d: data.return30d.present ? data.return30d.value : this.return30d,
+      ma10: data.ma10.present ? data.ma10.value : this.ma10,
+      ma20: data.ma20.present ? data.ma20.value : this.ma20,
+      ma50: data.ma50.present ? data.ma50.value : this.ma50,
+      ma200: data.ma200.present ? data.ma200.value : this.ma200,
+      historicalHigh: data.historicalHigh.present
+          ? data.historicalHigh.value
+          : this.historicalHigh,
+      historicalLow: data.historicalLow.present
+          ? data.historicalLow.value
+          : this.historicalLow,
+      yearHigh: data.yearHigh.present ? data.yearHigh.value : this.yearHigh,
+      yearLow: data.yearLow.present ? data.yearLow.value : this.yearLow,
+      isLimitUp: data.isLimitUp.present ? data.isLimitUp.value : this.isLimitUp,
+      isLimitDown:
+          data.isLimitDown.present ? data.isLimitDown.value : this.isLimitDown,
+      listingDays:
+          data.listingDays.present ? data.listingDays.value : this.listingDays,
+      isSuspended:
+          data.isSuspended.present ? data.isSuspended.value : this.isSuspended,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyStockStat(')
+          ..write('id: $id, ')
+          ..write('tradeDate: $tradeDate, ')
+          ..write('symbol: $symbol, ')
+          ..write('marketCode: $marketCode, ')
+          ..write('closePrice: $closePrice, ')
+          ..write('openPrice: $openPrice, ')
+          ..write('highPrice: $highPrice, ')
+          ..write('lowPrice: $lowPrice, ')
+          ..write('volume: $volume, ')
+          ..write('return15d: $return15d, ')
+          ..write('return30d: $return30d, ')
+          ..write('ma10: $ma10, ')
+          ..write('ma20: $ma20, ')
+          ..write('ma50: $ma50, ')
+          ..write('ma200: $ma200, ')
+          ..write('historicalHigh: $historicalHigh, ')
+          ..write('historicalLow: $historicalLow, ')
+          ..write('yearHigh: $yearHigh, ')
+          ..write('yearLow: $yearLow, ')
+          ..write('isLimitUp: $isLimitUp, ')
+          ..write('isLimitDown: $isLimitDown, ')
+          ..write('listingDays: $listingDays, ')
+          ..write('isSuspended: $isSuspended, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+        id,
+        tradeDate,
+        symbol,
+        marketCode,
+        closePrice,
+        openPrice,
+        highPrice,
+        lowPrice,
+        volume,
+        return15d,
+        return30d,
+        ma10,
+        ma20,
+        ma50,
+        ma200,
+        historicalHigh,
+        historicalLow,
+        yearHigh,
+        yearLow,
+        isLimitUp,
+        isLimitDown,
+        listingDays,
+        isSuspended,
+        createdAt
+      ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DailyStockStat &&
+          other.id == this.id &&
+          other.tradeDate == this.tradeDate &&
+          other.symbol == this.symbol &&
+          other.marketCode == this.marketCode &&
+          other.closePrice == this.closePrice &&
+          other.openPrice == this.openPrice &&
+          other.highPrice == this.highPrice &&
+          other.lowPrice == this.lowPrice &&
+          other.volume == this.volume &&
+          other.return15d == this.return15d &&
+          other.return30d == this.return30d &&
+          other.ma10 == this.ma10 &&
+          other.ma20 == this.ma20 &&
+          other.ma50 == this.ma50 &&
+          other.ma200 == this.ma200 &&
+          other.historicalHigh == this.historicalHigh &&
+          other.historicalLow == this.historicalLow &&
+          other.yearHigh == this.yearHigh &&
+          other.yearLow == this.yearLow &&
+          other.isLimitUp == this.isLimitUp &&
+          other.isLimitDown == this.isLimitDown &&
+          other.listingDays == this.listingDays &&
+          other.isSuspended == this.isSuspended &&
+          other.createdAt == this.createdAt);
+}
+
+class DailyStockStatsCompanion extends UpdateCompanion<DailyStockStat> {
+  final Value<int> id;
+  final Value<DateTime> tradeDate;
+  final Value<String> symbol;
+  final Value<String> marketCode;
+  final Value<double> closePrice;
+  final Value<double> openPrice;
+  final Value<double> highPrice;
+  final Value<double> lowPrice;
+  final Value<double> volume;
+  final Value<double?> return15d;
+  final Value<double?> return30d;
+  final Value<double?> ma10;
+  final Value<double?> ma20;
+  final Value<double?> ma50;
+  final Value<double?> ma200;
+  final Value<double?> historicalHigh;
+  final Value<double?> historicalLow;
+  final Value<double?> yearHigh;
+  final Value<double?> yearLow;
+  final Value<bool> isLimitUp;
+  final Value<bool> isLimitDown;
+  final Value<int> listingDays;
+  final Value<bool> isSuspended;
+  final Value<DateTime> createdAt;
+  const DailyStockStatsCompanion({
+    this.id = const Value.absent(),
+    this.tradeDate = const Value.absent(),
+    this.symbol = const Value.absent(),
+    this.marketCode = const Value.absent(),
+    this.closePrice = const Value.absent(),
+    this.openPrice = const Value.absent(),
+    this.highPrice = const Value.absent(),
+    this.lowPrice = const Value.absent(),
+    this.volume = const Value.absent(),
+    this.return15d = const Value.absent(),
+    this.return30d = const Value.absent(),
+    this.ma10 = const Value.absent(),
+    this.ma20 = const Value.absent(),
+    this.ma50 = const Value.absent(),
+    this.ma200 = const Value.absent(),
+    this.historicalHigh = const Value.absent(),
+    this.historicalLow = const Value.absent(),
+    this.yearHigh = const Value.absent(),
+    this.yearLow = const Value.absent(),
+    this.isLimitUp = const Value.absent(),
+    this.isLimitDown = const Value.absent(),
+    this.listingDays = const Value.absent(),
+    this.isSuspended = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  DailyStockStatsCompanion.insert({
+    this.id = const Value.absent(),
+    required DateTime tradeDate,
+    required String symbol,
+    required String marketCode,
+    required double closePrice,
+    required double openPrice,
+    required double highPrice,
+    required double lowPrice,
+    required double volume,
+    this.return15d = const Value.absent(),
+    this.return30d = const Value.absent(),
+    this.ma10 = const Value.absent(),
+    this.ma20 = const Value.absent(),
+    this.ma50 = const Value.absent(),
+    this.ma200 = const Value.absent(),
+    this.historicalHigh = const Value.absent(),
+    this.historicalLow = const Value.absent(),
+    this.yearHigh = const Value.absent(),
+    this.yearLow = const Value.absent(),
+    this.isLimitUp = const Value.absent(),
+    this.isLimitDown = const Value.absent(),
+    this.listingDays = const Value.absent(),
+    this.isSuspended = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  })  : tradeDate = Value(tradeDate),
+        symbol = Value(symbol),
+        marketCode = Value(marketCode),
+        closePrice = Value(closePrice),
+        openPrice = Value(openPrice),
+        highPrice = Value(highPrice),
+        lowPrice = Value(lowPrice),
+        volume = Value(volume);
+  static Insertable<DailyStockStat> custom({
+    Expression<int>? id,
+    Expression<DateTime>? tradeDate,
+    Expression<String>? symbol,
+    Expression<String>? marketCode,
+    Expression<double>? closePrice,
+    Expression<double>? openPrice,
+    Expression<double>? highPrice,
+    Expression<double>? lowPrice,
+    Expression<double>? volume,
+    Expression<double>? return15d,
+    Expression<double>? return30d,
+    Expression<double>? ma10,
+    Expression<double>? ma20,
+    Expression<double>? ma50,
+    Expression<double>? ma200,
+    Expression<double>? historicalHigh,
+    Expression<double>? historicalLow,
+    Expression<double>? yearHigh,
+    Expression<double>? yearLow,
+    Expression<bool>? isLimitUp,
+    Expression<bool>? isLimitDown,
+    Expression<int>? listingDays,
+    Expression<bool>? isSuspended,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tradeDate != null) 'trade_date': tradeDate,
+      if (symbol != null) 'symbol': symbol,
+      if (marketCode != null) 'market_code': marketCode,
+      if (closePrice != null) 'close_price': closePrice,
+      if (openPrice != null) 'open_price': openPrice,
+      if (highPrice != null) 'high_price': highPrice,
+      if (lowPrice != null) 'low_price': lowPrice,
+      if (volume != null) 'volume': volume,
+      if (return15d != null) 'return15d': return15d,
+      if (return30d != null) 'return30d': return30d,
+      if (ma10 != null) 'ma10': ma10,
+      if (ma20 != null) 'ma20': ma20,
+      if (ma50 != null) 'ma50': ma50,
+      if (ma200 != null) 'ma200': ma200,
+      if (historicalHigh != null) 'historical_high': historicalHigh,
+      if (historicalLow != null) 'historical_low': historicalLow,
+      if (yearHigh != null) 'year_high': yearHigh,
+      if (yearLow != null) 'year_low': yearLow,
+      if (isLimitUp != null) 'is_limit_up': isLimitUp,
+      if (isLimitDown != null) 'is_limit_down': isLimitDown,
+      if (listingDays != null) 'listing_days': listingDays,
+      if (isSuspended != null) 'is_suspended': isSuspended,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  DailyStockStatsCompanion copyWith(
+      {Value<int>? id,
+      Value<DateTime>? tradeDate,
+      Value<String>? symbol,
+      Value<String>? marketCode,
+      Value<double>? closePrice,
+      Value<double>? openPrice,
+      Value<double>? highPrice,
+      Value<double>? lowPrice,
+      Value<double>? volume,
+      Value<double?>? return15d,
+      Value<double?>? return30d,
+      Value<double?>? ma10,
+      Value<double?>? ma20,
+      Value<double?>? ma50,
+      Value<double?>? ma200,
+      Value<double?>? historicalHigh,
+      Value<double?>? historicalLow,
+      Value<double?>? yearHigh,
+      Value<double?>? yearLow,
+      Value<bool>? isLimitUp,
+      Value<bool>? isLimitDown,
+      Value<int>? listingDays,
+      Value<bool>? isSuspended,
+      Value<DateTime>? createdAt}) {
+    return DailyStockStatsCompanion(
+      id: id ?? this.id,
+      tradeDate: tradeDate ?? this.tradeDate,
+      symbol: symbol ?? this.symbol,
+      marketCode: marketCode ?? this.marketCode,
+      closePrice: closePrice ?? this.closePrice,
+      openPrice: openPrice ?? this.openPrice,
+      highPrice: highPrice ?? this.highPrice,
+      lowPrice: lowPrice ?? this.lowPrice,
+      volume: volume ?? this.volume,
+      return15d: return15d ?? this.return15d,
+      return30d: return30d ?? this.return30d,
+      ma10: ma10 ?? this.ma10,
+      ma20: ma20 ?? this.ma20,
+      ma50: ma50 ?? this.ma50,
+      ma200: ma200 ?? this.ma200,
+      historicalHigh: historicalHigh ?? this.historicalHigh,
+      historicalLow: historicalLow ?? this.historicalLow,
+      yearHigh: yearHigh ?? this.yearHigh,
+      yearLow: yearLow ?? this.yearLow,
+      isLimitUp: isLimitUp ?? this.isLimitUp,
+      isLimitDown: isLimitDown ?? this.isLimitDown,
+      listingDays: listingDays ?? this.listingDays,
+      isSuspended: isSuspended ?? this.isSuspended,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (tradeDate.present) {
+      map['trade_date'] = Variable<DateTime>(tradeDate.value);
+    }
+    if (symbol.present) {
+      map['symbol'] = Variable<String>(symbol.value);
+    }
+    if (marketCode.present) {
+      map['market_code'] = Variable<String>(marketCode.value);
+    }
+    if (closePrice.present) {
+      map['close_price'] = Variable<double>(closePrice.value);
+    }
+    if (openPrice.present) {
+      map['open_price'] = Variable<double>(openPrice.value);
+    }
+    if (highPrice.present) {
+      map['high_price'] = Variable<double>(highPrice.value);
+    }
+    if (lowPrice.present) {
+      map['low_price'] = Variable<double>(lowPrice.value);
+    }
+    if (volume.present) {
+      map['volume'] = Variable<double>(volume.value);
+    }
+    if (return15d.present) {
+      map['return15d'] = Variable<double>(return15d.value);
+    }
+    if (return30d.present) {
+      map['return30d'] = Variable<double>(return30d.value);
+    }
+    if (ma10.present) {
+      map['ma10'] = Variable<double>(ma10.value);
+    }
+    if (ma20.present) {
+      map['ma20'] = Variable<double>(ma20.value);
+    }
+    if (ma50.present) {
+      map['ma50'] = Variable<double>(ma50.value);
+    }
+    if (ma200.present) {
+      map['ma200'] = Variable<double>(ma200.value);
+    }
+    if (historicalHigh.present) {
+      map['historical_high'] = Variable<double>(historicalHigh.value);
+    }
+    if (historicalLow.present) {
+      map['historical_low'] = Variable<double>(historicalLow.value);
+    }
+    if (yearHigh.present) {
+      map['year_high'] = Variable<double>(yearHigh.value);
+    }
+    if (yearLow.present) {
+      map['year_low'] = Variable<double>(yearLow.value);
+    }
+    if (isLimitUp.present) {
+      map['is_limit_up'] = Variable<bool>(isLimitUp.value);
+    }
+    if (isLimitDown.present) {
+      map['is_limit_down'] = Variable<bool>(isLimitDown.value);
+    }
+    if (listingDays.present) {
+      map['listing_days'] = Variable<int>(listingDays.value);
+    }
+    if (isSuspended.present) {
+      map['is_suspended'] = Variable<bool>(isSuspended.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailyStockStatsCompanion(')
+          ..write('id: $id, ')
+          ..write('tradeDate: $tradeDate, ')
+          ..write('symbol: $symbol, ')
+          ..write('marketCode: $marketCode, ')
+          ..write('closePrice: $closePrice, ')
+          ..write('openPrice: $openPrice, ')
+          ..write('highPrice: $highPrice, ')
+          ..write('lowPrice: $lowPrice, ')
+          ..write('volume: $volume, ')
+          ..write('return15d: $return15d, ')
+          ..write('return30d: $return30d, ')
+          ..write('ma10: $ma10, ')
+          ..write('ma20: $ma20, ')
+          ..write('ma50: $ma50, ')
+          ..write('ma200: $ma200, ')
+          ..write('historicalHigh: $historicalHigh, ')
+          ..write('historicalLow: $historicalLow, ')
+          ..write('yearHigh: $yearHigh, ')
+          ..write('yearLow: $yearLow, ')
+          ..write('isLimitUp: $isLimitUp, ')
+          ..write('isLimitDown: $isLimitDown, ')
+          ..write('listingDays: $listingDays, ')
+          ..write('isSuspended: $isSuspended, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $TrainingSessionsTable extends TrainingSessions
     with TableInfo<$TrainingSessionsTable, TrainingSession> {
   @override
@@ -11862,6 +13453,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MarketsTable markets = $MarketsTable(this);
   late final $SymbolsTable symbols = $SymbolsTable(this);
   late final $KlineDataTable klineData = $KlineDataTable(this);
+  late final $StockFilterResultsTable stockFilterResults =
+      $StockFilterResultsTable(this);
+  late final $DailyStockStatsTable dailyStockStats =
+      $DailyStockStatsTable(this);
   late final $TrainingSessionsTable trainingSessions =
       $TrainingSessionsTable(this);
   late final $PositionsTable positions = $PositionsTable(this);
@@ -11884,6 +13479,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final TradeDao tradeDao = TradeDao(this as AppDatabase);
   late final AnalysisDao analysisDao = AnalysisDao(this as AppDatabase);
   late final ConfigDao configDao = ConfigDao(this as AppDatabase);
+  late final StockFilterDao stockFilterDao =
+      StockFilterDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11895,6 +13492,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         markets,
         symbols,
         klineData,
+        stockFilterResults,
+        dailyStockStats,
         trainingSessions,
         positions,
         trades,
@@ -14869,6 +16468,708 @@ typedef $$KlineDataTableProcessedTableManager = ProcessedTableManager<
       BaseReferences<_$AppDatabase, $KlineDataTable, KlineDataData>
     ),
     KlineDataData,
+    PrefetchHooks Function()>;
+typedef $$StockFilterResultsTableCreateCompanionBuilder
+    = StockFilterResultsCompanion Function({
+  Value<int> id,
+  required DateTime filterDate,
+  required String conditionType,
+  required String symbol,
+  required String marketCode,
+  required String symbolName,
+  required double closePrice,
+  required double changePercent,
+  Value<String?> extraData,
+  Value<DateTime> createdAt,
+});
+typedef $$StockFilterResultsTableUpdateCompanionBuilder
+    = StockFilterResultsCompanion Function({
+  Value<int> id,
+  Value<DateTime> filterDate,
+  Value<String> conditionType,
+  Value<String> symbol,
+  Value<String> marketCode,
+  Value<String> symbolName,
+  Value<double> closePrice,
+  Value<double> changePercent,
+  Value<String?> extraData,
+  Value<DateTime> createdAt,
+});
+
+class $$StockFilterResultsTableFilterComposer
+    extends Composer<_$AppDatabase, $StockFilterResultsTable> {
+  $$StockFilterResultsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get filterDate => $composableBuilder(
+      column: $table.filterDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get conditionType => $composableBuilder(
+      column: $table.conditionType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get symbol => $composableBuilder(
+      column: $table.symbol, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get marketCode => $composableBuilder(
+      column: $table.marketCode, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get symbolName => $composableBuilder(
+      column: $table.symbolName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get closePrice => $composableBuilder(
+      column: $table.closePrice, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get changePercent => $composableBuilder(
+      column: $table.changePercent, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get extraData => $composableBuilder(
+      column: $table.extraData, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$StockFilterResultsTableOrderingComposer
+    extends Composer<_$AppDatabase, $StockFilterResultsTable> {
+  $$StockFilterResultsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get filterDate => $composableBuilder(
+      column: $table.filterDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get conditionType => $composableBuilder(
+      column: $table.conditionType,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get symbol => $composableBuilder(
+      column: $table.symbol, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get marketCode => $composableBuilder(
+      column: $table.marketCode, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get symbolName => $composableBuilder(
+      column: $table.symbolName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get closePrice => $composableBuilder(
+      column: $table.closePrice, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get changePercent => $composableBuilder(
+      column: $table.changePercent,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get extraData => $composableBuilder(
+      column: $table.extraData, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$StockFilterResultsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StockFilterResultsTable> {
+  $$StockFilterResultsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get filterDate => $composableBuilder(
+      column: $table.filterDate, builder: (column) => column);
+
+  GeneratedColumn<String> get conditionType => $composableBuilder(
+      column: $table.conditionType, builder: (column) => column);
+
+  GeneratedColumn<String> get symbol =>
+      $composableBuilder(column: $table.symbol, builder: (column) => column);
+
+  GeneratedColumn<String> get marketCode => $composableBuilder(
+      column: $table.marketCode, builder: (column) => column);
+
+  GeneratedColumn<String> get symbolName => $composableBuilder(
+      column: $table.symbolName, builder: (column) => column);
+
+  GeneratedColumn<double> get closePrice => $composableBuilder(
+      column: $table.closePrice, builder: (column) => column);
+
+  GeneratedColumn<double> get changePercent => $composableBuilder(
+      column: $table.changePercent, builder: (column) => column);
+
+  GeneratedColumn<String> get extraData =>
+      $composableBuilder(column: $table.extraData, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$StockFilterResultsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $StockFilterResultsTable,
+    StockFilterResult,
+    $$StockFilterResultsTableFilterComposer,
+    $$StockFilterResultsTableOrderingComposer,
+    $$StockFilterResultsTableAnnotationComposer,
+    $$StockFilterResultsTableCreateCompanionBuilder,
+    $$StockFilterResultsTableUpdateCompanionBuilder,
+    (
+      StockFilterResult,
+      BaseReferences<_$AppDatabase, $StockFilterResultsTable, StockFilterResult>
+    ),
+    StockFilterResult,
+    PrefetchHooks Function()> {
+  $$StockFilterResultsTableTableManager(
+      _$AppDatabase db, $StockFilterResultsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StockFilterResultsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StockFilterResultsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$StockFilterResultsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<DateTime> filterDate = const Value.absent(),
+            Value<String> conditionType = const Value.absent(),
+            Value<String> symbol = const Value.absent(),
+            Value<String> marketCode = const Value.absent(),
+            Value<String> symbolName = const Value.absent(),
+            Value<double> closePrice = const Value.absent(),
+            Value<double> changePercent = const Value.absent(),
+            Value<String?> extraData = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              StockFilterResultsCompanion(
+            id: id,
+            filterDate: filterDate,
+            conditionType: conditionType,
+            symbol: symbol,
+            marketCode: marketCode,
+            symbolName: symbolName,
+            closePrice: closePrice,
+            changePercent: changePercent,
+            extraData: extraData,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required DateTime filterDate,
+            required String conditionType,
+            required String symbol,
+            required String marketCode,
+            required String symbolName,
+            required double closePrice,
+            required double changePercent,
+            Value<String?> extraData = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              StockFilterResultsCompanion.insert(
+            id: id,
+            filterDate: filterDate,
+            conditionType: conditionType,
+            symbol: symbol,
+            marketCode: marketCode,
+            symbolName: symbolName,
+            closePrice: closePrice,
+            changePercent: changePercent,
+            extraData: extraData,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$StockFilterResultsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $StockFilterResultsTable,
+    StockFilterResult,
+    $$StockFilterResultsTableFilterComposer,
+    $$StockFilterResultsTableOrderingComposer,
+    $$StockFilterResultsTableAnnotationComposer,
+    $$StockFilterResultsTableCreateCompanionBuilder,
+    $$StockFilterResultsTableUpdateCompanionBuilder,
+    (
+      StockFilterResult,
+      BaseReferences<_$AppDatabase, $StockFilterResultsTable, StockFilterResult>
+    ),
+    StockFilterResult,
+    PrefetchHooks Function()>;
+typedef $$DailyStockStatsTableCreateCompanionBuilder = DailyStockStatsCompanion
+    Function({
+  Value<int> id,
+  required DateTime tradeDate,
+  required String symbol,
+  required String marketCode,
+  required double closePrice,
+  required double openPrice,
+  required double highPrice,
+  required double lowPrice,
+  required double volume,
+  Value<double?> return15d,
+  Value<double?> return30d,
+  Value<double?> ma10,
+  Value<double?> ma20,
+  Value<double?> ma50,
+  Value<double?> ma200,
+  Value<double?> historicalHigh,
+  Value<double?> historicalLow,
+  Value<double?> yearHigh,
+  Value<double?> yearLow,
+  Value<bool> isLimitUp,
+  Value<bool> isLimitDown,
+  Value<int> listingDays,
+  Value<bool> isSuspended,
+  Value<DateTime> createdAt,
+});
+typedef $$DailyStockStatsTableUpdateCompanionBuilder = DailyStockStatsCompanion
+    Function({
+  Value<int> id,
+  Value<DateTime> tradeDate,
+  Value<String> symbol,
+  Value<String> marketCode,
+  Value<double> closePrice,
+  Value<double> openPrice,
+  Value<double> highPrice,
+  Value<double> lowPrice,
+  Value<double> volume,
+  Value<double?> return15d,
+  Value<double?> return30d,
+  Value<double?> ma10,
+  Value<double?> ma20,
+  Value<double?> ma50,
+  Value<double?> ma200,
+  Value<double?> historicalHigh,
+  Value<double?> historicalLow,
+  Value<double?> yearHigh,
+  Value<double?> yearLow,
+  Value<bool> isLimitUp,
+  Value<bool> isLimitDown,
+  Value<int> listingDays,
+  Value<bool> isSuspended,
+  Value<DateTime> createdAt,
+});
+
+class $$DailyStockStatsTableFilterComposer
+    extends Composer<_$AppDatabase, $DailyStockStatsTable> {
+  $$DailyStockStatsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get tradeDate => $composableBuilder(
+      column: $table.tradeDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get symbol => $composableBuilder(
+      column: $table.symbol, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get marketCode => $composableBuilder(
+      column: $table.marketCode, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get closePrice => $composableBuilder(
+      column: $table.closePrice, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get openPrice => $composableBuilder(
+      column: $table.openPrice, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get highPrice => $composableBuilder(
+      column: $table.highPrice, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get lowPrice => $composableBuilder(
+      column: $table.lowPrice, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get volume => $composableBuilder(
+      column: $table.volume, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get return15d => $composableBuilder(
+      column: $table.return15d, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get return30d => $composableBuilder(
+      column: $table.return30d, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get ma10 => $composableBuilder(
+      column: $table.ma10, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get ma20 => $composableBuilder(
+      column: $table.ma20, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get ma50 => $composableBuilder(
+      column: $table.ma50, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get ma200 => $composableBuilder(
+      column: $table.ma200, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get historicalHigh => $composableBuilder(
+      column: $table.historicalHigh,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get historicalLow => $composableBuilder(
+      column: $table.historicalLow, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get yearHigh => $composableBuilder(
+      column: $table.yearHigh, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get yearLow => $composableBuilder(
+      column: $table.yearLow, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isLimitUp => $composableBuilder(
+      column: $table.isLimitUp, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isLimitDown => $composableBuilder(
+      column: $table.isLimitDown, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get listingDays => $composableBuilder(
+      column: $table.listingDays, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isSuspended => $composableBuilder(
+      column: $table.isSuspended, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$DailyStockStatsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DailyStockStatsTable> {
+  $$DailyStockStatsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get tradeDate => $composableBuilder(
+      column: $table.tradeDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get symbol => $composableBuilder(
+      column: $table.symbol, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get marketCode => $composableBuilder(
+      column: $table.marketCode, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get closePrice => $composableBuilder(
+      column: $table.closePrice, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get openPrice => $composableBuilder(
+      column: $table.openPrice, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get highPrice => $composableBuilder(
+      column: $table.highPrice, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get lowPrice => $composableBuilder(
+      column: $table.lowPrice, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get volume => $composableBuilder(
+      column: $table.volume, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get return15d => $composableBuilder(
+      column: $table.return15d, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get return30d => $composableBuilder(
+      column: $table.return30d, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get ma10 => $composableBuilder(
+      column: $table.ma10, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get ma20 => $composableBuilder(
+      column: $table.ma20, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get ma50 => $composableBuilder(
+      column: $table.ma50, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get ma200 => $composableBuilder(
+      column: $table.ma200, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get historicalHigh => $composableBuilder(
+      column: $table.historicalHigh,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get historicalLow => $composableBuilder(
+      column: $table.historicalLow,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get yearHigh => $composableBuilder(
+      column: $table.yearHigh, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get yearLow => $composableBuilder(
+      column: $table.yearLow, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isLimitUp => $composableBuilder(
+      column: $table.isLimitUp, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isLimitDown => $composableBuilder(
+      column: $table.isLimitDown, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get listingDays => $composableBuilder(
+      column: $table.listingDays, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isSuspended => $composableBuilder(
+      column: $table.isSuspended, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$DailyStockStatsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DailyStockStatsTable> {
+  $$DailyStockStatsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get tradeDate =>
+      $composableBuilder(column: $table.tradeDate, builder: (column) => column);
+
+  GeneratedColumn<String> get symbol =>
+      $composableBuilder(column: $table.symbol, builder: (column) => column);
+
+  GeneratedColumn<String> get marketCode => $composableBuilder(
+      column: $table.marketCode, builder: (column) => column);
+
+  GeneratedColumn<double> get closePrice => $composableBuilder(
+      column: $table.closePrice, builder: (column) => column);
+
+  GeneratedColumn<double> get openPrice =>
+      $composableBuilder(column: $table.openPrice, builder: (column) => column);
+
+  GeneratedColumn<double> get highPrice =>
+      $composableBuilder(column: $table.highPrice, builder: (column) => column);
+
+  GeneratedColumn<double> get lowPrice =>
+      $composableBuilder(column: $table.lowPrice, builder: (column) => column);
+
+  GeneratedColumn<double> get volume =>
+      $composableBuilder(column: $table.volume, builder: (column) => column);
+
+  GeneratedColumn<double> get return15d =>
+      $composableBuilder(column: $table.return15d, builder: (column) => column);
+
+  GeneratedColumn<double> get return30d =>
+      $composableBuilder(column: $table.return30d, builder: (column) => column);
+
+  GeneratedColumn<double> get ma10 =>
+      $composableBuilder(column: $table.ma10, builder: (column) => column);
+
+  GeneratedColumn<double> get ma20 =>
+      $composableBuilder(column: $table.ma20, builder: (column) => column);
+
+  GeneratedColumn<double> get ma50 =>
+      $composableBuilder(column: $table.ma50, builder: (column) => column);
+
+  GeneratedColumn<double> get ma200 =>
+      $composableBuilder(column: $table.ma200, builder: (column) => column);
+
+  GeneratedColumn<double> get historicalHigh => $composableBuilder(
+      column: $table.historicalHigh, builder: (column) => column);
+
+  GeneratedColumn<double> get historicalLow => $composableBuilder(
+      column: $table.historicalLow, builder: (column) => column);
+
+  GeneratedColumn<double> get yearHigh =>
+      $composableBuilder(column: $table.yearHigh, builder: (column) => column);
+
+  GeneratedColumn<double> get yearLow =>
+      $composableBuilder(column: $table.yearLow, builder: (column) => column);
+
+  GeneratedColumn<bool> get isLimitUp =>
+      $composableBuilder(column: $table.isLimitUp, builder: (column) => column);
+
+  GeneratedColumn<bool> get isLimitDown => $composableBuilder(
+      column: $table.isLimitDown, builder: (column) => column);
+
+  GeneratedColumn<int> get listingDays => $composableBuilder(
+      column: $table.listingDays, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSuspended => $composableBuilder(
+      column: $table.isSuspended, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$DailyStockStatsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $DailyStockStatsTable,
+    DailyStockStat,
+    $$DailyStockStatsTableFilterComposer,
+    $$DailyStockStatsTableOrderingComposer,
+    $$DailyStockStatsTableAnnotationComposer,
+    $$DailyStockStatsTableCreateCompanionBuilder,
+    $$DailyStockStatsTableUpdateCompanionBuilder,
+    (
+      DailyStockStat,
+      BaseReferences<_$AppDatabase, $DailyStockStatsTable, DailyStockStat>
+    ),
+    DailyStockStat,
+    PrefetchHooks Function()> {
+  $$DailyStockStatsTableTableManager(
+      _$AppDatabase db, $DailyStockStatsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DailyStockStatsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DailyStockStatsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DailyStockStatsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<DateTime> tradeDate = const Value.absent(),
+            Value<String> symbol = const Value.absent(),
+            Value<String> marketCode = const Value.absent(),
+            Value<double> closePrice = const Value.absent(),
+            Value<double> openPrice = const Value.absent(),
+            Value<double> highPrice = const Value.absent(),
+            Value<double> lowPrice = const Value.absent(),
+            Value<double> volume = const Value.absent(),
+            Value<double?> return15d = const Value.absent(),
+            Value<double?> return30d = const Value.absent(),
+            Value<double?> ma10 = const Value.absent(),
+            Value<double?> ma20 = const Value.absent(),
+            Value<double?> ma50 = const Value.absent(),
+            Value<double?> ma200 = const Value.absent(),
+            Value<double?> historicalHigh = const Value.absent(),
+            Value<double?> historicalLow = const Value.absent(),
+            Value<double?> yearHigh = const Value.absent(),
+            Value<double?> yearLow = const Value.absent(),
+            Value<bool> isLimitUp = const Value.absent(),
+            Value<bool> isLimitDown = const Value.absent(),
+            Value<int> listingDays = const Value.absent(),
+            Value<bool> isSuspended = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              DailyStockStatsCompanion(
+            id: id,
+            tradeDate: tradeDate,
+            symbol: symbol,
+            marketCode: marketCode,
+            closePrice: closePrice,
+            openPrice: openPrice,
+            highPrice: highPrice,
+            lowPrice: lowPrice,
+            volume: volume,
+            return15d: return15d,
+            return30d: return30d,
+            ma10: ma10,
+            ma20: ma20,
+            ma50: ma50,
+            ma200: ma200,
+            historicalHigh: historicalHigh,
+            historicalLow: historicalLow,
+            yearHigh: yearHigh,
+            yearLow: yearLow,
+            isLimitUp: isLimitUp,
+            isLimitDown: isLimitDown,
+            listingDays: listingDays,
+            isSuspended: isSuspended,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required DateTime tradeDate,
+            required String symbol,
+            required String marketCode,
+            required double closePrice,
+            required double openPrice,
+            required double highPrice,
+            required double lowPrice,
+            required double volume,
+            Value<double?> return15d = const Value.absent(),
+            Value<double?> return30d = const Value.absent(),
+            Value<double?> ma10 = const Value.absent(),
+            Value<double?> ma20 = const Value.absent(),
+            Value<double?> ma50 = const Value.absent(),
+            Value<double?> ma200 = const Value.absent(),
+            Value<double?> historicalHigh = const Value.absent(),
+            Value<double?> historicalLow = const Value.absent(),
+            Value<double?> yearHigh = const Value.absent(),
+            Value<double?> yearLow = const Value.absent(),
+            Value<bool> isLimitUp = const Value.absent(),
+            Value<bool> isLimitDown = const Value.absent(),
+            Value<int> listingDays = const Value.absent(),
+            Value<bool> isSuspended = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              DailyStockStatsCompanion.insert(
+            id: id,
+            tradeDate: tradeDate,
+            symbol: symbol,
+            marketCode: marketCode,
+            closePrice: closePrice,
+            openPrice: openPrice,
+            highPrice: highPrice,
+            lowPrice: lowPrice,
+            volume: volume,
+            return15d: return15d,
+            return30d: return30d,
+            ma10: ma10,
+            ma20: ma20,
+            ma50: ma50,
+            ma200: ma200,
+            historicalHigh: historicalHigh,
+            historicalLow: historicalLow,
+            yearHigh: yearHigh,
+            yearLow: yearLow,
+            isLimitUp: isLimitUp,
+            isLimitDown: isLimitDown,
+            listingDays: listingDays,
+            isSuspended: isSuspended,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$DailyStockStatsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $DailyStockStatsTable,
+    DailyStockStat,
+    $$DailyStockStatsTableFilterComposer,
+    $$DailyStockStatsTableOrderingComposer,
+    $$DailyStockStatsTableAnnotationComposer,
+    $$DailyStockStatsTableCreateCompanionBuilder,
+    $$DailyStockStatsTableUpdateCompanionBuilder,
+    (
+      DailyStockStat,
+      BaseReferences<_$AppDatabase, $DailyStockStatsTable, DailyStockStat>
+    ),
+    DailyStockStat,
     PrefetchHooks Function()>;
 typedef $$TrainingSessionsTableCreateCompanionBuilder
     = TrainingSessionsCompanion Function({
@@ -19975,6 +22276,10 @@ class $AppDatabaseManager {
       $$SymbolsTableTableManager(_db, _db.symbols);
   $$KlineDataTableTableManager get klineData =>
       $$KlineDataTableTableManager(_db, _db.klineData);
+  $$StockFilterResultsTableTableManager get stockFilterResults =>
+      $$StockFilterResultsTableTableManager(_db, _db.stockFilterResults);
+  $$DailyStockStatsTableTableManager get dailyStockStats =>
+      $$DailyStockStatsTableTableManager(_db, _db.dailyStockStats);
   $$TrainingSessionsTableTableManager get trainingSessions =>
       $$TrainingSessionsTableTableManager(_db, _db.trainingSessions);
   $$PositionsTableTableManager get positions =>

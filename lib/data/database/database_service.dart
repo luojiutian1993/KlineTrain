@@ -77,6 +77,9 @@ class DatabaseService {
   /// 获取配置DAO
   ConfigDao get configDao => db.configDao;
 
+  /// 获取选股DAO
+  StockFilterDao get stockFilterDao => db.stockFilterDao;
+
   /// 关闭数据库连接
   Future<void> close() async {
     await db.close();

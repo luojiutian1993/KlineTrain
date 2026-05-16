@@ -67,39 +67,26 @@ class ConfigDao extends DatabaseAccessor<AppDatabase> with _$ConfigDaoMixin {
 
   /// 初始化市场数据
   Future<void> initMarketData() async {
-    final marketsList = [
-      MarketsCompanion(
-        code: const Value('A股'),
-        name: const Value('A股市场'),
-        currency: const Value('CNY'),
-        enabled: const Value(true),
-        sortOrder: const Value(1),
-      ),
-      MarketsCompanion(
-        code: const Value('港股'),
-        name: const Value('港股市场'),
-        currency: const Value('HKD'),
-        enabled: const Value(true),
-        sortOrder: const Value(2),
-      ),
-      MarketsCompanion(
-        code: const Value('美股'),
-        name: const Value('美股市场'),
-        currency: const Value('USD'),
-        enabled: const Value(true),
-        sortOrder: const Value(3),
-      ),
-      MarketsCompanion(
-        code: const Value('期货'),
-        name: const Value('期货市场'),
-        currency: const Value('CNY'),
-        enabled: const Value(true),
-        sortOrder: const Value(4),
-      ),
+    final marketsData = [
+      {'code': 'A股', 'name': 'A股市场', 'currency': 'CNY', 'enabled': 1, 'sortOrder': 1},
+      {'code': '港股', 'name': '港股市场', 'currency': 'HKD', 'enabled': 1, 'sortOrder': 2},
+      {'code': '美股', 'name': '美股市场', 'currency': 'USD', 'enabled': 1, 'sortOrder': 3},
+      {'code': '期货', 'name': '期货市场', 'currency': 'CNY', 'enabled': 1, 'sortOrder': 4},
     ];
 
     await batch((batch) {
-      batch.insertAllOnConflictUpdate(markets, marketsList);
+      for (final market in marketsData) {
+        batch.customStatement(
+          '''INSERT INTO markets (code, name, currency, enabled, sort_order)
+             VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(code) DO UPDATE SET
+               name = excluded.name,
+               currency = excluded.currency,
+               enabled = excluded.enabled,
+               sort_order = excluded.sort_order''',
+          [market['code'], market['name'], market['currency'], market['enabled'], market['sortOrder']],
+        );
+      }
     });
   }
 

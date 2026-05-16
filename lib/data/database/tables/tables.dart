@@ -15,3 +15,5 @@ export 'trading_patterns_table.dart';
 export 'strategy_tips_table.dart';
 export 'system_configs_table.dart';
 export 'version_history_table.dart';
+export 'stock_filter_results_table.dart';
+export 'daily_stock_stats_table.dart';

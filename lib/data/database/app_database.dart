@@ -23,6 +23,10 @@ part 'app_database.g.dart';
     // K线数据表
     KlineData,
 
+    // 选股相关表
+    StockFilterResults,
+    DailyStockStats,
+
     // 训练会话表
     TrainingSessions,
     Trades,
@@ -48,15 +52,16 @@ part 'app_database.g.dart';
     TradeDao,
     AnalysisDao,
     ConfigDao,
+    StockFilterDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   /// 初始化数据库
   AppDatabase() : super(_openConnection());
 
-  /// schema版本
+  /// schema版本 - 升级到2以添加选股相关表
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// 数据库迁移
   @override
@@ -65,8 +70,9 @@ class AppDatabase extends _$AppDatabase {
           return m.createAll();
         },
         onUpgrade: (Migrator m, int from, int to) async {
-          if (from < 1) {
-            await m.createAll();
+          if (from < 2) {
+            await m.createTable(stockFilterResults);
+            await m.createTable(dailyStockStats);
           }
         },
       );
