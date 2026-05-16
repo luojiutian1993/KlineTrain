@@ -4,6 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/features/home/widgets/market_sector_selector.dart';
 import 'package:kline_trainer/features/home/widgets/stock_condition_selector.dart';
+import 'package:kline_trainer/providers/asset_summary_provider.dart';
+import 'package:kline_trainer/providers/recent_trades_provider.dart';
+import 'package:kline_trainer/providers/stock_trade_summary_provider.dart';
+import 'package:kline_trainer/data/models/asset_summary_model.dart';
+import 'package:kline_trainer/data/models/recent_trade_model.dart';
+import 'package:kline_trainer/data/models/stock_trade_summary_model.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -15,11 +21,26 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
   String _selectedCondition = '随机';
-  
+
   final List<String> _conditions = [
-    '随机', '历史新高', '1年新高', '200日新高', '30日涨幅前50', '15日涨幅前50',
-    '涨停', '连板', '量升价涨', '上升趋势', '历史新低', '1年新低', '200日新低',
-    '30日跌幅前50', '15日跌幅前50', '下降趋势', '跌停', '连续跌停'
+    '随机',
+    '历史新高',
+    '1年新高',
+    '200日新高',
+    '30日涨幅前50',
+    '15日涨幅前50',
+    '涨停',
+    '连板',
+    '量升价涨',
+    '上升趋势',
+    '历史新低',
+    '1年新低',
+    '200日新低',
+    '30日跌幅前50',
+    '15日跌幅前50',
+    '下降趋势',
+    '跌停',
+    '连续跌停'
   ];
 
   String _getCurrentDate() {
@@ -32,7 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() {
       _selectedIndex = index;
     });
-    
+
     switch (index) {
       case 0:
         context.go('/');
@@ -46,15 +67,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  String _formatCurrency(double value) {
+    return '¥${value.toStringAsFixed(2)}';
+  }
+
+  String _formatPercent(double value) {
+    final prefix = value >= 0 ? '+' : '';
+    return '$prefix${value.toStringAsFixed(1)}%';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final assetSummaryAsync = ref.watch(assetSummaryProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_getCurrentDate(), style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-            const Text('训练', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(_getCurrentDate(),
+                style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+            const Text('训练',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         actions: [
@@ -106,6 +140,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildAssetStatsCard() {
+    final assetSummaryAsync = ref.watch(assetSummaryProvider);
+
+    return assetSummaryAsync.when(
+      data: (summary) => _buildAssetCardContent(summary),
+      loading: () => _buildAssetCardLoading(),
+      error: (_, __) => _buildAssetCardContent(AssetSummaryModel.defaultValue),
+    );
+  }
+
+  Widget _buildAssetCardLoading() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          height: 200,
+          child: Center(
+            child: CircularProgressIndicator(
+              color: AppTheme.accent,
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssetCardContent(AssetSummaryModel summary) {
+    final profitColor = summary.totalProfit >= 0 ? Colors.red : Colors.green;
+    final profitPrefix = summary.totalProfit >= 0 ? '+' : '';
+    final winColor = summary.winRate >= 50 ? Colors.green : Colors.red;
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
@@ -113,29 +179,91 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           children: [
             Row(
-              children: const [
-                Expanded(child: _StatItem(label: '初始资产', value: '¥100,000')),
-                Expanded(child: _StatItem(label: '现有资产', value: '¥128,450', highlight: true)),
-                Expanded(child: _StatItem(label: '总盈亏', value: '+¥28,450', color: Colors.red)),
-                Expanded(child: _StatItem(label: '收益率', value: '+28.45%', bgHighlight: true)),
+              children: [
+                Expanded(
+                  child: _StatItem(
+                    label: '初始资产',
+                    value: _formatCurrency(summary.initialCapital),
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '现有资产',
+                    value: _formatCurrency(summary.currentCapital),
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '总盈亏',
+                    value:
+                        '$profitPrefix${_formatCurrency(summary.totalProfit)}',
+                    color: profitColor,
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '收益率',
+                    value: _formatPercent(summary.profitRate),
+                  ),
+                ),
               ],
             ),
             const Divider(height: 16),
             Row(
-              children: const [
-                Expanded(child: _StatItem(label: '操作次数', value: '156')),
-                Expanded(child: _StatItem(label: '操作天数', value: '42')),
-                Expanded(child: _StatItem(label: '盈利次数', value: '106', color: Colors.green)),
-                Expanded(child: _StatItem(label: '成功率', value: '67.9%', color: Colors.green)),
+              children: [
+                Expanded(
+                  child: _StatItem(
+                      label: '操作次数', value: '${summary.totalTradeCount}'),
+                ),
+                Expanded(
+                  child: _StatItem(
+                      label: '操作天数', value: '${summary.totalTradeDays}'),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '盈利次数',
+                    value: '${summary.winCount}',
+                    color: winColor,
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '成功率',
+                    value: '${summary.winRate.toStringAsFixed(1)}%',
+                    color: winColor,
+                  ),
+                ),
               ],
             ),
             const Divider(height: 16),
             Row(
-              children: const [
-                Expanded(child: _StatItem(label: '最大盈利', value: '+¥8,520', color: Colors.green)),
-                Expanded(child: _StatItem(label: '最大亏损', value: '-¥3,200', color: Colors.red)),
-                Expanded(child: _StatItem(label: '最大回撤', value: '12.5%')),
-                Expanded(child: _StatItem(label: '回撤', value: '-8.2%')),
+              children: [
+                Expanded(
+                  child: _StatItem(
+                    label: '最大盈利',
+                    value: '+${_formatCurrency(summary.maxProfit)}',
+                    color: Colors.green,
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '最大亏损',
+                    value: '-${_formatCurrency(summary.maxLoss)}',
+                    color: Colors.red,
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '最大回撤',
+                    value: '-${summary.maxDrawdown.toStringAsFixed(1)}%',
+                  ),
+                ),
+                Expanded(
+                  child: _StatItem(
+                    label: '年化收益',
+                    value: _formatPercent(summary.annualizedReturn),
+                  ),
+                ),
               ],
             ),
           ],
@@ -148,10 +276,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('收益率曲线', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const Text('收益率曲线',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Container(
@@ -165,6 +295,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildBattleStats() {
+    final assetSummaryAsync = ref.watch(assetSummaryProvider);
+
+    return assetSummaryAsync.when(
+      data: (summary) => _buildBattleStatsContent(summary),
+      loading: () => _buildBattleStatsLoading(),
+      error: (_, __) =>
+          _buildBattleStatsContent(AssetSummaryModel.defaultValue),
+    );
+  }
+
+  Widget _buildBattleStatsLoading() {
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          height: 180,
+          child: Center(
+            child: CircularProgressIndicator(
+              color: AppTheme.accent,
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBattleStatsContent(AssetSummaryModel summary) {
+    final profitColor = summary.profitRate >= 0 ? Colors.red : Colors.green;
+    final rating = _calculateRating(summary.profitRate);
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
@@ -172,33 +334,57 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('实战', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('实战',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Row(
-              children: const [
-                StatBadge(label: '操盘评级', value: 'B+'),
-                StatBadge(label: '总收益率', value: '+28.45%', color: Colors.red),
-                StatBadge(label: '交易次数', value: '156'),
+              children: [
+                StatBadge(label: '操盘评级', value: rating),
+                StatBadge(
+                    label: '总收益率',
+                    value: _formatPercent(summary.profitRate),
+                    color: profitColor),
+                StatBadge(label: '交易次数', value: '${summary.totalTradeCount}'),
               ],
             ),
             const SizedBox(height: 12),
-            const Text('年化收益率', style: TextStyle(fontSize: 14, color: AppTheme.muted)),
+            const Text('年化收益率',
+                style: TextStyle(fontSize: 14, color: AppTheme.muted)),
             const SizedBox(height: 4),
-            const Text('45.2%', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            Text(
+              _formatPercent(summary.annualizedReturn),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
-            _ProgressBar(label: '近30日收益率', progress: 0.68, value: '+18.5%'),
+            _ProgressBar(
+              label: '近30日收益率',
+              progress: (summary.profitRate / 100).clamp(0.0, 1.0),
+              value: _formatPercent(summary.profitRate),
+            ),
             const SizedBox(height: 8),
             Row(
-              children: const [
-                StatBadge(label: '本月收益', value: '+¥12,300', color: Colors.red),
-                StatBadge(label: '最大回撤', value: '-12.5%', color: Colors.green),
+              children: [
+                StatBadge(
+                  label: '本月收益',
+                  value: _formatCurrency(summary.totalProfit),
+                  color: profitColor,
+                ),
+                StatBadge(
+                  label: '最大回撤',
+                  value: '-${summary.maxDrawdown.toStringAsFixed(1)}%',
+                  color: Colors.green,
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Row(
-              children: const [
-                StatBadge(label: '夏普比率', value: '1.85'),
-                StatBadge(label: '盈亏比', value: '2.3:1'),
+              children: [
+                StatBadge(
+                    label: '夏普比率',
+                    value: summary.sharpeRatio.toStringAsFixed(2)),
+                StatBadge(
+                    label: '盈亏比',
+                    value: '${summary.profitLossRatio.toStringAsFixed(1)}:1'),
               ],
             ),
           ],
@@ -207,13 +393,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  String _calculateRating(double profitRate) {
+    if (profitRate >= 50) return 'A+';
+    if (profitRate >= 30) return 'A';
+    if (profitRate >= 20) return 'B+';
+    if (profitRate >= 10) return 'B';
+    if (profitRate >= 0) return 'C+';
+    return 'C';
+  }
+
   Widget _buildStockSelection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(child: Text('选股条件', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+            const Expanded(
+                child: Text('选股条件',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
             TextButton(onPressed: () {}, child: const Text('编辑')),
           ],
         ),
@@ -221,7 +419,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         const MarketSectorSelector(),
         const SizedBox(height: 16),
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -261,48 +460,181 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildRecentTrades() {
+    final stockSummaryAsync = ref.watch(stockTradeSummaryProvider);
+
+    return stockSummaryAsync.when(
+      data: (summaries) => _buildStockTradeSummaryContent(summaries),
+      loading: () => _buildRecentTradesLoading(),
+      error: (_, __) => _buildRecentTradesEmpty(),
+    );
+  }
+
+  Widget _buildRecentTradesLoading() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Expanded(child: Text('最近交易', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+            const Expanded(
+                child: Text('最近交易',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
             TextButton(onPressed: () {}, child: const Text('查看全部')),
           ],
         ),
         const SizedBox(height: 12),
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: SizedBox(
+            height: 200,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppTheme.accent,
+                strokeWidth: 2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentTradesEmpty() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+                child: Text('最近交易',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+            TextButton(onPressed: () {}, child: const Text('查看全部')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          child: SizedBox(
+            height: 100,
+            child: Center(
+              child: Text(
+                '暂无交易记录',
+                style: TextStyle(color: AppTheme.muted),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStockTradeSummaryContent(
+      List<StockTradeSummaryModel> summaries) {
+    if (summaries.isEmpty) {
+      return _buildRecentTradesEmpty();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+                child: Text('最近交易',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold))),
+            TextButton(onPressed: () {}, child: const Text('查看全部')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Card(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Column(
-            children: const [
-              TradeItem(
-                name: '宁德时代',
-                code: 'SZ 300750',
-                type: '买入',
-                quantity: '100股',
-                profit: '+¥840',
-                status: '持仓',
-                statusColor: Colors.green,
-              ),
-              TradeItem(
-                name: '比亚迪',
-                code: 'SZ 002594',
-                type: '买入',
-                quantity: '200股',
-                profit: '-¥320',
-                status: '止损',
-                statusColor: Colors.red,
-              ),
-              TradeItem(
-                name: '中国平安',
-                code: 'SH 601318',
-                type: '卖出',
-                quantity: '50股',
-                profit: '+¥1,250',
-                status: '已平仓',
-                statusColor: Colors.grey,
-              ),
-            ],
+            children: summaries.take(5).map((summary) {
+              final profitColor = summary.isWin ? Colors.green : Colors.red;
+              return InkWell(
+                onTap: () {
+                  context.push(
+                    '/trade-detail?symbol=${summary.symbol}&name=${Uri.encodeComponent(summary.symbolName)}&market=${summary.marketCode}',
+                  );
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                        bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              summary.symbolName.isNotEmpty
+                                  ? summary.symbolName
+                                  : summary.symbol,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              summary.displayCode,
+                              style: TextStyle(
+                                  fontSize: 12, color: AppTheme.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              summary.displayProfitRate,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: profitColor),
+                            ),
+                            Text(
+                              summary.displayProfit,
+                              style:
+                                  TextStyle(fontSize: 12, color: profitColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              summary.displayTradeCount,
+                              style: TextStyle(
+                                  fontSize: 12, color: AppTheme.muted),
+                            ),
+                            Text(
+                              '胜率 ${summary.displayWinRate}',
+                              style: TextStyle(
+                                  fontSize: 12, color: AppTheme.muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right,
+                          color: AppTheme.muted, size: 20),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],
@@ -332,16 +664,22 @@ class _StatItem extends StatelessWidget {
         Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
         const SizedBox(height: 4),
         Container(
-          padding: bgHighlight ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4) : EdgeInsets.zero,
-          decoration: bgHighlight ? BoxDecoration(
-            color: AppTheme.accentSoft,
-            borderRadius: BorderRadius.circular(4),
-          ) : null,
+          padding: bgHighlight
+              ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+              : EdgeInsets.zero,
+          decoration: bgHighlight
+              ? BoxDecoration(
+                  color: AppTheme.accentSoft,
+                  borderRadius: BorderRadius.circular(4),
+                )
+              : null,
           child: Text(
             value,
             style: TextStyle(
               fontSize: highlight ? 16 : 14,
-              fontWeight: highlight || bgHighlight ? FontWeight.bold : FontWeight.normal,
+              fontWeight: highlight || bgHighlight
+                  ? FontWeight.bold
+                  : FontWeight.normal,
               color: color ?? (bgHighlight ? AppTheme.accent : AppTheme.fg),
             ),
           ),
@@ -357,7 +695,11 @@ class StatBadge extends StatelessWidget {
   final Color? color;
   final bool expanded;
 
-  const StatBadge({required this.label, required this.value, this.color, this.expanded = true});
+  const StatBadge(
+      {required this.label,
+      required this.value,
+      this.color,
+      this.expanded = true});
 
   @override
   Widget build(BuildContext context) {
@@ -365,7 +707,11 @@ class StatBadge extends StatelessWidget {
       children: [
         Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color ?? AppTheme.fg)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color ?? AppTheme.fg)),
       ],
     );
     return expanded ? Expanded(child: content) : content;
@@ -377,7 +723,8 @@ class _ProgressBar extends StatelessWidget {
   final double progress;
   final String value;
 
-  const _ProgressBar({required this.label, required this.progress, required this.value});
+  const _ProgressBar(
+      {required this.label, required this.progress, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -385,7 +732,8 @@ class _ProgressBar extends StatelessWidget {
       children: [
         Row(
           children: [
-            Expanded(child: Text(label, style: TextStyle(color: AppTheme.muted))),
+            Expanded(
+                child: Text(label, style: TextStyle(color: AppTheme.muted))),
             Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
           ],
         ),
@@ -434,7 +782,8 @@ class TradeItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(code, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+                Text(code,
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted)),
               ],
             ),
           ),
@@ -442,19 +791,26 @@ class TradeItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('$type $quantity', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+                Text('$type $quantity',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted)),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text(profit, style: TextStyle(color: profit.startsWith('+') ? Colors.red : Colors.green)),
+                    Text(profit,
+                        style: TextStyle(
+                            color: profit.startsWith('+')
+                                ? Colors.red
+                                : Colors.green)),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text(status, style: TextStyle(fontSize: 12, color: statusColor)),
+                      child: Text(status,
+                          style: TextStyle(fontSize: 12, color: statusColor)),
                     ),
                   ],
                 ),

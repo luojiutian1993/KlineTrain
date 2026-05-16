@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:kline_trainer/features/home/home_screen.dart';
+import 'package:kline_trainer/features/home/trade_detail_screen.dart';
 import 'package:kline_trainer/features/battle/battle_screen.dart';
 import 'package:kline_trainer/features/mine/mine_screen.dart';
 import 'package:kline_trainer/features/training/training_screen.dart';
@@ -32,6 +33,7 @@ class AppRoutes {
   static const notifications = '/mine/notifications';
   static const feedback = '/mine/feedback';
   static const helpCenter = '/mine/help-center';
+  static const tradeDetail = '/trade-detail';
 
   static final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -41,6 +43,20 @@ class AppRoutes {
         path: home,
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/trade-detail',
+        name: 'trade-detail',
+        builder: (context, state) {
+          final symbol = state.uri.queryParameters['symbol'] ?? '';
+          final symbolName = state.uri.queryParameters['name'] ?? '';
+          final marketCode = state.uri.queryParameters['market'] ?? 'SZ';
+          return TradeDetailScreen(
+            symbol: symbol,
+            symbolName: symbolName,
+            marketCode: marketCode,
+          );
+        },
       ),
       GoRoute(
         path: battle,
