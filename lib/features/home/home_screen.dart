@@ -224,13 +224,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: StockConditionSelector(
-              selectedCondition: _selectedCondition,
-              onChanged: (value) {
-                setState(() {
-                  _selectedCondition = value;
-                });
-              },
+            child: Column(
+              children: [
+                StockConditionSelector(
+                  selectedCondition: _selectedCondition,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCondition = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      context.go('/battle');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('确认', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -1,7 +1,10 @@
+import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:kline_trainer/data/api/kline_api.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
+import 'package:kline_trainer/data/database/database_service.dart';
+import 'package:kline_trainer/data/database/app_database.dart';
 
 part 'kline_repository.g.dart';
 
@@ -12,6 +15,46 @@ KlineRepository klineRepository(KlineRepositoryRef ref) {
 
 class KlineRepository {
   final KlineApi _api = KlineApi();
+  DatabaseService? _dbService;
+
+  Future<DatabaseService> _getDbService() async {
+    if (_dbService == null) {
+      _dbService = DatabaseService.instance;
+    }
+    return _dbService!;
+  }
+
+  Future<List<KlineModel>> fetchKlineDataFromDb({
+    String symbol = 'SH600000',
+    String period = 'day',
+    int limit = 100,
+  }) async {
+    try {
+      final dbService = await _getDbService();
+      final dbData = await dbService.klineDao.getKlineData(
+        symbol,
+        period,
+        limit: limit,
+      );
+
+      if (dbData.isEmpty) {
+        return [];
+      }
+
+      return dbData.map((item) => KlineModel(
+        symbol: item.symbol,
+        timestamp: item.tradeDate.millisecondsSinceEpoch,
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+        turnover: item.amount,
+      )).toList();
+    } catch (e) {
+      return [];
+    }
+  }
 
   Future<List<KlineModel>> fetchKlineData({
     String symbol = 'SH600000',
@@ -19,13 +62,53 @@ class KlineRepository {
     int limit = 100,
   }) async {
     try {
-      return await _api.fetchKlineData(
+      final dbData = await fetchKlineDataFromDb(
+        symbol: symbol,
+        period: timeframe,
+        limit: limit,
+      );
+
+      if (dbData.isNotEmpty) {
+        return dbData;
+      }
+
+      final apiData = await _api.fetchKlineData(
         symbol: symbol,
         timeframe: timeframe,
         limit: limit,
       );
+
+      if (apiData.isNotEmpty) {
+        await _saveToDatabase(apiData, timeframe);
+        return apiData;
+      }
+
+      return _generateMockData(symbol, limit);
     } catch (e) {
       return _generateMockData(symbol, limit);
+    }
+  }
+
+  Future<void> _saveToDatabase(List<KlineModel> data, String period) async {
+    try {
+      final dbService = await _getDbService();
+      final companions = data.map((item) {
+        return KlineDataCompanion.insert(
+          symbol: item.symbol,
+          marketCode: '',
+          period: period,
+          tradeDate: DateTime.fromMillisecondsSinceEpoch(item.timestamp),
+          open: item.open,
+          high: item.high,
+          low: item.low,
+          close: item.close,
+          volume: item.volume,
+          amount: item.turnover,
+        );
+      }).toList();
+
+      await dbService.klineDao.batchInsertKline(companions);
+    } catch (e) {
     }
   }
 
@@ -34,6 +117,16 @@ class KlineRepository {
       return await _api.fetchRealtimeKline(symbol);
     } catch (e) {
       return _generateMockData(symbol, 1);
+    }
+  }
+
+  Future<bool> hasKlineDataInDb(String symbol, String period) async {
+    try {
+      final dbService = await _getDbService();
+      final count = await dbService.klineDao.countKlineData(symbol, period);
+      return count > 0;
+    } catch (e) {
+      return false;
     }
   }
 

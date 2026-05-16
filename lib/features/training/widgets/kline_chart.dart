@@ -1,6 +1,22 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+class TradePoint {
+  final int index;
+  final double price;
+  final bool isBuy;
+  final String label;
+  final DateTime date;
+
+  TradePoint({
+    required this.index,
+    required this.price,
+    required this.isBuy,
+    required this.label,
+    required this.date,
+  });
+}
+
 class KlineChart extends StatelessWidget {
   final List<KlineData> klineData;
   final List<double>? ma5;
@@ -9,6 +25,7 @@ class KlineChart extends StatelessWidget {
   final List<double>? ma30;
   final List<VolumeData> volumes;
   final List<MacdData> macdData;
+  final List<TradePoint>? tradePoints;
 
   const KlineChart({
     super.key,
@@ -19,6 +36,7 @@ class KlineChart extends StatelessWidget {
     this.ma30,
     required this.volumes,
     required this.macdData,
+    this.tradePoints,
   });
 
   @override
@@ -43,6 +61,13 @@ class KlineChart extends StatelessWidget {
       if (data.high > maxPrice) maxPrice = data.high;
     }
 
+    if (tradePoints != null) {
+      for (var point in tradePoints!) {
+        if (point.price < minPrice) minPrice = point.price;
+        if (point.price > maxPrice) maxPrice = point.price;
+      }
+    }
+
     return SizedBox(
       height: 280,
       child: Stack(
@@ -57,6 +82,7 @@ class KlineChart extends StatelessWidget {
               ma30: ma30,
               minY: minPrice * 0.98,
               maxY: maxPrice * 1.02,
+              tradePoints: tradePoints,
             ),
           ),
           Positioned(
@@ -79,7 +105,7 @@ class KlineChart extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (ma5 != null)
+          if (ma5 != null && ma5!.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
@@ -87,7 +113,7 @@ class KlineChart extends StatelessWidget {
                 style: const TextStyle(fontSize: 10, color: Colors.yellow),
               ),
             ),
-          if (ma10 != null)
+          if (ma10 != null && ma10!.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
@@ -95,7 +121,7 @@ class KlineChart extends StatelessWidget {
                 style: const TextStyle(fontSize: 10, color: Colors.purple),
               ),
             ),
-          if (ma20 != null)
+          if (ma20 != null && ma20!.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
@@ -103,7 +129,7 @@ class KlineChart extends StatelessWidget {
                 style: const TextStyle(fontSize: 10, color: Colors.orange),
               ),
             ),
-          if (ma30 != null)
+          if (ma30 != null && ma30!.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
@@ -117,6 +143,10 @@ class KlineChart extends StatelessWidget {
   }
 
   Widget _buildVolumeChart() {
+    if (volumes.isEmpty) {
+      return const SizedBox(height: 100);
+    }
+    final maxVolume = volumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
     return SizedBox(
       height: 100,
       child: Stack(
@@ -126,16 +156,16 @@ class KlineChart extends StatelessWidget {
             child: BarChart(
               BarChartData(
                 alignment: BarChartAlignment.spaceAround,
-                maxY: volumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b) * 1.2,
+                maxY: maxVolume * 1.2,
                 barTouchData: BarTouchData(enabled: false),
-                titlesData: FlTitlesData(
+                titlesData: const FlTitlesData(
                   show: false,
                 ),
                 borderData: FlBorderData(show: false),
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: (volumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b)) / 4,
+                  horizontalInterval: maxVolume / 4,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
                       color: Colors.grey.withOpacity(0.2),
@@ -183,6 +213,9 @@ class KlineChart extends StatelessWidget {
   }
 
   Widget _buildMacdChart() {
+    if (macdData.isEmpty) {
+      return const SizedBox(height: 120);
+    }
     double maxMacd = macdData.map((m) => m.macd).reduce((a, b) => a.abs() > b.abs() ? a : b).abs();
 
     return SizedBox(
@@ -197,7 +230,7 @@ class KlineChart extends StatelessWidget {
                 maxY: maxMacd * 1.2,
                 minY: -maxMacd * 1.2,
                 barTouchData: BarTouchData(enabled: false),
-                titlesData: FlTitlesData(
+                titlesData: const FlTitlesData(
                   show: false,
                 ),
                 borderData: FlBorderData(show: false),
@@ -260,6 +293,7 @@ class CandleStickChart extends StatelessWidget {
   final List<double>? ma30;
   final double minY;
   final double maxY;
+  final List<TradePoint>? tradePoints;
 
   const CandleStickChart({
     super.key,
@@ -270,6 +304,7 @@ class CandleStickChart extends StatelessWidget {
     this.ma30,
     required this.minY,
     required this.maxY,
+    this.tradePoints,
   });
 
   @override
@@ -287,6 +322,7 @@ class CandleStickChart extends StatelessWidget {
               ma30: ma30,
               minY: minY,
               maxY: maxY,
+              tradePoints: tradePoints,
             ),
           ],
         ),
@@ -303,6 +339,7 @@ class CandleStickChartPainter extends StatelessWidget {
   final List<double>? ma30;
   final double minY;
   final double maxY;
+  final List<TradePoint>? tradePoints;
 
   const CandleStickChartPainter({
     super.key,
@@ -313,6 +350,7 @@ class CandleStickChartPainter extends StatelessWidget {
     this.ma30,
     required this.minY,
     required this.maxY,
+    this.tradePoints,
   });
 
   @override
@@ -327,6 +365,7 @@ class CandleStickChartPainter extends StatelessWidget {
         ma30: ma30,
         minY: minY,
         maxY: maxY,
+        tradePoints: tradePoints,
       ),
     );
   }
@@ -340,6 +379,7 @@ class _CandleStickPainter extends CustomPainter {
   final List<double>? ma30;
   final double minY;
   final double maxY;
+  final List<TradePoint>? tradePoints;
 
   _CandleStickPainter({
     required this.klineData,
@@ -349,10 +389,13 @@ class _CandleStickPainter extends CustomPainter {
     this.ma30,
     required this.minY,
     required this.maxY,
+    this.tradePoints,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (klineData.isEmpty) return;
+
     final double candleWidth = size.width / klineData.length;
     final double priceRange = maxY - minY;
 
@@ -367,13 +410,15 @@ class _CandleStickPainter extends CustomPainter {
       final bool isUp = data.close >= data.open;
       final paint = Paint()
         ..color = isUp ? Colors.red : Colors.green
-        ..strokeWidth = 1;
+        ..strokeWidth = 1
+        ..isAntiAlias = true;
 
       canvas.drawLine(Offset(x, highY), Offset(x, lowY), paint);
 
       final rectPaint = Paint()
         ..color = isUp ? Colors.red : Colors.green
-        ..style = PaintingStyle.fill;
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true;
 
       final rectHeight = (closeY - openY).abs();
       final rectTop = isUp ? openY : closeY;
@@ -389,36 +434,102 @@ class _CandleStickPainter extends CustomPainter {
       );
     }
 
-    if (ma5 != null) _drawLine(canvas, size, ma5!, Colors.yellow);
-    if (ma10 != null) _drawLine(canvas, size, ma10!, Colors.purple);
-    if (ma20 != null) _drawLine(canvas, size, ma20!, Colors.orange);
-    if (ma30 != null) _drawLine(canvas, size, ma30!, Colors.blue);
+    if (ma5 != null) _drawSmoothLine(canvas, size, ma5!, Colors.yellow);
+    if (ma10 != null) _drawSmoothLine(canvas, size, ma10!, Colors.purple);
+    if (ma20 != null) _drawSmoothLine(canvas, size, ma20!, Colors.orange);
+    if (ma30 != null) _drawSmoothLine(canvas, size, ma30!, Colors.blue);
+
+    if (tradePoints != null && tradePoints!.isNotEmpty) {
+      _drawTradePoints(canvas, size);
+    }
   }
 
-  void _drawLine(Canvas canvas, Size size, List<double> values, Color color) {
+  void _drawSmoothLine(Canvas canvas, Size size, List<double> values, Color color) {
+    if (klineData.isEmpty || values.isEmpty) return;
+
     final double candleWidth = size.width / klineData.length;
     final double priceRange = maxY - minY;
     final linePaint = Paint()
       ..color = color
       ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final path = Path();
     bool started = false;
+    int startIndex = 0;
 
     for (int i = 0; i < values.length && i < klineData.length; i++) {
+      if (values[i] == 0 || values[i].isNaN) continue;
+
       final x = i * candleWidth + candleWidth / 2;
       final y = size.height - ((values[i] - minY) / priceRange) * size.height;
 
       if (!started) {
         path.moveTo(x, y);
         started = true;
+        startIndex = i;
       } else {
-        path.lineTo(x, y);
+        final prevX = (i - 1) * candleWidth + candleWidth / 2;
+        final prevY = size.height - ((values[i - 1] - minY) / priceRange) * size.height;
+        final cpX = (prevX + x) / 2;
+        path.quadraticBezierTo(prevX, prevY, cpX, (prevY + y) / 2);
       }
     }
 
     canvas.drawPath(path, linePaint);
+  }
+
+  void _drawTradePoints(Canvas canvas, Size size) {
+    if (klineData.isEmpty || tradePoints == null || tradePoints!.isEmpty) return;
+
+    final double candleWidth = size.width / klineData.length;
+    final double priceRange = maxY - minY;
+
+    for (var point in tradePoints!) {
+      if (point.index >= klineData.length) continue;
+
+      final x = point.index * candleWidth + candleWidth / 2;
+      final y = size.height - ((point.price - minY) / priceRange) * size.height;
+
+      final paint = Paint()
+        ..color = point.isBuy ? Colors.red : Colors.green
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true;
+
+      final path = Path();
+      const triangleSize = 8.0;
+      if (point.isBuy) {
+        path.moveTo(x, y - triangleSize);
+        path.lineTo(x - triangleSize, y);
+        path.lineTo(x + triangleSize, y);
+      } else {
+        path.moveTo(x, y + triangleSize);
+        path.lineTo(x - triangleSize, y);
+        path.lineTo(x + triangleSize, y);
+      }
+      path.close();
+      canvas.drawPath(path, paint);
+
+      final textPainter = TextPainter(
+        text: TextSpan(
+          text: point.label,
+          style: TextStyle(
+            color: point.isBuy ? Colors.red : Colors.green,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(x - textPainter.width / 2, point.isBuy ? y - triangleSize - 15 : y + triangleSize + 5),
+      );
+    }
   }
 
   @override
