@@ -44,10 +44,6 @@ class KlineChart extends StatelessWidget {
     return Column(
       children: [
         _buildPriceChart(),
-        const SizedBox(height: 8),
-        _buildVolumeChart(),
-        const SizedBox(height: 8),
-        _buildMacdChart(),
       ],
     );
   }

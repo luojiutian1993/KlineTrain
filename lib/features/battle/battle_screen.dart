@@ -18,10 +18,9 @@ class BattleScreen extends ConsumerStatefulWidget {
 class _BattleScreenState extends ConsumerState<BattleScreen> {
   int _selectedIndex = 1;
   String _selectedPeriod = '日K';
-  String _selectedIndicator = '成交量';
+  String _selectedTopIndicator = '成交量';
+  String _selectedBottomIndicator = 'MACD';
   int _currentDayIndex = 0;
-  bool _isPlaying = false;
-  Timer? _playTimer;
   int _trainingDays = 60;
 
   final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
@@ -43,7 +42,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   @override
   void dispose() {
-    _playTimer?.cancel();
     super.dispose();
   }
 
@@ -73,39 +71,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('已到达最后一天')),
       );
-    }
-  }
-
-  void _prevDay() {
-    if (_currentDayIndex > 0) {
-      setState(() {
-        _currentDayIndex--;
-      });
-    }
-  }
-
-  void _togglePlay() {
-    setState(() {
-      _isPlaying = !_isPlaying;
-    });
-
-    if (_isPlaying) {
-      _playTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-        if (_currentDayIndex < _allKlineData.length - 1) {
-          setState(() {
-            _currentDayIndex++;
-            _checkConditionalOrders();
-            _updateAccount();
-          });
-        } else {
-          setState(() {
-            _isPlaying = false;
-          });
-          timer.cancel();
-        }
-      });
-    } else {
-      _playTimer?.cancel();
     }
   }
 
@@ -300,24 +265,65 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     );
   }
 
+  List<KdjData> get _displayKdjData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    return List.generate(
+      endIndex,
+      (i) {
+        final k = (i % 100).toDouble();
+        final d = ((k * 0.7 + 30).clamp(0, 100) as num).toDouble();
+        final j = ((k * 1.5 - d * 0.5).clamp(0, 100) as num).toDouble();
+        return KdjData(k: k, d: d, j: j);
+      },
+    );
+  }
+
+  List<RsiData> get _displayRsiData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    return List.generate(
+      endIndex,
+      (i) {
+        final rsi = (50 + i % 50).clamp(0, 100).toDouble();
+        return RsiData(rsi: rsi);
+      },
+    );
+  }
+
+  List<BollData> get _displayBollData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    return List.generate(
+      endIndex,
+      (i) {
+        final currentData = _allKlineData[i];
+        final mid = currentData.close;
+        final upper = mid * 1.02;
+        final lower = mid * 0.98;
+        return BollData(upper: upper, mid: mid, lower: lower);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildStockInfo(),
-            _buildMarketData(),
-            _buildTimeStepper(),
-            _buildPeriodSelector(),
-            _buildKlineChart(),
-            _buildIndicatorSelector(),
-            _buildIndicatorChart(),
-            _buildTradeButtons(),
-            _buildNextStepButton(),
-            _buildAccountInfo(),
-            _buildSummaryCards(),
-          ],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _buildStockInfo(),
+              _buildMarketData(),
+              _buildPeriodSelector(),
+              _buildKlineChart(),
+              _buildIndicatorSelector(),
+              _buildTradeButtons(),
+              _buildNextStepButton(),
+              _buildAccountInfo(),
+              _buildSummaryCards(),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -451,71 +457,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     return amount.toStringAsFixed(2);
   }
 
-  Widget _buildTimeStepper() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.skip_previous),
-                onPressed: _currentDayIndex > 0 ? _prevDay : null,
-              ),
-              IconButton(
-                icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                onPressed: _togglePlay,
-              ),
-              IconButton(
-                icon: const Icon(Icons.skip_next),
-                onPressed: _currentDayIndex < _allKlineData.length - 1 ? _nextDay : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Slider(
-                  value: _currentDayIndex.toDouble(),
-                  min: 0,
-                  max: (_allKlineData.length - 1).toDouble().clamp(0, double.infinity),
-                  onChanged: (value) {
-                    setState(() {
-                      _currentDayIndex = value.toInt();
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-                    ? '${_allKlineData[_currentDayIndex].dateTime.month}/${_allKlineData[_currentDayIndex].dateTime.day}'
-                    : '--',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('进度: ${_currentDayIndex + 1} / ${_allKlineData.length}'),
-              const SizedBox(width: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.accent.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text('训练周期: ${_trainingDays}天'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPeriodSelector() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -523,34 +464,111 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
       child: Row(
-        children: _periods.map((period) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _selectedPeriod = period;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _selectedPeriod == period
-                    ? AppTheme.accent
-                    : Colors.transparent,
-                foregroundColor: _selectedPeriod == period
-                    ? Colors.white
-                    : AppTheme.accent,
-                side: BorderSide(color: AppTheme.accent),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              child: Text(period, style: const TextStyle(fontSize: 12)),
-            ),
-          ),
-        )).toList(),
+        children: [
+          _buildPeriodDropdown(),
+          const SizedBox(width: 16),
+          _buildMaSelector(),
+        ],
       ),
     );
+  }
+
+  Widget _buildPeriodDropdown() {
+    return DropdownButton<String>(
+      value: _selectedPeriod,
+      items: _periods.map((period) {
+        return DropdownMenuItem<String>(
+          value: period,
+          child: Text(period, style: const TextStyle(fontSize: 14)),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            _selectedPeriod = value;
+            _loadKlineDataForPeriod(value);
+          });
+        }
+      },
+      underline: const SizedBox(),
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: AppTheme.accent,
+      ),
+      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.accent),
+    );
+  }
+
+  Widget _buildMaSelector() {
+    final maValues = _getCurrentMaValues();
+    
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _MaDisplay(label: 'MA5', value: maValues[5], color: Colors.yellow),
+          const SizedBox(width: 12),
+          _MaDisplay(label: 'MA10', value: maValues[10], color: Colors.purple),
+          const SizedBox(width: 12),
+          _MaDisplay(label: 'MA20', value: maValues[20], color: Colors.orange),
+          const SizedBox(width: 12),
+          _MaDisplay(label: 'MA30', value: maValues[30], color: Colors.blue),
+        ],
+      ),
+    );
+  }
+
+  Map<int, double> _getCurrentMaValues() {
+    final displayData = _displayKlineData;
+    final values = <int, double>{};
+    
+    for (final ma in [5, 10, 20, 30]) {
+      final maData = _calculateMA(displayData, ma);
+      values[ma] = maData.isNotEmpty ? maData.last : 0.0;
+    }
+    
+    return values;
+  }
+
+  void _loadKlineDataForPeriod(String period) {
+    final timeframe = _getPeriodTimeframe(period);
+    setState(() {
+      _allKlineData = [];
+      _currentDayIndex = 0;
+    });
+    _loadKlineDataWithTimeframe(timeframe);
+  }
+
+  String _getPeriodTimeframe(String period) {
+    switch (period) {
+      case '日K':
+        return 'day';
+      case '周K':
+        return 'week';
+      case '月K':
+        return 'month';
+      case '季K':
+        return 'quarter';
+      case '年K':
+        return 'year';
+      default:
+        return 'day';
+    }
+  }
+
+  Future<void> _loadKlineDataWithTimeframe(String timeframe) async {
+    final repository = KlineRepository();
+    final data = await repository.fetchKlineData(
+      symbol: _currentSymbol,
+      timeframe: timeframe,
+      limit: _trainingDays,
+    );
+
+    setState(() {
+      _allKlineData = data;
+      _currentDayIndex = 0;
+    });
   }
 
   Widget _buildKlineChart() {
@@ -561,134 +579,131 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 280,
-            child: displayData.isNotEmpty
-                ? KlineChart(
-                    klineData: displayData,
-                    ma5: _calculateMA(displayData, 5),
-                    ma10: _calculateMA(displayData, 10),
-                    ma20: _calculateMA(displayData, 20),
-                    ma30: _calculateMA(displayData, 30),
-                    volumes: _displayVolumes,
-                    macdData: _displayMacdData,
-                    tradePoints: _tradePoints,
-                  )
-                : const Center(child: Text('加载中...')),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                _buildMALegend('MA5', Colors.yellow, displayData, 5),
-                const SizedBox(width: 12),
-                _buildMALegend('MA10', Colors.purple, displayData, 10),
-                const SizedBox(width: 12),
-                _buildMALegend('MA20', Colors.orange, displayData, 20),
-                const SizedBox(width: 12),
-                _buildMALegend('MA30', Colors.blue, displayData, 30),
-              ],
-            ),
-          ),
-        ],
+      child: SizedBox(
+        height: 280,
+        child: displayData.isNotEmpty
+            ? KlineChart(
+                klineData: displayData,
+                ma5: _calculateMA(displayData, 5),
+                ma10: _calculateMA(displayData, 10),
+                ma20: _calculateMA(displayData, 20),
+                ma30: _calculateMA(displayData, 30),
+                volumes: _displayVolumes,
+                macdData: _displayMacdData,
+                tradePoints: _tradePoints,
+              )
+            : const Center(child: Text('加载中...')),
       ),
-    );
-  }
-
-  Widget _buildMALegend(String label, Color color, List<KlineData> data, int period) {
-    final ma = _calculateMA(data, period);
-    final value = ma.isNotEmpty ? ma.last : 0.0;
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '$label ${value.toStringAsFixed(2)}',
-          style: TextStyle(fontSize: 10, color: color),
-        ),
-      ],
     );
   }
 
   Widget _buildIndicatorSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Row(
-        children: _indicators.map((indicator) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _selectedIndicator = indicator;
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _selectedIndicator == indicator
-                    ? AppTheme.accent
-                    : Colors.transparent,
-                foregroundColor: _selectedIndicator == indicator
-                    ? Colors.white
-                    : AppTheme.muted,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              child: Text(indicator, style: const TextStyle(fontSize: 12)),
-            ),
-          ),
-        )).toList(),
-      ),
+    return Column(
+      children: [
+        _buildIndicatorSection(_selectedTopIndicator, (value) {
+          setState(() {
+            _selectedTopIndicator = value;
+          });
+        }),
+        _buildIndicatorSection(_selectedBottomIndicator, (value) {
+          setState(() {
+            _selectedBottomIndicator = value;
+          });
+        }),
+      ],
     );
   }
 
-  Widget _buildIndicatorChart() {
+  Widget _buildIndicatorSection(String selected, Function(String) onChanged) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+          ),
+          child: Row(
+            children: [
+              DropdownButton<String>(
+                value: selected,
+                items: _indicators.map((indicator) {
+                  return DropdownMenuItem<String>(
+                    value: indicator,
+                    child: Text(indicator, style: const TextStyle(fontSize: 14)),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    onChanged(value);
+                  }
+                },
+                underline: const SizedBox(),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const Spacer(),
+              if (selected == '成交量')
+                Text('量', style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'MACD')
+                Text('(12,26,9)', style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'KDJ')
+                Text('(9,3,3)', style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'RSI')
+                Text('(14)', style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'BOLL')
+                Text('(20)', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+            ],
+          ),
+        ),
+        _buildSingleIndicatorChart(selected),
+      ],
+    );
+  }
+
+  Widget _buildSingleIndicatorChart(String indicator) {
     return Container(
-      height: 120,
+      height: 100,
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
-      child: _selectedIndicator == '成交量'
+      child: indicator == '成交量'
           ? _buildVolumeChart()
-          : _selectedIndicator == 'MACD'
+          : indicator == 'MACD'
               ? _buildMacdChart()
-              : Center(
-                  child: Text('[$_selectedIndicator 指标图表]'),
-                ),
+              : indicator == 'KDJ'
+                  ? _buildKdjChart()
+                  : indicator == 'RSI'
+                      ? _buildRsiChart()
+                      : indicator == 'BOLL'
+                          ? _buildBollChart()
+                          : Center(
+                              child: Text('[$indicator 指标图表]'),
+                            ),
     );
   }
 
   Widget _buildVolumeChart() {
     if (_displayVolumes.isEmpty) return const SizedBox();
     final maxVolume = _displayVolumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
+    final safeMax = maxVolume > 0 ? maxVolume : 1.0;
 
     return SizedBox(
       height: 100,
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: maxVolume * 1.2,
+          maxY: safeMax * 1.2,
           barTouchData: BarTouchData(enabled: false),
           titlesData: const FlTitlesData(show: false),
           borderData: FlBorderData(show: false),
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: maxVolume / 4,
+            horizontalInterval: safeMax / 4,
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: Colors.grey.withOpacity(0.2),
@@ -720,21 +735,22 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   Widget _buildMacdChart() {
     if (_displayMacdData.isEmpty) return const SizedBox();
     double maxMacd = _displayMacdData.map((m) => m.macd).reduce((a, b) => a.abs() > b.abs() ? a : b).abs();
+    final safeMax = maxMacd > 0 ? maxMacd : 1.0;
 
     return SizedBox(
       height: 100,
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: maxMacd * 1.2,
-          minY: -maxMacd * 1.2,
+          maxY: safeMax * 1.2,
+          minY: -safeMax * 1.2,
           barTouchData: BarTouchData(enabled: false),
           titlesData: const FlTitlesData(show: false),
           borderData: FlBorderData(show: false),
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: maxMacd / 2,
+            horizontalInterval: safeMax / 2,
             getDrawingHorizontalLine: (value) {
               return FlLine(
                 color: Colors.grey.withOpacity(0.2),
@@ -758,6 +774,150 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 ),
               )
               .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKdjChart() {
+    if (_displayKdjData.isEmpty) return const SizedBox();
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: 0,
+          maxY: 100,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: 25,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: _displayKdjData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.k)).toList(),
+              isCurved: true,
+              color: Colors.yellow,
+              dotData: const FlDotData(show: false),
+              barWidth: 2,
+            ),
+            LineChartBarData(
+              spots: _displayKdjData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.d)).toList(),
+              isCurved: true,
+              color: Colors.purple,
+              dotData: const FlDotData(show: false),
+              barWidth: 2,
+            ),
+            LineChartBarData(
+              spots: _displayKdjData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.j)).toList(),
+              isCurved: true,
+              color: Colors.red,
+              dotData: const FlDotData(show: false),
+              barWidth: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRsiChart() {
+    if (_displayRsiData.isEmpty) return const SizedBox();
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: 0,
+          maxY: 100,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: 25,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: _displayRsiData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.rsi)).toList(),
+              isCurved: true,
+              color: Colors.blue,
+              dotData: const FlDotData(show: false),
+              barWidth: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBollChart() {
+    if (_displayBollData.isEmpty) return const SizedBox();
+    final prices = _displayBollData.map((e) => [e.upper, e.mid, e.lower]).expand((x) => x).toList();
+    final minPrice = prices.reduce((a, b) => a < b ? a : b);
+    final maxPrice = prices.reduce((a, b) => a > b ? a : b);
+    final safeMin = minPrice - (maxPrice - minPrice) * 0.1;
+    final safeMax = maxPrice + (maxPrice - minPrice) * 0.1;
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: safeMin,
+          maxY: safeMax,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (safeMax - safeMin) / 4,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: _displayBollData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.upper)).toList(),
+              isCurved: true,
+              color: Colors.orange,
+              dotData: const FlDotData(show: false),
+              barWidth: 1,
+            ),
+            LineChartBarData(
+              spots: _displayBollData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.mid)).toList(),
+              isCurved: true,
+              color: Colors.purple,
+              dotData: const FlDotData(show: false),
+              barWidth: 1,
+            ),
+            LineChartBarData(
+              spots: _displayBollData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.lower)).toList(),
+              isCurved: true,
+              color: Colors.green,
+              dotData: const FlDotData(show: false),
+              barWidth: 1,
+            ),
+          ],
         ),
       ),
     );
@@ -1409,4 +1569,69 @@ class _TradeDialogState extends State<_TradeDialog> {
       ),
     );
   }
+}
+
+class _MaDisplay extends StatelessWidget {
+  final String label;
+  final double? value;
+  final Color color;
+
+  const _MaDisplay({
+    required this.label,
+    this.value,
+    this.color = Colors.blue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        if (value != null && value! > 0)
+          Row(
+            children: [
+              const SizedBox(width: 4),
+              Text(
+                '${value!.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+
+class KdjData {
+  final double k;
+  final double d;
+  final double j;
+
+  KdjData({required this.k, required this.d, required this.j});
+}
+
+class RsiData {
+  final double rsi;
+
+  RsiData({required this.rsi});
+}
+
+class BollData {
+  final double upper;
+  final double mid;
+  final double lower;
+
+  BollData({required this.upper, required this.mid, required this.lower});
 }
