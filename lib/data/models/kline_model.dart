@@ -55,3 +55,33 @@ class KlineResponse {
 
   Map<String, dynamic> toJson() => _$KlineResponseToJson(this);
 }
+
+class KdjData {
+  final double k;
+  final double d;
+  final double j;
+
+  const KdjData({
+    required this.k,
+    required this.d,
+    required this.j,
+  });
+}
+
+class RsiData {
+  final double rsi;
+
+  const RsiData({required this.rsi});
+}
+
+class BollData {
+  final double upper;
+  final double mid;
+  final double lower;
+
+  BollData({
+    required this.upper,
+    required this.mid,
+    required this.lower,
+  });
+}

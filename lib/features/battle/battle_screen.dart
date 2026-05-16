@@ -6,7 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
 import 'package:kline_trainer/data/repositories/kline_repository.dart';
-import 'package:kline_trainer/data/models/kline_model.dart';
+import 'package:kline_trainer/data/models/kline_model.dart' show KlineModel, KdjData, RsiData, BollData;
+import 'package:kline_trainer/data/utils/indicator_calculator.dart';
 
 class BattleScreen extends ConsumerStatefulWidget {
   const BattleScreen({super.key});
@@ -47,15 +48,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Future<void> _loadKlineData() async {
     final repository = KlineRepository();
+    const historyDays = 30;
     final data = await repository.fetchKlineData(
       symbol: _currentSymbol,
       timeframe: 'day',
-      limit: _trainingDays,
+      limit: _trainingDays + historyDays,
     );
 
     setState(() {
       _allKlineData = data;
-      _currentDayIndex = 0;
+      _currentDayIndex = historyDays;
       _tradePoints = [];
     });
   }
@@ -254,56 +256,94 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   List<MacdData> get _displayMacdData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    return List.generate(
-      endIndex,
-      (i) {
-        final macd = i > 0
-            ? (_allKlineData[i].close - _allKlineData[i - 1].close) / 10
-            : 0.0;
-        return MacdData(macd: macd, diff: macd * 1.2, dea: macd * 0.8);
-      },
-    );
+    final displayData = _allKlineData.take(endIndex).toList();
+    
+    final macdResult = IndicatorCalculator.calculateMACD(displayData);
+    final paddingCount = endIndex - macdResult.macd.length;
+    
+    final result = <MacdData>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(MacdData(macd: 0, diff: 0, dea: 0));
+    }
+    for (int i = 0; i < macdResult.macd.length; i++) {
+      result.add(MacdData(
+        macd: macdResult.macd[i],
+        diff: macdResult.dif[i],
+        dea: macdResult.dea[i],
+      ));
+    }
+    
+    return result;
   }
 
   List<KdjData> get _displayKdjData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    return List.generate(
-      endIndex,
-      (i) {
-        final k = (i % 100).toDouble();
-        final d = ((k * 0.7 + 30).clamp(0, 100) as num).toDouble();
-        final j = ((k * 1.5 - d * 0.5).clamp(0, 100) as num).toDouble();
-        return KdjData(k: k, d: d, j: j);
-      },
-    );
+    final displayData = _allKlineData.take(endIndex).toList();
+    
+    final kdjResult = IndicatorCalculator.calculateKDJ(displayData);
+    final paddingCount = endIndex - kdjResult.k.length;
+    
+    final result = <KdjData>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(KdjData(k: 50, d: 50, j: 50));
+    }
+    for (int i = 0; i < kdjResult.k.length; i++) {
+      result.add(KdjData(
+        k: kdjResult.k[i],
+        d: kdjResult.d[i],
+        j: kdjResult.j[i],
+      ));
+    }
+    
+    return result;
   }
 
   List<RsiData> get _displayRsiData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    return List.generate(
-      endIndex,
-      (i) {
-        final rsi = (50 + i % 50).clamp(0, 100).toDouble();
-        return RsiData(rsi: rsi);
-      },
-    );
+    final displayData = _allKlineData.take(endIndex).toList();
+    
+    final rsiResult = IndicatorCalculator.calculateRSI(displayData);
+    final paddingCount = endIndex - rsiResult.values.length;
+    
+    final result = <RsiData>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(RsiData(rsi: 50));
+    }
+    for (int i = 0; i < rsiResult.values.length; i++) {
+      result.add(RsiData(rsi: rsiResult.values[i]));
+    }
+    
+    return result;
   }
 
   List<BollData> get _displayBollData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    return List.generate(
-      endIndex,
-      (i) {
-        final currentData = _allKlineData[i];
-        final mid = currentData.close;
-        final upper = mid * 1.02;
-        final lower = mid * 0.98;
-        return BollData(upper: upper, mid: mid, lower: lower);
-      },
-    );
+    final displayData = _allKlineData.take(endIndex).toList();
+    
+    final bollResult = IndicatorCalculator.calculateBoll(displayData);
+    final paddingCount = endIndex - bollResult.mb.length;
+    
+    final result = <BollData>[];
+    for (int i = 0; i < paddingCount; i++) {
+      final currentData = displayData[i];
+      result.add(BollData(
+        upper: currentData.close * 1.02,
+        mid: currentData.close,
+        lower: currentData.close * 0.98,
+      ));
+    }
+    for (int i = 0; i < bollResult.mb.length; i++) {
+      result.add(BollData(
+        upper: bollResult.up[i],
+        mid: bollResult.mb[i],
+        lower: bollResult.dn[i],
+      ));
+    }
+    
+    return result;
   }
 
   @override
@@ -734,47 +774,79 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildMacdChart() {
     if (_displayMacdData.isEmpty) return const SizedBox();
-    double maxMacd = _displayMacdData.map((m) => m.macd).reduce((a, b) => a.abs() > b.abs() ? a : b).abs();
-    final safeMax = maxMacd > 0 ? maxMacd : 1.0;
+    
+    final values = _displayMacdData.expand((m) => [m.macd, m.diff, m.dea]).toList();
+    double maxValue = values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
+    final safeMax = maxValue > 0 ? maxValue : 1.0;
 
     return SizedBox(
       height: 100,
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: safeMax * 1.2,
-          minY: -safeMax * 1.2,
-          barTouchData: BarTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: safeMax / 2,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          barGroups: _displayMacdData
-              .asMap()
-              .entries
-              .map(
-                (entry) => BarChartGroupData(
-                  x: entry.key,
-                  barRods: [
-                    BarChartRodData(
-                      toY: entry.value.macd,
-                      color: entry.value.macd > 0 ? Colors.red : Colors.green,
-                      width: 3,
+      child: Stack(
+        children: [
+          BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: safeMax * 1.2,
+              minY: -safeMax * 1.2,
+              barTouchData: BarTouchData(enabled: false),
+              titlesData: const FlTitlesData(show: false),
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: safeMax / 2,
+                getDrawingHorizontalLine: (value) {
+                  return FlLine(
+                    color: Colors.grey.withOpacity(0.2),
+                    strokeWidth: 0.5,
+                  );
+                },
+              ),
+              barGroups: _displayMacdData
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.macd,
+                          color: entry.value.macd > 0 ? Colors.red : Colors.green,
+                          width: 3,
+                        ),
+                      ],
                     ),
-                  ],
+                  )
+                  .toList(),
+            ),
+          ),
+          LineChart(
+            LineChartData(
+              minY: -safeMax * 1.2,
+              maxY: safeMax * 1.2,
+              lineTouchData: LineTouchData(enabled: false),
+              titlesData: const FlTitlesData(show: false),
+              borderData: FlBorderData(show: false),
+              gridData: const FlGridData(show: false),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: _displayMacdData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.diff)).toList(),
+                  isCurved: true,
+                  color: Colors.blue,
+                  dotData: const FlDotData(show: false),
+                  barWidth: 1.5,
                 ),
-              )
-              .toList(),
-        ),
+                LineChartBarData(
+                  spots: _displayMacdData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.dea)).toList(),
+                  isCurved: true,
+                  color: Colors.orange,
+                  dotData: const FlDotData(show: false),
+                  barWidth: 1.5,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

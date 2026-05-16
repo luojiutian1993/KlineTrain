@@ -63,6 +63,191 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     return query.get();
   }
 
+  /// 从日线数据聚合周线数据
+  Future<List<KlineDataData>> aggregateWeeklyKline(String symbol) {
+    return customSelect(
+      '''
+      SELECT 
+        symbol,
+        market_code,
+        'week' as period,
+        date_trunc('week', trade_date) + INTERVAL '4 days' as trade_date,
+        FIRST_VALUE(open) OVER (PARTITION BY symbol, date_trunc('week', trade_date) ORDER BY trade_date) as open,
+        MAX(high) OVER (PARTITION BY symbol, date_trunc('week', trade_date)) as high,
+        MIN(low) OVER (PARTITION BY symbol, date_trunc('week', trade_date)) as low,
+        LAST_VALUE(close) OVER (PARTITION BY symbol, date_trunc('week', trade_date) ORDER BY trade_date) as close,
+        SUM(volume) OVER (PARTITION BY symbol, date_trunc('week', trade_date)) as volume,
+        SUM(amount) OVER (PARTITION BY symbol, date_trunc('week', trade_date)) as amount
+      FROM kline_data
+      WHERE symbol = ? AND period = 'day'
+      ORDER BY trade_date
+      ''',
+      variables: [Variable.withString(symbol)],
+      readsFrom: {klineData},
+    ).map((row) => KlineDataData(
+          symbol: row.readString(klineData.symbol.name),
+          marketCode: row.readString(klineData.marketCode.name),
+          period: 'week',
+          tradeDate: row.readDateTime('trade_date'),
+          open: row.readDouble(klineData.open.name),
+          high: row.readDouble(klineData.high.name),
+          low: row.readDouble(klineData.low.name),
+          close: row.readDouble(klineData.close.name),
+          volume: row.readDouble(klineData.volume.name),
+          amount: row.readDouble(klineData.amount.name),
+          createdAt: DateTime.now(),
+        )).get() as Future<List<KlineDataData>>;
+  }
+
+  /// 从日线数据聚合月线数据
+  Future<List<KlineDataData>> aggregateMonthlyKline(String symbol) {
+    return customSelect(
+      '''
+      SELECT 
+        symbol,
+        market_code,
+        'month' as period,
+        date_trunc('month', trade_date) + INTERVAL '1 month - 1 day' as trade_date,
+        FIRST_VALUE(open) OVER (PARTITION BY symbol, date_trunc('month', trade_date) ORDER BY trade_date) as open,
+        MAX(high) OVER (PARTITION BY symbol, date_trunc('month', trade_date)) as high,
+        MIN(low) OVER (PARTITION BY symbol, date_trunc('month', trade_date)) as low,
+        LAST_VALUE(close) OVER (PARTITION BY symbol, date_trunc('month', trade_date) ORDER BY trade_date) as close,
+        SUM(volume) OVER (PARTITION BY symbol, date_trunc('month', trade_date)) as volume,
+        SUM(amount) OVER (PARTITION BY symbol, date_trunc('month', trade_date)) as amount
+      FROM kline_data
+      WHERE symbol = ? AND period = 'day'
+      ORDER BY trade_date
+      ''',
+      variables: [Variable.withString(symbol)],
+      readsFrom: {klineData},
+    ).map((row) => KlineDataData(
+          symbol: row.readString(klineData.symbol.name),
+          marketCode: row.readString(klineData.marketCode.name),
+          period: 'month',
+          tradeDate: row.readDateTime('trade_date'),
+          open: row.readDouble(klineData.open.name),
+          high: row.readDouble(klineData.high.name),
+          low: row.readDouble(klineData.low.name),
+          close: row.readDouble(klineData.close.name),
+          volume: row.readDouble(klineData.volume.name),
+          amount: row.readDouble(klineData.amount.name),
+          createdAt: DateTime.now(),
+        )).get() as Future<List<KlineDataData>>;
+  }
+
+  /// 从日线数据聚合季线数据
+  Future<List<KlineDataData>> aggregateQuarterlyKline(String symbol) {
+    return customSelect(
+      '''
+      SELECT 
+        symbol,
+        market_code,
+        'quarter' as period,
+        CASE 
+          WHEN strftime('%m', trade_date) BETWEEN '01' AND '03' THEN date(date_trunc('year', trade_date), '+2 months', 'start of month', '+1 month', '-1 day')
+          WHEN strftime('%m', trade_date) BETWEEN '04' AND '06' THEN date(date_trunc('year', trade_date), '+5 months', 'start of month', '+1 month', '-1 day')
+          WHEN strftime('%m', trade_date) BETWEEN '07' AND '09' THEN date(date_trunc('year', trade_date), '+8 months', 'start of month', '+1 month', '-1 day')
+          ELSE date(date_trunc('year', trade_date), '+11 months', 'start of month', '+1 month', '-1 day')
+        END as trade_date,
+        FIRST_VALUE(open) OVER (PARTITION BY symbol, 
+          CASE 
+            WHEN strftime('%m', trade_date) BETWEEN '01' AND '03' THEN 1
+            WHEN strftime('%m', trade_date) BETWEEN '04' AND '06' THEN 2
+            WHEN strftime('%m', trade_date) BETWEEN '07' AND '09' THEN 3
+            ELSE 4
+          END ORDER BY trade_date) as open,
+        MAX(high) OVER (PARTITION BY symbol, 
+          CASE 
+            WHEN strftime('%m', trade_date) BETWEEN '01' AND '03' THEN 1
+            WHEN strftime('%m', trade_date) BETWEEN '04' AND '06' THEN 2
+            WHEN strftime('%m', trade_date) BETWEEN '07' AND '09' THEN 3
+            ELSE 4
+          END) as high,
+        MIN(low) OVER (PARTITION BY symbol, 
+          CASE 
+            WHEN strftime('%m', trade_date) BETWEEN '01' AND '03' THEN 1
+            WHEN strftime('%m', trade_date) BETWEEN '04' AND '06' THEN 2
+            WHEN strftime('%m', trade_date) BETWEEN '07' AND '09' THEN 3
+            ELSE 4
+          END) as low,
+        LAST_VALUE(close) OVER (PARTITION BY symbol, 
+          CASE 
+            WHEN strftime('%m', trade_date) BETWEEN '01' AND '03' THEN 1
+            WHEN strftime('%m', trade_date) BETWEEN '04' AND '06' THEN 2
+            WHEN strftime('%m', trade_date) BETWEEN '07' AND '09' THEN 3
+            ELSE 4
+          END ORDER BY trade_date) as close,
+        SUM(volume) OVER (PARTITION BY symbol, 
+          CASE 
+            WHEN strftime('%m', trade_date) BETWEEN '01' AND '03' THEN 1
+            WHEN strftime('%m', trade_date) BETWEEN '04' AND '06' THEN 2
+            WHEN strftime('%m', trade_date) BETWEEN '07' AND '09' THEN 3
+            ELSE 4
+          END) as volume,
+        SUM(amount) OVER (PARTITION BY symbol, 
+          CASE 
+            WHEN strftime('%m', trade_date) BETWEEN '01' AND '03' THEN 1
+            WHEN strftime('%m', trade_date) BETWEEN '04' AND '06' THEN 2
+            WHEN strftime('%m', trade_date) BETWEEN '07' AND '09' THEN 3
+            ELSE 4
+          END) as amount
+      FROM kline_data
+      WHERE symbol = ? AND period = 'day'
+      ORDER BY trade_date
+      ''',
+      variables: [Variable.withString(symbol)],
+      readsFrom: {klineData},
+    ).map((row) => KlineDataData(
+          symbol: row.readString(klineData.symbol.name),
+          marketCode: row.readString(klineData.marketCode.name),
+          period: 'quarter',
+          tradeDate: row.readDateTime('trade_date'),
+          open: row.readDouble(klineData.open.name),
+          high: row.readDouble(klineData.high.name),
+          low: row.readDouble(klineData.low.name),
+          close: row.readDouble(klineData.close.name),
+          volume: row.readDouble(klineData.volume.name),
+          amount: row.readDouble(klineData.amount.name),
+          createdAt: DateTime.now(),
+        )).get() as Future<List<KlineDataData>>;
+  }
+
+  /// 从日线数据聚合年线数据
+  Future<List<KlineDataData>> aggregateYearlyKline(String symbol) {
+    return customSelect(
+      '''
+      SELECT 
+        symbol,
+        market_code,
+        'year' as period,
+        date_trunc('year', trade_date) + INTERVAL '1 year - 1 day' as trade_date,
+        FIRST_VALUE(open) OVER (PARTITION BY symbol, date_trunc('year', trade_date) ORDER BY trade_date) as open,
+        MAX(high) OVER (PARTITION BY symbol, date_trunc('year', trade_date)) as high,
+        MIN(low) OVER (PARTITION BY symbol, date_trunc('year', trade_date)) as low,
+        LAST_VALUE(close) OVER (PARTITION BY symbol, date_trunc('year', trade_date) ORDER BY trade_date) as close,
+        SUM(volume) OVER (PARTITION BY symbol, date_trunc('year', trade_date)) as volume,
+        SUM(amount) OVER (PARTITION BY symbol, date_trunc('year', trade_date)) as amount
+      FROM kline_data
+      WHERE symbol = ? AND period = 'day'
+      ORDER BY trade_date
+      ''',
+      variables: [Variable.withString(symbol)],
+      readsFrom: {klineData},
+    ).map((row) => KlineDataData(
+          symbol: row.readString(klineData.symbol.name),
+          marketCode: row.readString(klineData.marketCode.name),
+          period: 'year',
+          tradeDate: row.readDateTime('trade_date'),
+          open: row.readDouble(klineData.open.name),
+          high: row.readDouble(klineData.high.name),
+          low: row.readDouble(klineData.low.name),
+          close: row.readDouble(klineData.close.name),
+          volume: row.readDouble(klineData.volume.name),
+          amount: row.readDouble(klineData.amount.name),
+          createdAt: DateTime.now(),
+        )).get() as Future<List<KlineDataData>>;
+  }
+
   /// 批量插入K线数据
   Future<void> batchInsertKline(List<KlineDataCompanion> data) {
     return batch((batch) {

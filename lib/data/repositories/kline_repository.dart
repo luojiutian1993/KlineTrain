@@ -5,6 +5,7 @@ import 'package:kline_trainer/data/api/kline_api.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
+import 'package:kline_trainer/data/utils/indicator_calculator.dart';
 
 part 'kline_repository.g.dart';
 
@@ -56,6 +57,50 @@ class KlineRepository {
     }
   }
 
+  Future<List<KlineModel>> _aggregateFromDailyData(String symbol, String targetPeriod) async {
+    try {
+      final dbService = await _getDbService();
+      List<KlineDataData> aggregatedData;
+
+      switch (targetPeriod) {
+        case 'week':
+          aggregatedData = await dbService.klineDao.aggregateWeeklyKline(symbol);
+          break;
+        case 'month':
+          aggregatedData = await dbService.klineDao.aggregateMonthlyKline(symbol);
+          break;
+        case 'quarter':
+          aggregatedData = await dbService.klineDao.aggregateQuarterlyKline(symbol);
+          break;
+        case 'year':
+          aggregatedData = await dbService.klineDao.aggregateYearlyKline(symbol);
+          break;
+        default:
+          return [];
+      }
+
+      if (aggregatedData.isEmpty) {
+        return [];
+      }
+
+      final result = aggregatedData.map((item) => KlineModel(
+        symbol: item.symbol,
+        timestamp: item.tradeDate.millisecondsSinceEpoch,
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+        turnover: item.amount,
+      )).toList();
+
+      await _saveToDatabase(result, targetPeriod);
+      return result;
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<KlineModel>> fetchKlineData({
     String symbol = 'SH600000',
     String timeframe = 'day',
@@ -69,7 +114,14 @@ class KlineRepository {
       );
 
       if (dbData.isNotEmpty) {
-        return dbData;
+        return dbData.take(limit).toList();
+      }
+
+      if (timeframe != 'day') {
+        final aggregatedData = await _aggregateFromDailyData(symbol, timeframe);
+        if (aggregatedData.isNotEmpty) {
+          return aggregatedData.take(limit).toList();
+        }
       }
 
       final apiData = await _api.fetchKlineData(
@@ -87,6 +139,26 @@ class KlineRepository {
     } catch (e) {
       return _generateMockData(symbol, limit);
     }
+  }
+
+  MACDResult calculateMACD(List<KlineModel> data) {
+    return IndicatorCalculator.calculateMACD(data);
+  }
+
+  BollResult calculateBoll(List<KlineModel> data) {
+    return IndicatorCalculator.calculateBoll(data);
+  }
+
+  KDJResult calculateKDJ(List<KlineModel> data) {
+    return IndicatorCalculator.calculateKDJ(data);
+  }
+
+  RSIResult calculateRSI(List<KlineModel> data) {
+    return IndicatorCalculator.calculateRSI(data);
+  }
+
+  WRResult calculateWR(List<KlineModel> data) {
+    return IndicatorCalculator.calculateWR(data);
   }
 
   Future<void> _saveToDatabase(List<KlineModel> data, String period) async {
