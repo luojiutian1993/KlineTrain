@@ -1,83 +1,153 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
+import 'package:kline_trainer/data/database/database_service.dart';
+import 'package:kline_trainer/data/database/app_database.dart';
+import 'package:kline_trainer/routes/app_routes.dart';
 
-class TrainingHistoryScreen extends StatelessWidget {
+class TrainingHistoryScreen extends ConsumerStatefulWidget {
   const TrainingHistoryScreen({super.key});
+
+  @override
+  ConsumerState<TrainingHistoryScreen> createState() =>
+      _TrainingHistoryScreenState();
+}
+
+class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
+  List<TrainingSession> _sessions = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrainingSessions();
+  }
+
+  Future<void> _loadTrainingSessions() async {
+    setState(() => _isLoading = true);
+    try {
+      final dbService = DatabaseService.instance;
+      _sessions = await dbService.trainingDao.getUserSessions(1);
+    } catch (e) {
+      debugPrint('Failed to load training sessions: $e');
+    }
+    setState(() => _isLoading = false);
+  }
+
+  String _getStockName(String symbol) {
+    final names = {
+      'SH600000': '浦发银行',
+      'SH600036': '招商银行',
+      'SH600519': '贵州茅台',
+      'SH601318': '中国平安',
+      'SZ300750': '宁德时代',
+      'SZ002594': '比亚迪',
+    };
+    return names[symbol] ?? symbol;
+  }
+
+  String _formatDateRange(DateTime? start, DateTime? end) {
+    if (start == null || end == null) return '-';
+    return '${start.year}.${start.month.toString().padLeft(2, '0')}.${start.day.toString().padLeft(2, '0')} - ${end.year}.${end.month.toString().padLeft(2, '0')}.${end.day.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(title: const Text('训练记录'), backgroundColor: AppTheme.surface),
-      body: ListView(
-        children: [
-          const SizedBox(height: 12),
-          _TrainingCard(
-            name: '贵州茅台训练',
-            period: '2024.01.01 - 2025.12.31',
-            returnPercent: 15.32,
-            trades: 12,
-            winRate: 66.7,
-          ),
-          _TrainingCard(
-            name: '比亚迪训练',
-            period: '2023.06.01 - 2024.05.31',
-            returnPercent: -3.21,
-            trades: 8,
-            winRate: 50.0,
-          ),
-        ],
-      ),
+      appBar:
+          AppBar(title: const Text('训练记录'), backgroundColor: AppTheme.surface),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _sessions.isEmpty
+              ? const Center(child: Text('暂无训练记录'))
+              : ListView.builder(
+                  itemCount: _sessions.length,
+                  itemBuilder: (context, index) {
+                    final session = _sessions[index];
+                    return _TrainingCard(
+                      session: session,
+                      stockName: _getStockName(session.symbol),
+                      onTap: () => context
+                          .push('${AppRoutes.trainingHistory}/${session.id}'),
+                    );
+                  },
+                ),
     );
   }
 }
 
 class _TrainingCard extends StatelessWidget {
-  final String name;
-  final String period;
-  final double returnPercent;
-  final int trades;
-  final double winRate;
+  final TrainingSession session;
+  final String stockName;
+  final VoidCallback onTap;
 
   const _TrainingCard({
-    required this.name,
-    required this.period,
-    required this.returnPercent,
-    required this.trades,
-    required this.winRate,
+    required this.session,
+    required this.stockName,
+    required this.onTap,
   });
+
+  String _formatDateRange(DateTime? start, DateTime? end) {
+    if (start == null || end == null) return '-';
+    return '${start.year}.${start.month.toString().padLeft(2, '0')}.${start.day.toString().padLeft(2, '0')} - ${end.year}.${end.month.toString().padLeft(2, '0')}.${end.day.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-              const Icon(Icons.chevron_right, color: AppTheme.muted),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(period, style: TextStyle(color: AppTheme.muted, fontSize: 14)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _StatChip(
-                label: '收益率',
-                value: '${returnPercent >= 0 ? '+' : ''}${returnPercent.toStringAsFixed(2)}%',
-                color: returnPercent >= 0 ? AppTheme.red : AppTheme.green,
-              ),
-              _StatChip(label: '交易次数', value: '$trades次'),
-              _StatChip(label: '胜率', value: '${winRate.toStringAsFixed(1)}%'),
-            ],
-          ),
-        ],
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+            color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(stockName,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 4),
+                      Text(session.symbol,
+                          style:
+                              TextStyle(fontSize: 12, color: AppTheme.muted)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: AppTheme.muted),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(_formatDateRange(session.startDate, session.endDate),
+                style: TextStyle(color: AppTheme.muted, fontSize: 14)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _StatChip(
+                  label: '收益率',
+                  value:
+                      '${session.profitRate != null && session.profitRate! >= 0 ? '+' : ''}${session.profitRate?.toStringAsFixed(2) ?? '0'}%',
+                  color: (session.profitRate ?? 0) >= 0
+                      ? AppTheme.red
+                      : AppTheme.green,
+                ),
+                _StatChip(label: '交易次数', value: '${session.tradeCount ?? 0}次'),
+                _StatChip(
+                    label: '胜率',
+                    value: '${session.winRate?.toStringAsFixed(1) ?? '0'}%'),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -94,7 +164,11 @@ class _StatChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color ?? AppTheme.fg)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: color ?? AppTheme.fg)),
         Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
       ],
     );

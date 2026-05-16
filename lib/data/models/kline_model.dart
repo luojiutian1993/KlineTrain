@@ -85,3 +85,25 @@ class BollData {
     required this.lower,
   });
 }
+
+class DmiData {
+  final double plusDI;
+  final double minusDI;
+  final double adx;
+
+  DmiData({
+    required this.plusDI,
+    required this.minusDI,
+    required this.adx,
+  });
+}
+
+class DmaData {
+  final double dma;
+  final double ama;
+
+  DmaData({
+    required this.dma,
+    required this.ama,
+  });
+}

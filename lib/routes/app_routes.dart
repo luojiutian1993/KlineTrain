@@ -10,6 +10,7 @@ import 'package:kline_trainer/features/user/register_screen.dart';
 import 'package:kline_trainer/features/mine/settings/settings_screen.dart';
 import 'package:kline_trainer/features/mine/favorites/favorites_screen.dart';
 import 'package:kline_trainer/features/mine/training_history/training_history_screen.dart';
+import 'package:kline_trainer/features/mine/training_history/training_detail_screen.dart';
 import 'package:kline_trainer/features/mine/notifications/notifications_screen.dart';
 import 'package:kline_trainer/features/mine/feedback/feedback_screen.dart';
 import 'package:kline_trainer/features/mine/help_center/help_center_screen.dart';
@@ -65,6 +66,16 @@ class AppRoutes {
             path: 'training-history',
             name: 'training-history',
             builder: (context, state) => const TrainingHistoryScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: 'training-detail',
+                builder: (context, state) {
+                  final id = int.parse(state.pathParameters['id']!);
+                  return TrainingDetailScreen(sessionId: id);
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: 'learning-progress',

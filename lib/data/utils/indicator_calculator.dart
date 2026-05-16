@@ -49,6 +49,43 @@ class WRResult {
   WRResult({required this.values});
 }
 
+class CCIResult {
+  final List<double> values;
+
+  CCIResult({required this.values});
+}
+
+class OBVResult {
+  final List<double> values;
+
+  OBVResult({required this.values});
+}
+
+class DMIResult {
+  final List<double> plusDI;
+  final List<double> minusDI;
+  final List<double> adx;
+
+  DMIResult({
+    required this.plusDI,
+    required this.minusDI,
+    required this.adx,
+  });
+}
+
+class DMAResult {
+  final List<double> dma;
+  final List<double> ama;
+
+  DMAResult({required this.dma, required this.ama});
+}
+
+class BBIResult {
+  final List<double> values;
+
+  BBIResult({required this.values});
+}
+
 class IndicatorCalculator {
   static List<double> calculateEMA(List<double> closes, int period) {
     final k = 2 / (period + 1);
@@ -254,5 +291,180 @@ class IndicatorCalculator {
     }
 
     return WRResult(values: wr);
+  }
+
+  static CCIResult calculateCCI(List<KlineModel> data, {int period = 14}) {
+    final cci = <double>[];
+
+    if (data.length < period) {
+      return CCIResult(values: cci);
+    }
+
+    for (int i = period - 1; i < data.length; i++) {
+      double tpSum = 0;
+      for (int j = i - period + 1; j <= i; j++) {
+        final tp = (data[j].high + data[j].low + data[j].close) / 3;
+        tpSum += tp;
+      }
+      final smaTp = tpSum / period;
+
+      double meanDevSum = 0;
+      for (int j = i - period + 1; j <= i; j++) {
+        final tp = (data[j].high + data[j].low + data[j].close) / 3;
+        meanDevSum += (tp - smaTp).abs();
+      }
+      final meanDev = meanDevSum / period;
+
+      final tp = (data[i].high + data[i].low + data[i].close) / 3;
+      if (meanDev == 0) {
+        cci.add(0);
+      } else {
+        cci.add((tp - smaTp) / (0.015 * meanDev));
+      }
+    }
+
+    return CCIResult(values: cci);
+  }
+
+  static OBVResult calculateOBV(List<KlineModel> data) {
+    final obv = <double>[];
+
+    if (data.isEmpty) {
+      return OBVResult(values: obv);
+    }
+
+    obv.add(data[0].volume);
+    for (int i = 1; i < data.length; i++) {
+      if (data[i].close > data[i - 1].close) {
+        obv.add(obv.last + data[i].volume);
+      } else if (data[i].close < data[i - 1].close) {
+        obv.add(obv.last - data[i].volume);
+      } else {
+        obv.add(obv.last);
+      }
+    }
+
+    return OBVResult(values: obv);
+  }
+
+  static DMIResult calculateDMI(List<KlineModel> data, {int period = 14}) {
+    final plusDI = <double>[];
+    final minusDI = <double>[];
+    final adxList = <double>[];
+
+    if (data.length < period + 1) {
+      return DMIResult(plusDI: plusDI, minusDI: minusDI, adx: adxList);
+    }
+
+    final List<double> trList = [];
+    final List<double> plusDMList = [];
+    final List<double> minusDMList = [];
+
+    for (int i = 1; i < data.length; i++) {
+      final high = data[i].high;
+      final low = data[i].low;
+      final prevHigh = data[i - 1].high;
+      final prevLow = data[i - 1].low;
+      final prevClose = data[i - 1].close;
+
+      final tr = max(
+          max(high - low, (high - prevClose).abs()), (low - prevClose).abs());
+      trList.add(tr);
+
+      final plusDM =
+          high - prevHigh > prevLow - low ? max(high - prevHigh, 0.0) : 0.0;
+      plusDMList.add(plusDM);
+
+      final minusDM =
+          prevLow - low > high - prevHigh ? max(prevLow - low, 0.0) : 0.0;
+      minusDMList.add(minusDM);
+    }
+
+    final List<double> smoothedTR = [];
+    final List<double> smoothedPlusDM = [];
+    final List<double> smoothedMinusDM = [];
+
+    double sumTR = 0, sumPlusDM = 0, sumMinusDM = 0;
+    for (int i = 0; i < period; i++) {
+      sumTR += trList[i];
+      sumPlusDM += plusDMList[i];
+      sumMinusDM += minusDMList[i];
+    }
+    smoothedTR.add(sumTR);
+    smoothedPlusDM.add(sumPlusDM);
+    smoothedMinusDM.add(sumMinusDM);
+
+    for (int i = period; i < trList.length; i++) {
+      smoothedTR.add(smoothedTR.last - smoothedTR.last / period + trList[i]);
+      smoothedPlusDM.add(
+          smoothedPlusDM.last - smoothedPlusDM.last / period + plusDMList[i]);
+      smoothedMinusDM.add(smoothedMinusDM.last -
+          smoothedMinusDM.last / period +
+          minusDMList[i]);
+    }
+
+    for (int i = period - 1; i < smoothedTR.length; i++) {
+      if (smoothedTR[i] == 0) {
+        plusDI.add(0);
+        minusDI.add(0);
+      } else {
+        plusDI.add(smoothedPlusDM[i] / smoothedTR[i] * 100);
+        minusDI.add(smoothedMinusDM[i] / smoothedTR[i] * 100);
+      }
+    }
+
+    final List<double> dxList = [];
+    for (int i = 0; i < plusDI.length; i++) {
+      final sum = plusDI[i] + minusDI[i];
+      if (sum == 0) {
+        dxList.add(0);
+      } else {
+        dxList.add((plusDI[i] - minusDI[i]).abs() / sum * 100);
+      }
+    }
+
+    for (int i = period - 1; i < dxList.length; i++) {
+      double sumDx = 0;
+      for (int j = i - period + 1; j <= i; j++) {
+        sumDx += dxList[j];
+      }
+      adxList.add(sumDx / period);
+    }
+
+    return DMIResult(plusDI: plusDI, minusDI: minusDI, adx: adxList);
+  }
+
+  static DMAResult calculateDMA(List<KlineModel> data,
+      {int shortPeriod = 10, int longPeriod = 50, int signalPeriod = 10}) {
+    final closes = data.map((d) => d.close).toList();
+    final shortMA = calculateSMA(closes, shortPeriod);
+    final longMA = calculateSMA(closes, longPeriod);
+
+    final dma = <double>[];
+    final minLength = min(shortMA.length, longMA.length);
+    for (int i = 0; i < minLength; i++) {
+      dma.add(shortMA[i] - longMA[i]);
+    }
+
+    final ama = calculateSMA(dma, signalPeriod);
+
+    return DMAResult(dma: dma, ama: ama);
+  }
+
+  static BBIResult calculateBBI(List<KlineModel> data) {
+    final closes = data.map((d) => d.close).toList();
+    final ma3 = calculateSMA(closes, 3);
+    final ma6 = calculateSMA(closes, 6);
+    final ma12 = calculateSMA(closes, 12);
+    final ma20 = calculateSMA(closes, 20);
+
+    final bbi = <double>[];
+    final minLength =
+        min(min(ma3.length, ma6.length), min(ma12.length, ma20.length));
+    for (int i = 0; i < minLength; i++) {
+      bbi.add((ma3[i] + ma6[i] + ma12[i] + ma20[i]) / 4);
+    }
+
+    return BBIResult(values: bbi);
   }
 }

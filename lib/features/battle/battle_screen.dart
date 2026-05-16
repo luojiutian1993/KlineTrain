@@ -6,8 +6,12 @@ import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
 import 'package:kline_trainer/data/repositories/kline_repository.dart';
-import 'package:kline_trainer/data/models/kline_model.dart' show KlineModel, KdjData, RsiData, BollData;
+import 'package:kline_trainer/data/models/kline_model.dart'
+    show KlineModel, KdjData, RsiData, BollData, DmiData, DmaData;
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
+import 'package:kline_trainer/data/database/database_service.dart';
+import 'package:kline_trainer/data/database/app_database.dart';
+import 'package:drift/drift.dart' show Value;
 
 class BattleScreen extends ConsumerStatefulWidget {
   const BattleScreen({super.key});
@@ -23,9 +27,22 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   String _selectedBottomIndicator = 'MACD';
   int _currentDayIndex = 0;
   int _trainingDays = 60;
+  final int _historyDays = 30;
 
   final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
-  final List<String> _indicators = ['成交量', 'MACD', 'KDJ', 'RSI', 'BOLL'];
+  final List<String> _indicators = [
+    '成交量',
+    'MACD',
+    'KDJ',
+    'RSI',
+    'BOLL',
+    'WR',
+    'CCI',
+    'OBV',
+    'DMI',
+    'DMA',
+    'BBI'
+  ];
 
   String _currentSymbol = 'SH600000';
   List<KlineModel> _allKlineData = [];
@@ -48,16 +65,15 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Future<void> _loadKlineData() async {
     final repository = KlineRepository();
-    const historyDays = 30;
     final data = await repository.fetchKlineData(
       symbol: _currentSymbol,
       timeframe: 'day',
-      limit: _trainingDays + historyDays,
+      limit: _trainingDays + _historyDays,
     );
 
     setState(() {
       _allKlineData = data;
-      _currentDayIndex = historyDays;
+      _currentDayIndex = _historyDays;
       _tradePoints = [];
     });
   }
@@ -70,18 +86,14 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _updateAccount();
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已到达最后一天')),
-      );
+      _showTrainingCompleteDialog();
     }
   }
 
-  void _checkConditionalOrders() {
-  }
+  void _checkConditionalOrders() {}
 
   void _updateAccount() {
-    if (_positionQuantity > 0 && _allKlineData.isNotEmpty) {
-    }
+    if (_positionQuantity > 0 && _allKlineData.isNotEmpty) {}
   }
 
   void _showBuyDialog() {
@@ -257,10 +269,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final displayData = _allKlineData.take(endIndex).toList();
-    
+
     final macdResult = IndicatorCalculator.calculateMACD(displayData);
     final paddingCount = endIndex - macdResult.macd.length;
-    
+
     final result = <MacdData>[];
     for (int i = 0; i < paddingCount; i++) {
       result.add(MacdData(macd: 0, diff: 0, dea: 0));
@@ -272,7 +284,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         dea: macdResult.dea[i],
       ));
     }
-    
+
     return result;
   }
 
@@ -280,10 +292,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final displayData = _allKlineData.take(endIndex).toList();
-    
+
     final kdjResult = IndicatorCalculator.calculateKDJ(displayData);
     final paddingCount = endIndex - kdjResult.k.length;
-    
+
     final result = <KdjData>[];
     for (int i = 0; i < paddingCount; i++) {
       result.add(KdjData(k: 50, d: 50, j: 50));
@@ -295,7 +307,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         j: kdjResult.j[i],
       ));
     }
-    
+
     return result;
   }
 
@@ -303,10 +315,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final displayData = _allKlineData.take(endIndex).toList();
-    
+
     final rsiResult = IndicatorCalculator.calculateRSI(displayData);
     final paddingCount = endIndex - rsiResult.values.length;
-    
+
     final result = <RsiData>[];
     for (int i = 0; i < paddingCount; i++) {
       result.add(RsiData(rsi: 50));
@@ -314,7 +326,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     for (int i = 0; i < rsiResult.values.length; i++) {
       result.add(RsiData(rsi: rsiResult.values[i]));
     }
-    
+
     return result;
   }
 
@@ -322,10 +334,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final displayData = _allKlineData.take(endIndex).toList();
-    
+
     final bollResult = IndicatorCalculator.calculateBoll(displayData);
     final paddingCount = endIndex - bollResult.mb.length;
-    
+
     final result = <BollData>[];
     for (int i = 0; i < paddingCount; i++) {
       final currentData = displayData[i];
@@ -342,7 +354,117 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         lower: bollResult.dn[i],
       ));
     }
-    
+
+    return result;
+  }
+
+  List<double> get _displayWrData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final displayData = _allKlineData.take(endIndex).toList();
+
+    final wrResult = IndicatorCalculator.calculateWR(displayData);
+    final paddingCount = endIndex - wrResult.values.length;
+
+    final result = <double>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(50.0);
+    }
+    for (int i = 0; i < wrResult.values.length; i++) {
+      result.add(wrResult.values[i]);
+    }
+
+    return result;
+  }
+
+  List<double> get _displayCciData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final displayData = _allKlineData.take(endIndex).toList();
+
+    final cciResult = IndicatorCalculator.calculateCCI(displayData);
+    final paddingCount = endIndex - cciResult.values.length;
+
+    final result = <double>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(0.0);
+    }
+    for (int i = 0; i < cciResult.values.length; i++) {
+      result.add(cciResult.values[i]);
+    }
+
+    return result;
+  }
+
+  List<double> get _displayObvData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final displayData = _allKlineData.take(endIndex).toList();
+
+    final obvResult = IndicatorCalculator.calculateOBV(displayData);
+    return obvResult.values;
+  }
+
+  List<DmiData> get _displayDmiData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final displayData = _allKlineData.take(endIndex).toList();
+
+    final dmiResult = IndicatorCalculator.calculateDMI(displayData);
+    final paddingCount = endIndex - dmiResult.plusDI.length;
+
+    final result = <DmiData>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(DmiData(plusDI: 0, minusDI: 0, adx: 0));
+    }
+    for (int i = 0; i < dmiResult.plusDI.length; i++) {
+      final double adxValue = i < dmiResult.adx.length ? dmiResult.adx[i] : 0.0;
+      result.add(DmiData(
+        plusDI: dmiResult.plusDI[i],
+        minusDI: dmiResult.minusDI[i],
+        adx: adxValue,
+      ));
+    }
+
+    return result;
+  }
+
+  List<DmaData> get _displayDmaData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final displayData = _allKlineData.take(endIndex).toList();
+
+    final dmaResult = IndicatorCalculator.calculateDMA(displayData);
+    final paddingCount = endIndex - dmaResult.dma.length;
+
+    final result = <DmaData>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(DmaData(dma: 0, ama: 0));
+    }
+    for (int i = 0; i < dmaResult.dma.length; i++) {
+      final double amaValue = i < dmaResult.ama.length ? dmaResult.ama[i] : 0.0;
+      result.add(DmaData(dma: dmaResult.dma[i], ama: amaValue));
+    }
+
+    return result;
+  }
+
+  List<double> get _displayBbiData {
+    if (_allKlineData.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final displayData = _allKlineData.take(endIndex).toList();
+
+    final bbiResult = IndicatorCalculator.calculateBBI(displayData);
+    final paddingCount = endIndex - bbiResult.values.length;
+
+    final result = <double>[];
+    for (int i = 0; i < paddingCount; i++) {
+      result.add(0.0);
+    }
+    for (int i = 0; i < bbiResult.values.length; i++) {
+      result.add(bbiResult.values[i]);
+    }
+
     return result;
   }
 
@@ -391,9 +513,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Widget _buildStockInfo() {
-    final currentData = _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-        ? _allKlineData[_currentDayIndex]
-        : null;
+    final currentData =
+        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
+            ? _allKlineData[_currentDayIndex]
+            : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -406,7 +529,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           Row(
             children: [
               Text(_getStockName(_currentSymbol),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(width: 8),
               Text(_currentSymbol, style: TextStyle(color: AppTheme.muted)),
             ],
@@ -415,8 +539,13 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           Row(
             children: [
               Text(
-                currentData != null ? currentData.close.toStringAsFixed(2) : '--',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red),
+                currentData != null
+                    ? currentData.close.toStringAsFixed(2)
+                    : '--',
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red),
               ),
               const SizedBox(width: 8),
               if (currentData != null)
@@ -453,9 +582,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Widget _buildMarketData() {
-    final currentData = _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-        ? _allKlineData[_currentDayIndex]
-        : null;
+    final currentData =
+        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
+            ? _allKlineData[_currentDayIndex]
+            : null;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -466,11 +596,20 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         children: [
           Row(
             children: [
-              _MarketDataItem(label: '今开', value: currentData?.open.toStringAsFixed(2) ?? '--'),
-              _MarketDataItem(label: '最高', value: currentData?.high.toStringAsFixed(2) ?? '--'),
-              _MarketDataItem(label: '最低', value: currentData?.low.toStringAsFixed(2) ?? '--'),
-              _MarketDataItem(label: '成交量', value: _formatVolume(currentData?.volume ?? 0)),
-              _MarketDataItem(label: '成交额', value: _formatAmount(currentData?.turnover ?? 0)),
+              _MarketDataItem(
+                  label: '今开',
+                  value: currentData?.open.toStringAsFixed(2) ?? '--'),
+              _MarketDataItem(
+                  label: '最高',
+                  value: currentData?.high.toStringAsFixed(2) ?? '--'),
+              _MarketDataItem(
+                  label: '最低',
+                  value: currentData?.low.toStringAsFixed(2) ?? '--'),
+              _MarketDataItem(
+                  label: '成交量', value: _formatVolume(currentData?.volume ?? 0)),
+              _MarketDataItem(
+                  label: '成交额',
+                  value: _formatAmount(currentData?.turnover ?? 0)),
               _MarketDataItem(label: '换手率', value: '3.2%'),
             ],
           ),
@@ -542,7 +681,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildMaSelector() {
     final maValues = _getCurrentMaValues();
-    
+
     return Expanded(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -562,12 +701,12 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   Map<int, double> _getCurrentMaValues() {
     final displayData = _displayKlineData;
     final values = <int, double>{};
-    
+
     for (final ma in [5, 10, 20, 30]) {
       final maData = _calculateMA(displayData, ma);
       values[ma] = maData.isNotEmpty ? maData.last : 0.0;
     }
-    
+
     return values;
   }
 
@@ -660,7 +799,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+            border:
+                Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
           ),
           child: Row(
             children: [
@@ -669,7 +809,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 items: _indicators.map((indicator) {
                   return DropdownMenuItem<String>(
                     value: indicator,
-                    child: Text(indicator, style: const TextStyle(fontSize: 14)),
+                    child:
+                        Text(indicator, style: const TextStyle(fontSize: 14)),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -688,13 +829,35 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
               if (selected == '成交量')
                 Text('量', style: TextStyle(fontSize: 12, color: AppTheme.muted))
               else if (selected == 'MACD')
-                Text('(12,26,9)', style: TextStyle(fontSize: 12, color: AppTheme.muted))
+                Text('(12,26,9)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
               else if (selected == 'KDJ')
-                Text('(9,3,3)', style: TextStyle(fontSize: 12, color: AppTheme.muted))
+                Text('(9,3,3)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
               else if (selected == 'RSI')
-                Text('(14)', style: TextStyle(fontSize: 12, color: AppTheme.muted))
+                Text('(14)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
               else if (selected == 'BOLL')
-                Text('(20)', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+                Text('(20)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'WR')
+                Text('(14)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'CCI')
+                Text('(14)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'OBV')
+                Text('(14)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'DMI')
+                Text('(14)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'DMA')
+                Text('(10,50,10)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
+              else if (selected == 'BBI')
+                Text('(3,6,12,20)',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted)),
             ],
           ),
         ),
@@ -720,15 +883,29 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                       ? _buildRsiChart()
                       : indicator == 'BOLL'
                           ? _buildBollChart()
-                          : Center(
-                              child: Text('[$indicator 指标图表]'),
-                            ),
+                          : indicator == 'WR'
+                              ? _buildWrChart()
+                              : indicator == 'CCI'
+                                  ? _buildCciChart()
+                                  : indicator == 'OBV'
+                                      ? _buildObvChart()
+                                      : indicator == 'DMI'
+                                          ? _buildDmiChart()
+                                          : indicator == 'DMA'
+                                              ? _buildDmaChart()
+                                              : indicator == 'BBI'
+                                                  ? _buildBbiChart()
+                                                  : Center(
+                                                      child: Text(
+                                                          '[$indicator 指标图表]'),
+                                                    ),
     );
   }
 
   Widget _buildVolumeChart() {
     if (_displayVolumes.isEmpty) return const SizedBox();
-    final maxVolume = _displayVolumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
+    final maxVolume =
+        _displayVolumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
     final safeMax = maxVolume > 0 ? maxVolume : 1.0;
 
     return SizedBox(
@@ -774,9 +951,11 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildMacdChart() {
     if (_displayMacdData.isEmpty) return const SizedBox();
-    
-    final values = _displayMacdData.expand((m) => [m.macd, m.diff, m.dea]).toList();
-    double maxValue = values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
+
+    final values =
+        _displayMacdData.expand((m) => [m.macd, m.diff, m.dea]).toList();
+    double maxValue =
+        values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
     final safeMax = maxValue > 0 ? maxValue : 1.0;
 
     return SizedBox(
@@ -811,7 +990,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                       barRods: [
                         BarChartRodData(
                           toY: entry.value.macd,
-                          color: entry.value.macd > 0 ? Colors.red : Colors.green,
+                          color:
+                              entry.value.macd > 0 ? Colors.red : Colors.green,
                           width: 3,
                         ),
                       ],
@@ -830,14 +1010,22 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
               gridData: const FlGridData(show: false),
               lineBarsData: [
                 LineChartBarData(
-                  spots: _displayMacdData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.diff)).toList(),
+                  spots: _displayMacdData
+                      .asMap()
+                      .entries
+                      .map((e) => FlSpot(e.key.toDouble(), e.value.diff))
+                      .toList(),
                   isCurved: true,
                   color: Colors.blue,
                   dotData: const FlDotData(show: false),
                   barWidth: 1.5,
                 ),
                 LineChartBarData(
-                  spots: _displayMacdData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.dea)).toList(),
+                  spots: _displayMacdData
+                      .asMap()
+                      .entries
+                      .map((e) => FlSpot(e.key.toDouble(), e.value.dea))
+                      .toList(),
                   isCurved: true,
                   color: Colors.orange,
                   dotData: const FlDotData(show: false),
@@ -876,21 +1064,33 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           ),
           lineBarsData: [
             LineChartBarData(
-              spots: _displayKdjData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.k)).toList(),
+              spots: _displayKdjData
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.k))
+                  .toList(),
               isCurved: true,
               color: Colors.yellow,
               dotData: const FlDotData(show: false),
               barWidth: 2,
             ),
             LineChartBarData(
-              spots: _displayKdjData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.d)).toList(),
+              spots: _displayKdjData
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.d))
+                  .toList(),
               isCurved: true,
               color: Colors.purple,
               dotData: const FlDotData(show: false),
               barWidth: 2,
             ),
             LineChartBarData(
-              spots: _displayKdjData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.j)).toList(),
+              spots: _displayKdjData
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.j))
+                  .toList(),
               isCurved: true,
               color: Colors.red,
               dotData: const FlDotData(show: false),
@@ -927,7 +1127,11 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           ),
           lineBarsData: [
             LineChartBarData(
-              spots: _displayRsiData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.rsi)).toList(),
+              spots: _displayRsiData
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.rsi))
+                  .toList(),
               isCurved: true,
               color: Colors.blue,
               dotData: const FlDotData(show: false),
@@ -941,7 +1145,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildBollChart() {
     if (_displayBollData.isEmpty) return const SizedBox();
-    final prices = _displayBollData.map((e) => [e.upper, e.mid, e.lower]).expand((x) => x).toList();
+    final prices = _displayBollData
+        .map((e) => [e.upper, e.mid, e.lower])
+        .expand((x) => x)
+        .toList();
     final minPrice = prices.reduce((a, b) => a < b ? a : b);
     final maxPrice = prices.reduce((a, b) => a > b ? a : b);
     final safeMin = minPrice - (maxPrice - minPrice) * 0.1;
@@ -969,25 +1176,391 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           ),
           lineBarsData: [
             LineChartBarData(
-              spots: _displayBollData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.upper)).toList(),
+              spots: _displayBollData
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.upper))
+                  .toList(),
               isCurved: true,
               color: Colors.orange,
               dotData: const FlDotData(show: false),
               barWidth: 1,
             ),
             LineChartBarData(
-              spots: _displayBollData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.mid)).toList(),
+              spots: _displayBollData
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.mid))
+                  .toList(),
               isCurved: true,
               color: Colors.purple,
               dotData: const FlDotData(show: false),
               barWidth: 1,
             ),
             LineChartBarData(
-              spots: _displayBollData.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.lower)).toList(),
+              spots: _displayBollData
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.lower))
+                  .toList(),
               isCurved: true,
               color: Colors.green,
               dotData: const FlDotData(show: false),
               barWidth: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWrChart() {
+    if (_displayWrData.isEmpty) return const SizedBox();
+    final wrValues = _displayWrData;
+    final maxWr = 0.0;
+    final minWr = -100.0;
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: minWr,
+          maxY: maxWr,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: 25,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          extraLinesData: ExtraLinesData(
+            horizontalLines: [
+              HorizontalLine(
+                y: -20,
+                color: Colors.red.withOpacity(0.5),
+                strokeWidth: 0.5,
+                dashArray: [5, 5],
+              ),
+              HorizontalLine(
+                y: -80,
+                color: Colors.green.withOpacity(0.5),
+                strokeWidth: 0.5,
+                dashArray: [5, 5],
+              ),
+            ],
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: wrValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), -e.value))
+                  .toList(),
+              isCurved: true,
+              color: Colors.blue,
+              dotData: const FlDotData(show: false),
+              barWidth: 1.5,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCciChart() {
+    if (_displayCciData.isEmpty) return const SizedBox();
+    final cciValues = _displayCciData;
+    final maxCci = 200.0;
+    final minCci = -200.0;
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: minCci,
+          maxY: maxCci,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: 100,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          extraLinesData: ExtraLinesData(
+            horizontalLines: [
+              HorizontalLine(
+                y: 100,
+                color: Colors.red.withOpacity(0.5),
+                strokeWidth: 0.5,
+                dashArray: [5, 5],
+              ),
+              HorizontalLine(
+                y: -100,
+                color: Colors.green.withOpacity(0.5),
+                strokeWidth: 0.5,
+                dashArray: [5, 5],
+              ),
+            ],
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: cciValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value))
+                  .toList(),
+              isCurved: true,
+              color: Colors.purple,
+              dotData: const FlDotData(show: false),
+              barWidth: 1.5,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildObvChart() {
+    if (_displayObvData.isEmpty) return const SizedBox();
+    final obvValues = _displayObvData;
+    final maxObv = obvValues.length == 1
+        ? obvValues[0]
+        : obvValues.reduce((a, b) => a > b ? a : b);
+    final minObv = obvValues.length == 1
+        ? obvValues[0]
+        : obvValues.reduce((a, b) => a < b ? a : b);
+    final range = maxObv - minObv;
+    final hasRange = range.abs() > 0.0001;
+    final safeMin = hasRange ? minObv - range * 0.1 : minObv - 1;
+    final safeMax = hasRange ? maxObv + range * 0.1 : maxObv + 1;
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: safeMin,
+          maxY: safeMax,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (safeMax - safeMin) / 4,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: obvValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value))
+                  .toList(),
+              isCurved: true,
+              color: Colors.teal,
+              dotData: const FlDotData(show: false),
+              barWidth: 1.5,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDmiChart() {
+    if (_displayDmiData.isEmpty) return const SizedBox();
+    final dmiValues = _displayDmiData;
+    final maxDI = 100.0;
+    final minDI = 0.0;
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: minDI,
+          maxY: maxDI,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: 25,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: dmiValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.plusDI))
+                  .toList(),
+              isCurved: true,
+              color: Colors.blue,
+              dotData: const FlDotData(show: false),
+              barWidth: 1,
+            ),
+            LineChartBarData(
+              spots: dmiValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.minusDI))
+                  .toList(),
+              isCurved: true,
+              color: Colors.red,
+              dotData: const FlDotData(show: false),
+              barWidth: 1,
+            ),
+            LineChartBarData(
+              spots: dmiValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.adx))
+                  .toList(),
+              isCurved: true,
+              color: Colors.orange,
+              dotData: const FlDotData(show: false),
+              barWidth: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDmaChart() {
+    if (_displayDmaData.isEmpty) return const SizedBox();
+    final dmaValues = _displayDmaData;
+    final prices =
+        dmaValues.map((e) => [e.dma, e.ama]).expand((x) => x).toList();
+    if (prices.isEmpty) return const SizedBox();
+    final minPrice =
+        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a < b ? a : b);
+    final maxPrice =
+        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a > b ? a : b);
+    final range = maxPrice - minPrice;
+    final hasRange = range.abs() > 0.0001;
+    final safeMin = hasRange ? minPrice - range * 0.1 : minPrice - 1;
+    final safeMax = hasRange ? maxPrice + range * 0.1 : maxPrice + 1;
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: safeMin,
+          maxY: safeMax,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (safeMax - safeMin) / 4,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: dmaValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.dma))
+                  .toList(),
+              isCurved: true,
+              color: Colors.indigo,
+              dotData: const FlDotData(show: false),
+              barWidth: 1.5,
+            ),
+            LineChartBarData(
+              spots: dmaValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value.ama))
+                  .toList(),
+              isCurved: true,
+              color: Colors.amber,
+              dotData: const FlDotData(show: false),
+              barWidth: 1,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBbiChart() {
+    if (_displayBbiData.isEmpty) return const SizedBox();
+    final bbiValues = _displayBbiData;
+    final prices = bbiValues;
+    if (prices.isEmpty) return const SizedBox();
+    final minPrice =
+        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a < b ? a : b);
+    final maxPrice =
+        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a > b ? a : b);
+    final range = maxPrice - minPrice;
+    final hasRange = range.abs() > 0.0001;
+    final safeMin = hasRange ? minPrice - range * 0.1 : minPrice - 1;
+    final safeMax = hasRange ? maxPrice + range * 0.1 : maxPrice + 1;
+
+    return SizedBox(
+      height: 100,
+      child: LineChart(
+        LineChartData(
+          minY: safeMin,
+          maxY: safeMax,
+          lineTouchData: LineTouchData(enabled: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: (safeMax - safeMin) / 4,
+            getDrawingHorizontalLine: (value) {
+              return FlLine(
+                color: Colors.grey.withOpacity(0.2),
+                strokeWidth: 0.5,
+              );
+            },
+          ),
+          lineBarsData: [
+            LineChartBarData(
+              spots: bbiValues
+                  .asMap()
+                  .entries
+                  .map((e) => FlSpot(e.key.toDouble(), e.value))
+                  .toList(),
+              isCurved: true,
+              color: Colors.deepOrange,
+              dotData: const FlDotData(show: false),
+              barWidth: 1.5,
             ),
           ],
         ),
@@ -1076,8 +1649,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
             children: [
               const Text('训练周期: '),
               Text(
-                '${_trainingDays}天',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accent),
+                '${_currentDayIndex - _historyDays + 1}/$_trainingDays',
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: AppTheme.accent),
               ),
             ],
           ),
@@ -1106,12 +1680,15 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Widget _buildAccountInfo() {
-    final currentData = _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-        ? _allKlineData[_currentDayIndex]
-        : null;
+    final currentData =
+        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
+            ? _allKlineData[_currentDayIndex]
+            : null;
 
     final positionValue = _positionQuantity * (currentData?.close ?? 0);
-    final profit = _positionQuantity > 0 ? positionValue - (_positionQuantity * _positionCost) : 0.0;
+    final profit = _positionQuantity > 0
+        ? positionValue - (_positionQuantity * _positionCost)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1120,26 +1697,40 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       ),
       child: Column(
         children: [
-          _AccountRow(label: '持仓/可用', value: '${_positionQuantity.toInt()}股 / ¥${_accountBalance.toStringAsFixed(2)}'),
-          _AccountRow(label: '成本/现价', value: '¥${_positionCost.toStringAsFixed(2)} / ¥${currentData?.close.toStringAsFixed(2) ?? "--"}'),
+          _AccountRow(
+              label: '持仓/可用',
+              value:
+                  '${_positionQuantity.toInt()}股 / ¥${_accountBalance.toStringAsFixed(2)}'),
+          _AccountRow(
+              label: '成本/现价',
+              value:
+                  '¥${_positionCost.toStringAsFixed(2)} / ¥${currentData?.close.toStringAsFixed(2) ?? "--"}'),
           _AccountRow(
             label: '市值/盈亏',
             value: '¥${positionValue.toStringAsFixed(2)}',
-            highlight: profit >= 0 ? '+¥${profit.toStringAsFixed(2)}' : '-¥${profit.abs().toStringAsFixed(2)}',
+            highlight: profit >= 0
+                ? '+¥${profit.toStringAsFixed(2)}'
+                : '-¥${profit.abs().toStringAsFixed(2)}',
             color: profit >= 0 ? Colors.red : Colors.green,
           ),
-          _AccountRow(label: '总资产', value: '¥${(_accountBalance + positionValue).toStringAsFixed(2)}'),
+          _AccountRow(
+              label: '总资产',
+              value:
+                  '¥${(_accountBalance + positionValue).toStringAsFixed(2)}'),
         ],
       ),
     );
   }
 
   Widget _buildSummaryCards() {
-    final currentData = _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-        ? _allKlineData[_currentDayIndex]
-        : null;
+    final currentData =
+        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
+            ? _allKlineData[_currentDayIndex]
+            : null;
     final positionValue = _positionQuantity * (currentData?.close ?? 0);
-    final profit = _positionQuantity > 0 ? positionValue - (_positionQuantity * _positionCost) : 0.0;
+    final profit = _positionQuantity > 0
+        ? positionValue - (_positionQuantity * _positionCost)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1153,9 +1744,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           mainAxisSpacing: 12,
         ),
         children: [
-          _SummaryCard(title: '持仓市值', value: '¥${positionValue.toStringAsFixed(2)}'),
-          _SummaryCard(title: '持仓盈亏', value: profit >= 0 ? '+¥${profit.toStringAsFixed(2)}' : '-¥${profit.abs().toStringAsFixed(2)}', color: profit >= 0 ? Colors.red : Colors.green),
-          _SummaryCard(title: '总资产', value: '¥${(_accountBalance + positionValue).toStringAsFixed(2)}'),
+          _SummaryCard(
+              title: '持仓市值', value: '¥${positionValue.toStringAsFixed(2)}'),
+          _SummaryCard(
+              title: '持仓盈亏',
+              value: profit >= 0
+                  ? '+¥${profit.toStringAsFixed(2)}'
+                  : '-¥${profit.abs().toStringAsFixed(2)}',
+              color: profit >= 0 ? Colors.red : Colors.green),
+          _SummaryCard(
+              title: '总资产',
+              value:
+                  '¥${(_accountBalance + positionValue).toStringAsFixed(2)}'),
           _SummaryCard(title: '交易次数', value: '${_tradePoints.length ~/ 2}'),
         ],
       ),
@@ -1176,6 +1776,285 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       }
     }
     return ma;
+  }
+
+  void _showTrainingCompleteDialog() {
+    final initialBalance = 100000.0;
+    final currentData =
+        _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
+    final positionValue = _positionQuantity * (currentData?.close ?? 0);
+    final totalAssets = _accountBalance + positionValue;
+    final profit = totalAssets - initialBalance;
+    final profitRate = (profit / initialBalance) * 100;
+
+    final firstData =
+        _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
+    final lastData = currentData;
+    final stockIncrease = firstData != null && lastData != null
+        ? ((lastData.close - firstData.open) / firstData.open * 100)
+        : 0.0;
+
+    _saveTrainingToDatabase(
+        initialBalance, totalAssets, profit, profitRate, stockIncrease);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('结束训练',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                const Text('本股总收益', style: TextStyle(fontSize: 16)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      profit >= 0 ? '收益 +' : '亏损 ',
+                      style: TextStyle(
+                        color: profit >= 0 ? Colors.red : Colors.green,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      '${profit.abs().toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: profit >= 0 ? Colors.red : Colors.green,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      ' (${profitRate >= 0 ? '+' : ''}${profitRate.toStringAsFixed(2)}%)',
+                      style: TextStyle(
+                        color: profitRate >= 0 ? Colors.red : Colors.green,
+                        fontSize: 16,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _showTradeDetailDialog(),
+                      child: const Text('详情',
+                          style: TextStyle(color: Colors.blue, fontSize: 14)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('${_getStockName(_currentSymbol)} $_currentSymbol'),
+                    const SizedBox(width: 16),
+                    TextButton(
+                      onPressed: () => _restartTraining(),
+                      child: const Text('重新训练',
+                          style: TextStyle(color: Colors.blue, fontSize: 14)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '区间涨幅 ${stockIncrease >= 0 ? '+' : ''}${stockIncrease.toStringAsFixed(2)}%',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '训练周期: ${_trainingDays}天',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('复盘'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _showStockSelectionDialog();
+              },
+              child: const Text('换股'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showTradeDetailDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('交易详情',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                const Text('训练周期内交易记录:', style: TextStyle(fontSize: 14)),
+                const SizedBox(height: 8),
+                _tradePoints.isEmpty
+                    ? const Text('暂无交易记录')
+                    : Column(
+                        children: _tradePoints.map((point) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  point.isBuy ? '买入' : '卖出',
+                                  style: TextStyle(
+                                    color:
+                                        point.isBuy ? Colors.red : Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text('${point.date.month}/${point.date.day}'),
+                                Text('¥${point.price.toStringAsFixed(2)}'),
+                                Text('${point.label}'),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                const SizedBox(height: 16),
+                const Text('股票区间涨幅:', style: TextStyle(fontSize: 14)),
+                const SizedBox(height: 8),
+                _buildStockIncreaseInfo(),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _restartTraining() {
+    Navigator.of(context).pop();
+    setState(() {
+      _currentDayIndex = _historyDays;
+      _tradePoints = [];
+      _accountBalance = 100000.0;
+      _positionQuantity = 0.0;
+      _positionCost = 0.0;
+    });
+    _loadKlineData();
+  }
+
+  Widget _buildStockIncreaseInfo() {
+    final firstData =
+        _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
+    final lastData =
+        _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
+    final stockIncrease = firstData != null && lastData != null
+        ? ((lastData.close - firstData.open) / firstData.open * 100)
+        : 0.0;
+    return Text(
+      '${_getStockName(_currentSymbol)} 区间涨幅: ${stockIncrease >= 0 ? '+' : ''}${stockIncrease.toStringAsFixed(2)}%',
+      style: const TextStyle(fontSize: 14),
+    );
+  }
+
+  Future<void> _saveTrainingToDatabase(
+    double initialBalance,
+    double totalAssets,
+    double profit,
+    double profitRate,
+    double stockIncrease,
+  ) async {
+    try {
+      final dbService = DatabaseService.instance;
+
+      final firstData =
+          _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
+      final lastData =
+          _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
+
+      final sessionId =
+          await dbService.trainingDao.createSession(TrainingSessionsCompanion(
+        userId: const Value(1),
+        symbol: Value(_currentSymbol),
+        marketCode: Value(_currentSymbol.startsWith('SH') ? 'SH' : 'SZ'),
+        period: Value('day'),
+        startDate:
+            Value(firstData != null ? firstData.dateTime : DateTime.now()),
+        endDate: Value(lastData != null ? lastData.dateTime : DateTime.now()),
+        initialCapital: Value(initialBalance),
+        currentCapital: Value(totalAssets),
+        totalProfit: Value(profit),
+        profitRate: Value(profitRate),
+        tradeCount: Value(_tradePoints.length),
+        winCount: Value(_calculateWinCount()),
+        winRate: Value(_calculateWinRate()),
+        status: const Value('finished'),
+        startTime:
+            firstData != null ? Value(firstData.dateTime) : Value.absent(),
+        endTime: lastData != null ? Value(lastData.dateTime) : Value.absent(),
+      ));
+
+      for (final point in _tradePoints) {
+        await dbService.trainingDao.addTrade(TradesCompanion(
+          sessionId: Value(sessionId),
+          userId: const Value(1),
+          symbol: Value(_currentSymbol),
+          marketCode: Value(_currentSymbol.startsWith('SH') ? 'SH' : 'SZ'),
+          type: Value(point.isBuy ? 'buy' : 'sell'),
+          price: Value(point.price),
+          quantity: Value(point.label.contains('股')
+              ? int.parse(point.label.replaceAll(RegExp(r'[^0-9]'), ''))
+              : 0),
+          amount: Value(point.price *
+              (point.label.contains('股')
+                  ? int.parse(point.label.replaceAll(RegExp(r'[^0-9]'), ''))
+                  : 0)),
+          tradeDate: Value(point.date.toIso8601String()),
+          triggerSource: const Value('manual'),
+        ));
+      }
+    } catch (e) {
+      // 保存失败不影响用户体验，只记录日志
+    }
+  }
+
+  int _calculateWinCount() {
+    int winCount = 0;
+    double cost = 0;
+    double position = 0;
+
+    for (final point in _tradePoints) {
+      if (point.isBuy) {
+        cost = point.price;
+        position = double.parse(point.label.replaceAll(RegExp(r'[^0-9.]'), ''));
+      } else {
+        if (position > 0 && point.price > cost) {
+          winCount++;
+        }
+        position = 0;
+      }
+    }
+    return winCount;
+  }
+
+  double _calculateWinRate() {
+    if (_tradePoints.isEmpty) return 0.0;
+    final sellCount = _tradePoints.where((p) => !p.isBuy).length;
+    if (sellCount == 0) return 0.0;
+    return (_calculateWinCount() / sellCount) * 100;
   }
 
   String _getStockName(String symbol) {
@@ -1230,7 +2109,9 @@ class _AccountRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 100, child: Text(label, style: TextStyle(color: AppTheme.muted))),
+          SizedBox(
+              width: 100,
+              child: Text(label, style: TextStyle(color: AppTheme.muted))),
           const SizedBox(width: 16),
           Expanded(child: Text(value, style: TextStyle(color: color))),
           if (highlight != null)
@@ -1240,7 +2121,8 @@ class _AccountRow extends StatelessWidget {
                 color: (color ?? Colors.red).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(highlight!, style: TextStyle(color: color ?? Colors.red, fontSize: 12)),
+              child: Text(highlight!,
+                  style: TextStyle(color: color ?? Colors.red, fontSize: 12)),
             ),
         ],
       ),
@@ -1266,7 +2148,9 @@ class _SummaryCard extends StatelessWidget {
           children: [
             Text(title, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
             const SizedBox(height: 8),
-            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.bold, color: color)),
           ],
         ),
       ),
@@ -1296,13 +2180,14 @@ class _StockSelectionSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('选择股票', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('选择股票',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           ...stocks.map((stock) => ListTile(
-            title: Text(stock['name']!),
-            subtitle: Text(stock['code']!),
-            onTap: () => onSelect(stock['code']!),
-          )),
+                title: Text(stock['name']!),
+                subtitle: Text(stock['code']!),
+                onTap: () => onSelect(stock['code']!),
+              )),
         ],
       ),
     );
@@ -1349,21 +2234,24 @@ class _ConditionalOrderSheetState extends State<_ConditionalOrderSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('条件单设置', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('条件单设置',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           Wrap(
             spacing: 8,
-            children: ['止盈止损', '价格条件', '技术指标'].map((type) =>
-              ChoiceChip(
-                label: Text(type),
-                selected: _orderType == type,
-                onSelected: (selected) {
-                  setState(() {
-                    _orderType = type;
-                  });
-                },
-              ),
-            ).toList(),
+            children: ['止盈止损', '价格条件', '技术指标']
+                .map(
+                  (type) => ChoiceChip(
+                    label: Text(type),
+                    selected: _orderType == type,
+                    onSelected: (selected) {
+                      setState(() {
+                        _orderType = type;
+                      });
+                    },
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 16),
           if (_orderType == '止盈止损') ...[
@@ -1454,7 +2342,8 @@ class _TradeDialogState extends State<_TradeDialog> {
   void _setPositionRatio(double ratio) {
     double quantity;
     if (widget.title == '买入') {
-      final maxBuy = (widget.accountBalance / widget.currentPrice / 100).floor() * 100;
+      final maxBuy =
+          (widget.accountBalance / widget.currentPrice / 100).floor() * 100;
       quantity = (maxBuy * ratio).floorToDouble();
     } else {
       quantity = ((widget.positionQuantity ?? 0) * ratio).floorToDouble();
@@ -1468,7 +2357,8 @@ class _TradeDialogState extends State<_TradeDialog> {
 
   void _onConfirm() {
     final price = double.tryParse(_priceController.text) ?? widget.currentPrice;
-    final quantity = double.tryParse(_quantityController.text) ?? _selectedQuantity;
+    final quantity =
+        double.tryParse(_quantityController.text) ?? _selectedQuantity;
 
     if (quantity <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1487,14 +2377,17 @@ class _TradeDialogState extends State<_TradeDialog> {
     final total = price * quantity;
 
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+      padding: EdgeInsets.fromLTRB(
+          16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(widget.title,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close),
@@ -1536,7 +2429,7 @@ class _TradeDialogState extends State<_TradeDialog> {
               const Text('仓位:'),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: () => _setPositionRatio(1/3),
+                onPressed: () => _setPositionRatio(1 / 3),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   foregroundColor: AppTheme.accent,
@@ -1546,7 +2439,7 @@ class _TradeDialogState extends State<_TradeDialog> {
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: () => _setPositionRatio(1/2),
+                onPressed: () => _setPositionRatio(1 / 2),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   foregroundColor: AppTheme.accent,
@@ -1579,7 +2472,10 @@ class _TradeDialogState extends State<_TradeDialog> {
                 const SizedBox(width: 16),
                 Text(
                   '¥${total.toStringAsFixed(2)}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red),
                 ),
               ],
             ),
@@ -1603,7 +2499,9 @@ class _TradeDialogState extends State<_TradeDialog> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: total >= (widget.positionCost! * quantity) ? Colors.red : Colors.green,
+                      color: total >= (widget.positionCost! * quantity)
+                          ? Colors.red
+                          : Colors.green,
                     ),
                   ),
                 ],
@@ -1628,7 +2526,8 @@ class _TradeDialogState extends State<_TradeDialog> {
                 child: ElevatedButton(
                   onPressed: _onConfirm,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.title == '买入' ? Colors.red : Colors.green,
+                    backgroundColor:
+                        widget.title == '买入' ? Colors.red : Colors.green,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -1684,7 +2583,6 @@ class _MaDisplay extends StatelessWidget {
     );
   }
 }
-
 
 class KdjData {
   final double k;
