@@ -6,8 +6,10 @@ import '../../../core/enums/stock_filter_condition.dart';
 part 'stock_filter_dao.g.dart';
 
 /// 选股算法数据访问对象
-@DriftAccessor(tables: [Symbols, KlineData, StockFilterResults, DailyStockStats])
-class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDaoMixin {
+@DriftAccessor(
+    tables: [Symbols, KlineData, StockFilterResults, DailyStockStats])
+class StockFilterDao extends DatabaseAccessor<AppDatabase>
+    with _$StockFilterDaoMixin {
   StockFilterDao(super.db);
 
   Future<List<Symbol>> getActiveSymbols({String? marketCode}) {
@@ -18,11 +20,24 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return query.get();
   }
 
-  Future<KlineDataData?> getKlineDataForDate(String symbol, String period, DateTime date) {
+  Future<KlineDataData?> getKlineDataForDate(
+      String symbol, String period, DateTime date) {
     return (select(klineData)
           ..where((t) => t.symbol.equals(symbol))
           ..where((t) => t.period.equals(period))
           ..where((t) => t.tradeDate.equals(date)))
+        .getSingleOrNull();
+  }
+
+  Future<KlineDataData?> getLastKlineDataInRange(String symbol, String period,
+      DateTime startDate, DateTime endDate) async {
+    return (select(klineData)
+          ..where((t) => t.symbol.equals(symbol))
+          ..where((t) => t.period.equals(period))
+          ..where((t) => t.tradeDate.isBiggerOrEqualValue(startDate))
+          ..where((t) => t.tradeDate.isSmallerOrEqualValue(endDate))
+          ..orderBy([(t) => OrderingTerm.desc(t.tradeDate)])
+          ..limit(1))
         .getSingleOrNull();
   }
 
@@ -36,7 +51,7 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
   }) {
     DateTime effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
     DateTime effectiveEndDate = endDate ?? date;
-    
+
     return (select(klineData)
           ..where((t) => t.symbol.equals(symbol))
           ..where((t) => t.period.equals(period))
@@ -47,18 +62,21 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
         .get();
   }
 
-  Future<bool> checkAllTimeHigh(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<bool> checkAllTimeHigh(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final currentData = await getKlineDataForDate(symbol, 'day', date);
     if (currentData == null) return false;
 
-    final historicalMax = await _getHistoricalMaxClose(symbol, date, startDate: startDate, endDate: endDate);
+    final historicalMax = await _getHistoricalMaxClose(symbol, date,
+        startDate: startDate, endDate: endDate);
     return (currentData.close - historicalMax).abs() < 0.0001;
   }
 
-  Future<double> _getHistoricalMaxClose(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<double> _getHistoricalMaxClose(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     DateTime effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
     DateTime effectiveEndDate = endDate ?? date;
-    
+
     final result = await (selectOnly(klineData)
           ..addColumns([klineData.close.max()])
           ..where(klineData.symbol.equals(symbol))
@@ -69,14 +87,17 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return result.read(klineData.close.max()) ?? 0.0;
   }
 
-  Future<bool> checkYearHigh(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<bool> checkYearHigh(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final currentData = await getKlineDataForDate(symbol, 'day', date);
     if (currentData == null) return false;
 
-    final yearData = await getKlineDataBefore(symbol, 'day', date, 252, startDate: startDate, endDate: endDate);
+    final yearData = await getKlineDataBefore(symbol, 'day', date, 252,
+        startDate: startDate, endDate: endDate);
     if (yearData.isEmpty) return false;
 
-    final maxClose = yearData.map((d) => d.close).reduce((a, b) => a > b ? a : b);
+    final maxClose =
+        yearData.map((d) => d.close).reduce((a, b) => a > b ? a : b);
     return (currentData.close - maxClose).abs() < 0.0001;
   }
 
@@ -87,22 +108,26 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     final day200Data = await getKlineDataBefore(symbol, 'day', date, 200);
     if (day200Data.isEmpty) return false;
 
-    final maxClose = day200Data.map((d) => d.close).reduce((a, b) => a > b ? a : b);
+    final maxClose =
+        day200Data.map((d) => d.close).reduce((a, b) => a > b ? a : b);
     return (currentData.close - maxClose).abs() < 0.0001;
   }
 
-  Future<bool> checkAllTimeLow(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<bool> checkAllTimeLow(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final currentData = await getKlineDataForDate(symbol, 'day', date);
     if (currentData == null) return false;
 
-    final historicalMin = await _getHistoricalMinClose(symbol, date, startDate: startDate, endDate: endDate);
+    final historicalMin = await _getHistoricalMinClose(symbol, date,
+        startDate: startDate, endDate: endDate);
     return (currentData.close - historicalMin).abs() < 0.0001;
   }
 
-  Future<double> _getHistoricalMinClose(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<double> _getHistoricalMinClose(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     DateTime effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
     DateTime effectiveEndDate = endDate ?? date;
-    
+
     final result = await (selectOnly(klineData)
           ..addColumns([klineData.close.min()])
           ..where(klineData.symbol.equals(symbol))
@@ -113,14 +138,17 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return result.read(klineData.close.min()) ?? double.infinity;
   }
 
-  Future<bool> checkYearLow(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<bool> checkYearLow(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final currentData = await getKlineDataForDate(symbol, 'day', date);
     if (currentData == null) return false;
 
-    final yearData = await getKlineDataBefore(symbol, 'day', date, 252, startDate: startDate, endDate: endDate);
+    final yearData = await getKlineDataBefore(symbol, 'day', date, 252,
+        startDate: startDate, endDate: endDate);
     if (yearData.isEmpty) return false;
 
-    final minClose = yearData.map((d) => d.close).reduce((a, b) => a < b ? a : b);
+    final minClose =
+        yearData.map((d) => d.close).reduce((a, b) => a < b ? a : b);
     return (currentData.close - minClose).abs() < 0.0001;
   }
 
@@ -131,15 +159,18 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     final day200Data = await getKlineDataBefore(symbol, 'day', date, 200);
     if (day200Data.isEmpty) return false;
 
-    final minClose = day200Data.map((d) => d.close).reduce((a, b) => a < b ? a : b);
+    final minClose =
+        day200Data.map((d) => d.close).reduce((a, b) => a < b ? a : b);
     return (currentData.close - minClose).abs() < 0.0001;
   }
 
-  Future<double?> calculateReturnNDays(String symbol, DateTime date, int n, {DateTime? startDate, DateTime? endDate}) async {
+  Future<double?> calculateReturnNDays(String symbol, DateTime date, int n,
+      {DateTime? startDate, DateTime? endDate}) async {
     final currentData = await getKlineDataForDate(symbol, 'day', date);
     if (currentData == null) return null;
 
-    final pastData = await getKlineDataBefore(symbol, 'day', date, n, startDate: startDate, endDate: endDate);
+    final pastData = await getKlineDataBefore(symbol, 'day', date, n,
+        startDate: startDate, endDate: endDate);
     if (pastData.length < n) return null;
 
     final nDaysAgoClose = pastData.last.close;
@@ -148,12 +179,14 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return ((currentData.close / nDaysAgoClose) - 1) * 100;
   }
 
-  Future<List<String>> getReturn30dTop50(DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<List<String>> getReturn30dTop50(DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final allSymbols = await getActiveSymbols();
     final returns = <String, double>{};
 
     for (final symbol in allSymbols) {
-      final ret = await calculateReturnNDays(symbol.symbol, date, 30, startDate: startDate, endDate: endDate);
+      final ret = await calculateReturnNDays(symbol.symbol, date, 30,
+          startDate: startDate, endDate: endDate);
       if (ret != null) {
         returns[symbol.symbol] = ret;
       }
@@ -168,12 +201,14 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return sorted.take(cutoffIndex).map((e) => e.key).toList();
   }
 
-  Future<List<String>> getReturn15dTop50(DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<List<String>> getReturn15dTop50(DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final allSymbols = await getActiveSymbols();
     final returns = <String, double>{};
 
     for (final symbol in allSymbols) {
-      final ret = await calculateReturnNDays(symbol.symbol, date, 15, startDate: startDate, endDate: endDate);
+      final ret = await calculateReturnNDays(symbol.symbol, date, 15,
+          startDate: startDate, endDate: endDate);
       if (ret != null) {
         returns[symbol.symbol] = ret;
       }
@@ -188,12 +223,14 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return sorted.take(cutoffIndex).map((e) => e.key).toList();
   }
 
-  Future<List<String>> getLoss30dTop50(DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<List<String>> getLoss30dTop50(DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final allSymbols = await getActiveSymbols();
     final losses = <String, double>{};
 
     for (final symbol in allSymbols) {
-      final ret = await calculateReturnNDays(symbol.symbol, date, 30, startDate: startDate, endDate: endDate);
+      final ret = await calculateReturnNDays(symbol.symbol, date, 30,
+          startDate: startDate, endDate: endDate);
       if (ret != null) {
         losses[symbol.symbol] = -ret;
       }
@@ -208,12 +245,14 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return sorted.take(cutoffIndex).map((e) => e.key).toList();
   }
 
-  Future<List<String>> getLoss15dTop50(DateTime date, {DateTime? startDate, DateTime? endDate}) async {
+  Future<List<String>> getLoss15dTop50(DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
     final allSymbols = await getActiveSymbols();
     final losses = <String, double>{};
 
     for (final symbol in allSymbols) {
-      final ret = await calculateReturnNDays(symbol.symbol, date, 15, startDate: startDate, endDate: endDate);
+      final ret = await calculateReturnNDays(symbol.symbol, date, 15,
+          startDate: startDate, endDate: endDate);
       if (ret != null) {
         losses[symbol.symbol] = -ret;
       }
@@ -282,21 +321,28 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return priceIncrease > 0.02 && volumeIncrease > 0.05;
   }
 
-  Future<double?> calculateMA(String symbol, DateTime date, int n, {DateTime? startDate, DateTime? endDate}) async {
-    final data = await getKlineDataBefore(symbol, 'day', date, n, startDate: startDate, endDate: endDate);
+  Future<double?> calculateMA(String symbol, DateTime date, int n,
+      {DateTime? startDate, DateTime? endDate}) async {
+    final data = await getKlineDataBefore(symbol, 'day', date, n,
+        startDate: startDate, endDate: endDate);
     if (data.length < n) return null;
 
     final sum = data.take(n).fold<double>(0, (acc, d) => acc + d.close);
     return sum / n;
   }
 
-  Future<bool> checkUpTrend(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
-    final data = await getKlineDataBefore(symbol, 'day', date, 55, startDate: startDate, endDate: endDate);
+  Future<bool> checkUpTrend(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
+    final data = await getKlineDataBefore(symbol, 'day', date, 55,
+        startDate: startDate, endDate: endDate);
     if (data.length < 55) return false;
 
-    final ma10 = await calculateMA(symbol, date, 10, startDate: startDate, endDate: endDate);
-    final ma20 = await calculateMA(symbol, date, 20, startDate: startDate, endDate: endDate);
-    final ma50 = await calculateMA(symbol, date, 50, startDate: startDate, endDate: endDate);
+    final ma10 = await calculateMA(symbol, date, 10,
+        startDate: startDate, endDate: endDate);
+    final ma20 = await calculateMA(symbol, date, 20,
+        startDate: startDate, endDate: endDate);
+    final ma50 = await calculateMA(symbol, date, 50,
+        startDate: startDate, endDate: endDate);
 
     if (ma10 == null || ma20 == null || ma50 == null) return false;
 
@@ -305,7 +351,9 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     final ma20Yesterday = await calculateMA(symbol, yesterday, 20);
     final ma50Yesterday = await calculateMA(symbol, yesterday, 50);
 
-    if (ma10Yesterday == null || ma20Yesterday == null || ma50Yesterday == null) {
+    if (ma10Yesterday == null ||
+        ma20Yesterday == null ||
+        ma50Yesterday == null) {
       return false;
     }
 
@@ -319,18 +367,24 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     final angle20 = (ma20 - ma20Yesterday) / ma20Yesterday;
     final angle50 = (ma50 - ma50Yesterday) / ma50Yesterday;
 
-    final angleIncreasing = angle10 > angle20 - 0.0001 && angle20 > angle50 - 0.0001;
+    final angleIncreasing =
+        angle10 > angle20 - 0.0001 && angle20 > angle50 - 0.0001;
 
     return ma10Up && ma20Up && ma50Up && bullishAlignment && angleIncreasing;
   }
 
-  Future<bool> checkDownTrend(String symbol, DateTime date, {DateTime? startDate, DateTime? endDate}) async {
-    final data = await getKlineDataBefore(symbol, 'day', date, 55, startDate: startDate, endDate: endDate);
+  Future<bool> checkDownTrend(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
+    final data = await getKlineDataBefore(symbol, 'day', date, 55,
+        startDate: startDate, endDate: endDate);
     if (data.length < 55) return false;
 
-    final ma10 = await calculateMA(symbol, date, 10, startDate: startDate, endDate: endDate);
-    final ma20 = await calculateMA(symbol, date, 20, startDate: startDate, endDate: endDate);
-    final ma50 = await calculateMA(symbol, date, 50, startDate: startDate, endDate: endDate);
+    final ma10 = await calculateMA(symbol, date, 10,
+        startDate: startDate, endDate: endDate);
+    final ma20 = await calculateMA(symbol, date, 20,
+        startDate: startDate, endDate: endDate);
+    final ma50 = await calculateMA(symbol, date, 50,
+        startDate: startDate, endDate: endDate);
 
     if (ma10 == null || ma20 == null || ma50 == null) return false;
 
@@ -339,7 +393,9 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     final ma20Yesterday = await calculateMA(symbol, yesterday, 20);
     final ma50Yesterday = await calculateMA(symbol, yesterday, 50);
 
-    if (ma10Yesterday == null || ma20Yesterday == null || ma50Yesterday == null) {
+    if (ma10Yesterday == null ||
+        ma20Yesterday == null ||
+        ma50Yesterday == null) {
       return false;
     }
 
@@ -353,9 +409,14 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     final angle20 = (ma20 - ma20Yesterday) / ma20Yesterday;
     final angle50 = (ma50 - ma50Yesterday) / ma50Yesterday;
 
-    final angleDecreasing = angle10 < angle20 + 0.0001 && angle20 < angle50 + 0.0001;
+    final angleDecreasing =
+        angle10 < angle20 + 0.0001 && angle20 < angle50 + 0.0001;
 
-    return ma10Down && ma20Down && ma50Down && bearishAlignment && angleDecreasing;
+    return ma10Down &&
+        ma20Down &&
+        ma50Down &&
+        bearishAlignment &&
+        angleDecreasing;
   }
 
   Future<List<String>> filterByCondition(
@@ -368,12 +429,14 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     switch (condition) {
       case StockFilterCondition.allTimeHigh:
         return _filterSingleSymbolCheck(
-          (symbol) => checkAllTimeHigh(symbol, date, startDate: startDate, endDate: endDate),
+          (symbol) => checkAllTimeHigh(symbol, date,
+              startDate: startDate, endDate: endDate),
           marketCode: marketCode,
         );
       case StockFilterCondition.yearHigh:
         return _filterSingleSymbolCheck(
-          (symbol) => checkYearHigh(symbol, date, startDate: startDate, endDate: endDate),
+          (symbol) => checkYearHigh(symbol, date,
+              startDate: startDate, endDate: endDate),
           marketCode: marketCode,
         );
       case StockFilterCondition.day200High:
@@ -402,17 +465,20 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
         );
       case StockFilterCondition.upTrend:
         return _filterSingleSymbolCheck(
-          (symbol) => checkUpTrend(symbol, date, startDate: startDate, endDate: endDate),
+          (symbol) => checkUpTrend(symbol, date,
+              startDate: startDate, endDate: endDate),
           marketCode: marketCode,
         );
       case StockFilterCondition.allTimeLow:
         return _filterSingleSymbolCheck(
-          (symbol) => checkAllTimeLow(symbol, date, startDate: startDate, endDate: endDate),
+          (symbol) => checkAllTimeLow(symbol, date,
+              startDate: startDate, endDate: endDate),
           marketCode: marketCode,
         );
       case StockFilterCondition.yearLow:
         return _filterSingleSymbolCheck(
-          (symbol) => checkYearLow(symbol, date, startDate: startDate, endDate: endDate),
+          (symbol) => checkYearLow(symbol, date,
+              startDate: startDate, endDate: endDate),
           marketCode: marketCode,
         );
       case StockFilterCondition.day200Low:
@@ -426,7 +492,8 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
         return getLoss15dTop50(date, startDate: startDate, endDate: endDate);
       case StockFilterCondition.downTrend:
         return _filterSingleSymbolCheck(
-          (symbol) => checkDownTrend(symbol, date, startDate: startDate, endDate: endDate),
+          (symbol) => checkDownTrend(symbol, date,
+              startDate: startDate, endDate: endDate),
           marketCode: marketCode,
         );
       case StockFilterCondition.limitDown:
@@ -464,7 +531,8 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
     return results;
   }
 
-  Future<List<String>> _getRandomSymbols({String? marketCode, int count = 10}) async {
+  Future<List<String>> _getRandomSymbols(
+      {String? marketCode, int count = 10}) async {
     final allSymbols = await getActiveSymbols(marketCode: marketCode);
     allSymbols.shuffle();
     return allSymbols.take(count).map((s) => s.symbol).toList();
@@ -515,7 +583,8 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase> with _$StockFilterDao
         .get();
   }
 
-  Future<bool> hasCachedResults(DateTime date, StockFilterCondition condition) async {
+  Future<bool> hasCachedResults(
+      DateTime date, StockFilterCondition condition) async {
     final dateOnly = DateTime(date.year, date.month, date.day);
     final count = await (selectOnly(stockFilterResults)
           ..addColumns([stockFilterResults.id.count()])

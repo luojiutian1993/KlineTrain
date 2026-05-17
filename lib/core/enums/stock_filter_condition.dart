@@ -126,14 +126,21 @@ class StockTimeRange {
   }
 
   String get displayLabel {
+    String formatDate(DateTime date) {
+      return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+    }
+
     switch (type) {
       case TimeRangeType.recent1Year:
       case TimeRangeType.recent3Years:
       case TimeRangeType.recent5Years:
+        if (startDate != null && endDate != null) {
+          return '${formatDate(startDate!)} ~ ${formatDate(endDate!)}';
+        }
         return type.label;
       case TimeRangeType.custom:
         if (startDate != null && endDate != null) {
-          return '${startDate!.year}-${startDate!.month.toString().padLeft(2, '0')} ~ ${endDate!.year}-${endDate!.month.toString().padLeft(2, '0')}';
+          return '${formatDate(startDate!)} ~ ${formatDate(endDate!)}';
         }
         return '自定义';
     }

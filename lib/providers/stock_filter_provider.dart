@@ -7,6 +7,8 @@ import '../shared/utils/logger.dart';
 
 class StockFilterState {
   final StockFilterCondition? selectedCondition;
+  final StockTimeRange? timeRange;
+  final List<String> selectedMarkets;
   final List<StockFilterConditionModel> availableConditions;
   final StockFilterResultResponse? filterResult;
   final bool isLoading;
@@ -15,6 +17,8 @@ class StockFilterState {
 
   const StockFilterState({
     this.selectedCondition,
+    this.timeRange,
+    this.selectedMarkets = const [],
     this.availableConditions = const [],
     this.filterResult,
     this.isLoading = false,
@@ -24,6 +28,8 @@ class StockFilterState {
 
   StockFilterState copyWith({
     StockFilterCondition? selectedCondition,
+    StockTimeRange? timeRange,
+    List<String>? selectedMarkets,
     List<StockFilterConditionModel>? availableConditions,
     StockFilterResultResponse? filterResult,
     bool? isLoading,
@@ -32,6 +38,8 @@ class StockFilterState {
   }) {
     return StockFilterState(
       selectedCondition: selectedCondition ?? this.selectedCondition,
+      timeRange: timeRange ?? this.timeRange,
+      selectedMarkets: selectedMarkets ?? this.selectedMarkets,
       availableConditions: availableConditions ?? this.availableConditions,
       filterResult: filterResult ?? this.filterResult,
       isLoading: isLoading ?? this.isLoading,
@@ -78,12 +86,54 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
     selectCondition(condition);
   }
 
-  Future<void> executeFilter({DateTime? date, String? marketCode}) async {
+  void setTimeRange(StockTimeRange timeRange) {
+    state = state.copyWith(timeRange: timeRange);
+    if (state.selectedCondition != null &&
+        state.selectedCondition != StockFilterCondition.random) {
+      executeFilter();
+    }
+  }
+
+  void toggleMarket(String marketCode) {
+    final current = List<String>.from(state.selectedMarkets);
+    if (current.contains(marketCode)) {
+      current.remove(marketCode);
+    } else {
+      current.add(marketCode);
+    }
+    state = state.copyWith(selectedMarkets: current);
+    if (state.selectedCondition != null &&
+        state.selectedCondition != StockFilterCondition.random) {
+      executeFilter();
+    }
+  }
+
+  void selectAllMarkets() {
+    state = state.copyWith(selectedMarkets: ['XSHG', 'XSHE']);
+    if (state.selectedCondition != null &&
+        state.selectedCondition != StockFilterCondition.random) {
+      executeFilter();
+    }
+  }
+
+  void clearMarkets() {
+    state = state.copyWith(selectedMarkets: []);
+  }
+
+  Future<void> executeFilter({
+    DateTime? date,
+    String? marketCode,
+    StockTimeRange? timeRange,
+  }) async {
     final condition = state.selectedCondition;
     if (condition == null) {
       state = state.copyWith(error: '请先选择选股条件');
       return;
     }
+
+    final effectiveTimeRange = timeRange ?? state.timeRange;
+    final startDate = effectiveTimeRange?.startDate;
+    final endDate = effectiveTimeRange?.endDate;
 
     state = state.copyWith(isLoading: true, error: null);
 
@@ -92,6 +142,8 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
         condition: condition,
         date: date,
         marketCode: marketCode,
+        startDate: startDate,
+        endDate: endDate,
       );
 
       state = state.copyWith(

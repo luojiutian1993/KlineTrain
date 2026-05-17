@@ -1,5 +1,6 @@
 import '../database/database_service.dart';
 import '../database/daos/stock_filter_dao.dart';
+import '../database/app_database.dart';
 import '../models/stock_filter_condition_model.dart';
 import '../models/stock_filter_result_model.dart';
 import '../../core/enums/stock_filter_condition.dart';
@@ -10,7 +11,8 @@ class StockFilterRepository {
   final StockFilterDao _stockFilterDao;
 
   StockFilterRepository({StockFilterDao? stockFilterDao})
-      : _stockFilterDao = stockFilterDao ?? DatabaseService.instance.stockFilterDao;
+      : _stockFilterDao =
+            stockFilterDao ?? DatabaseService.instance.stockFilterDao;
 
   List<StockFilterConditionModel> getAllConditions() {
     return StockFilterConditionModel.all;
@@ -25,11 +27,13 @@ class StockFilterRepository {
     bool useCache = true,
   }) async {
     final targetDate = date ?? DateTime.now();
-    appLogger.i('开始选股: condition=${condition.name}, date=$targetDate, startDate=$startDate, endDate=$endDate');
+    appLogger.i(
+        '开始选股: condition=${condition.name}, date=$targetDate, startDate=$startDate, endDate=$endDate');
 
     try {
       if (useCache && condition != StockFilterCondition.random) {
-        final hasCache = await _stockFilterDao.hasCachedResults(targetDate, condition);
+        final hasCache =
+            await _stockFilterDao.hasCachedResults(targetDate, condition);
         if (hasCache) {
           appLogger.i('使用缓存的选股结果');
           final cachedResults = await _stockFilterDao.getCachedFilterResults(
@@ -86,8 +90,10 @@ class StockFilterRepository {
 
   Future<List<StockFilterResultModel>> _getStockDetails(
     List<String> symbols,
-    DateTime date,
-  ) async {
+    DateTime date, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
     final results = <StockFilterResultModel>[];
 
     for (final symbolCode in symbols) {
@@ -98,11 +104,21 @@ class StockFilterRepository {
           orElse: () => throw Exception('Symbol not found'),
         );
 
-        final klineData = await _stockFilterDao.getKlineDataForDate(
-          symbolCode,
-          'day',
-          date,
-        );
+        KlineDataData? klineData;
+        if (startDate != null && endDate != null) {
+          klineData = await _stockFilterDao.getLastKlineDataInRange(
+            symbolCode,
+            'day',
+            startDate,
+            endDate,
+          );
+        } else {
+          klineData = await _stockFilterDao.getKlineDataForDate(
+            symbolCode,
+            'day',
+            date,
+          );
+        }
 
         results.add(StockFilterResultModel(
           symbol: symbolCode,
@@ -142,9 +158,11 @@ class StockFilterRepository {
   }) async {
     final targetDate = date ?? DateTime.now();
 
-    final hasCache = await _stockFilterDao.hasCachedResults(targetDate, condition);
+    final hasCache =
+        await _stockFilterDao.hasCachedResults(targetDate, condition);
     if (hasCache) {
-      final cached = await _stockFilterDao.getCachedFilterResults(targetDate, condition);
+      final cached =
+          await _stockFilterDao.getCachedFilterResults(targetDate, condition);
       return cached.length;
     }
 

@@ -75,3 +75,6 @@ test_reports/
 node_modules/
 package-lock.json
 yarn.lock
+1000_stocks_post_fq_history.csv
+1000_stocks_post_fq_history.xlsx
+lib/data/database/kline_trainer.db

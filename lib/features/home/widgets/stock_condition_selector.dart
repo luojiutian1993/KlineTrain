@@ -29,7 +29,8 @@ class _StockConditionSelectorState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final condition = StockFilterCondition.fromString(widget.selectedCondition);
+      final condition =
+          StockFilterCondition.fromString(widget.selectedCondition);
       ref.read(stockFilterProvider.notifier).selectCondition(condition);
     });
   }
@@ -47,6 +48,8 @@ class _StockConditionSelectorState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTimeRangeSelector(),
+        const SizedBox(height: 16),
+        _buildMarketSelector(),
         const SizedBox(height: 16),
         _buildConditionGroup(
           title: '趋势向上',
@@ -70,6 +73,72 @@ class _StockConditionSelectorState
   }
 
   Widget _buildTimeRangeSelector() {
+    final timeRange = widget.selectedTimeRange ?? StockTimeRange.recent1Year();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 16,
+              decoration: BoxDecoration(
+                color: AppTheme.accent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '时间范围',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.fg,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.accent.withAlpha(25),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                timeRange.displayLabel,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.accent,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: TimeRangeType.values.map((type) {
+            final isSelected = widget.selectedTimeRange?.type == type ||
+                (widget.selectedTimeRange == null &&
+                    type == TimeRangeType.recent1Year);
+            return _TimeRangeChip(
+              type: type,
+              isSelected: isSelected,
+              onTap: () => _onTimeRangeSelected(type),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMarketSelector() {
+    final selectedMarkets = ref.watch(stockFilterProvider).selectedMarkets;
+    final allSelected = selectedMarkets.isEmpty ||
+        (selectedMarkets.contains('XSHG') && selectedMarkets.contains('XSHE'));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -85,7 +154,7 @@ class _StockConditionSelectorState
             ),
             const SizedBox(width: 8),
             const Text(
-              '时间范围',
+              '市场选择',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -98,15 +167,22 @@ class _StockConditionSelectorState
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: TimeRangeType.values.map((type) {
-            final isSelected = widget.selectedTimeRange?.type == type ||
-                (widget.selectedTimeRange == null && type == TimeRangeType.recent1Year);
-            return _TimeRangeChip(
-              type: type,
-              isSelected: isSelected,
-              onTap: () => _onTimeRangeSelected(type),
-            );
-          }).toList(),
+          children: [
+            _MarketChip(
+              label: '上证',
+              isSelected:
+                  selectedMarkets.isEmpty || selectedMarkets.contains('XSHG'),
+              onTap: () =>
+                  ref.read(stockFilterProvider.notifier).toggleMarket('XSHG'),
+            ),
+            _MarketChip(
+              label: '深证',
+              isSelected:
+                  selectedMarkets.isEmpty || selectedMarkets.contains('XSHE'),
+              onTap: () =>
+                  ref.read(stockFilterProvider.notifier).toggleMarket('XSHE'),
+            ),
+          ],
         ),
       ],
     );
@@ -127,20 +203,23 @@ class _StockConditionSelectorState
         return;
     }
     if (timeRange != null) {
+      ref.read(stockFilterProvider.notifier).setTimeRange(timeRange);
       widget.onTimeRangeChanged?.call(timeRange);
     }
   }
 
   Future<void> _showCustomDatePicker(TimeRangeType type) async {
     final now = DateTime.now();
-    final initialStartDate = widget.selectedTimeRange?.startDate ?? DateTime(now.year - 1, now.month, now.day);
+    final initialStartDate = widget.selectedTimeRange?.startDate ??
+        DateTime(now.year - 1, now.month, now.day);
     final initialEndDate = widget.selectedTimeRange?.endDate ?? now;
 
     final DateTimeRange? picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(1990, 1, 1),
       lastDate: now,
-      initialDateRange: DateTimeRange(start: initialStartDate, end: initialEndDate),
+      initialDateRange:
+          DateTimeRange(start: initialStartDate, end: initialEndDate),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -158,6 +237,7 @@ class _StockConditionSelectorState
 
     if (picked != null) {
       final timeRange = StockTimeRange.custom(picked.start, picked.end);
+      ref.read(stockFilterProvider.notifier).setTimeRange(timeRange);
       widget.onTimeRangeChanged?.call(timeRange);
     }
   }
@@ -366,6 +446,55 @@ class _TimeRangeChip extends StatelessWidget {
               ),
             Text(
               type.label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                color: isSelected ? AppTheme.accent : AppTheme.fg,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MarketChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _MarketChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.accent.withAlpha(25) : Colors.white,
+          border: Border.all(
+            color: isSelected ? AppTheme.accent : AppTheme.border,
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 16,
+              color: isSelected ? AppTheme.accent : AppTheme.muted,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
