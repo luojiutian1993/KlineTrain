@@ -26,7 +26,9 @@ class StockFilterRepository {
     DateTime? endDate,
     bool useCache = true,
   }) async {
-    final targetDate = date ?? DateTime.now();
+    // 获取有K线数据的最近日期，如果没有数据就使用今天
+    DateTime? latestDate = await _stockFilterDao.getLatestKlineDate();
+    final targetDate = date ?? latestDate ?? DateTime.now();
     appLogger.i(
         '开始选股: condition=${condition.name}, date=$targetDate, startDate=$startDate, endDate=$endDate');
 

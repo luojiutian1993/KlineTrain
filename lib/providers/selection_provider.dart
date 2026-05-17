@@ -7,7 +7,6 @@ import '../data/models/market_sector_model.dart';
 import '../data/models/stock_filter_result_model.dart';
 import '../core/enums/stock_filter_condition.dart';
 
-
 class SelectionState {
   final String? selectedCondition;
   final MarketSectorModel? selectedSector;
@@ -71,7 +70,8 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
   SelectionNotifier(
     this._klineDao, {
     StockFilterRepository? stockFilterRepository,
-  })  : _stockFilterRepository = stockFilterRepository ?? StockFilterRepository(),
+  })  : _stockFilterRepository =
+            stockFilterRepository ?? StockFilterRepository(),
         super(const SelectionState());
 
   void setCondition(String condition) {
@@ -104,6 +104,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
     try {
       final result = await _stockFilterRepository.filterStocks(
         condition: condition,
+        marketCode: state.selectedSector?.code,
         startDate: state.timeRange?.startDate,
         endDate: state.timeRange?.endDate,
       );
@@ -184,7 +185,8 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
   }
 }
 
-final selectionProvider = StateNotifierProvider<SelectionNotifier, SelectionState>((ref) {
+final selectionProvider =
+    StateNotifierProvider<SelectionNotifier, SelectionState>((ref) {
   final klineDao = DatabaseService.instance.klineDao;
   return SelectionNotifier(klineDao);
 });

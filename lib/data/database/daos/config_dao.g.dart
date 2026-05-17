@@ -8,4 +8,5 @@ mixin _$ConfigDaoMixin on DatabaseAccessor<AppDatabase> {
   $VersionHistoryTable get versionHistory => attachedDatabase.versionHistory;
   $MarketsTable get markets => attachedDatabase.markets;
   $SymbolsTable get symbols => attachedDatabase.symbols;
+  $KlineDataTable get klineData => attachedDatabase.klineData;
 }

@@ -1,5 +1,6 @@
 import 'app_database.dart';
 import 'daos/daos.dart';
+import '../services/stock_data_sync_service.dart';
 import '../../shared/utils/logger.dart';
 
 /// 数据库服务单例
@@ -16,7 +17,7 @@ class DatabaseService {
   Future<void> initialize({int maxRetries = 3}) async {
     appLogger.i('开始初始化数据库服务');
     db = AppDatabase();
-    
+
     int retryCount = 0;
     while (retryCount < maxRetries) {
       try {
@@ -39,13 +40,29 @@ class DatabaseService {
   Future<void> _initData() async {
     try {
       appLogger.i('开始初始化基础数据');
-      
+
       await db.configDao.initMarketData();
       appLogger.i('市场数据初始化成功');
-      
+
       await db.configDao.initSystemConfigs();
       appLogger.i('系统配置初始化成功');
-      
+
+      final syncService = StockDataSyncService(db);
+      appLogger.i('开始从外部数据库同步股票数据...');
+      final synced = await syncService.syncFromExternalDatabase();
+
+      if (synced) {
+        final newCount = await syncService.getStockCount();
+        appLogger.i('外部数据同步完成，共 $newCount 支股票');
+      } else {
+        appLogger.i('外部数据同步失败，初始化示例数据');
+        await db.configDao.initSampleStockData();
+        appLogger.i('示例股票数据初始化成功');
+
+        await db.configDao.initSampleKlineData();
+        appLogger.i('示例K线数据初始化成功');
+      }
+
       appLogger.i('基础数据初始化完成');
     } catch (e, stackTrace) {
       appLogger.e('基础数据初始化失败', error: e, stackTrace: stackTrace);

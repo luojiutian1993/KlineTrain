@@ -7,9 +7,11 @@ import 'package:kline_trainer/features/home/widgets/stock_condition_selector.dar
 import 'package:kline_trainer/providers/asset_summary_provider.dart';
 import 'package:kline_trainer/providers/recent_trades_provider.dart';
 import 'package:kline_trainer/providers/stock_trade_summary_provider.dart';
+import 'package:kline_trainer/providers/stock_filter_provider.dart';
 import 'package:kline_trainer/data/models/asset_summary_model.dart';
 import 'package:kline_trainer/data/models/recent_trade_model.dart';
 import 'package:kline_trainer/data/models/stock_trade_summary_model.dart';
+import 'package:kline_trainer/core/enums/stock_filter_condition.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,23 +23,24 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
   String _selectedCondition = '随机';
+  StockTimeRange? _selectedTimeRange;
 
   final List<String> _conditions = [
     '随机',
     '历史新高',
-    '1年新高',
+    '一年新高',
     '200日新高',
-    '30日涨幅前50',
-    '15日涨幅前50',
+    '30日涨幅前50%',
+    '15日涨幅前50%',
     '涨停',
     '连板',
-    '量升价涨',
+    '量价齐升',
     '上升趋势',
     '历史新低',
-    '1年新低',
+    '一年新低',
     '200日新低',
-    '30日跌幅前50',
-    '15日跌幅前50',
+    '30日跌幅前50%',
+    '15日跌幅前50%',
     '下降趋势',
     '跌停',
     '连续跌停'
@@ -432,24 +435,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _selectedCondition = value;
                     });
                   },
+                  selectedTimeRange: _selectedTimeRange,
+                  onTimeRangeChanged: (timeRange) {
+                    setState(() {
+                      _selectedTimeRange = timeRange;
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      context.go('/battle');
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final filterState = ref.watch(stockFilterProvider);
+                    final hasSelectedStock = filterState.hasSelectedStock;
+                    final isLoading = filterState.isLoading;
+
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                if (!hasSelectedStock) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('请先选择一只股票'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final stock = filterState.selectedStock;
+                                if (stock != null) {
+                                  context.go(
+                                    '/battle',
+                                    extra: {
+                                      'stockCode': stock.symbol,
+                                      'stockName': stock.symbolName,
+                                      'marketCode': stock.marketCode,
+                                      'closePrice': stock.closePrice,
+                                      'condition': _selectedCondition,
+                                    },
+                                  );
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          disabledBackgroundColor:
+                              AppTheme.accent.withOpacity(0.5),
+                        ),
+                        child: isLoading
+                            ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('加载中...',
+                                      style: TextStyle(fontSize: 16)),
+                                ],
+                              )
+                            : const Text('确认', style: TextStyle(fontSize: 16)),
                       ),
-                    ),
-                    child: const Text('确认', style: TextStyle(fontSize: 16)),
-                  ),
+                    );
+                  },
                 ),
               ],
             ),

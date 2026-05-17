@@ -34,7 +34,8 @@ class MarketSectorSelector extends ConsumerWidget {
             hint: const Text('请选择市场板块'),
             isExpanded: true,
             decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               border: InputBorder.none,
             ),
             icon: const Icon(Icons.arrow_drop_down, color: AppTheme.muted),
@@ -51,7 +52,8 @@ class MarketSectorSelector extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         sector.name,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

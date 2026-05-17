@@ -108,7 +108,8 @@ class MarketNotifier extends StateNotifier<MarketState> {
   }
 }
 
-final marketProvider = StateNotifierProvider<MarketNotifier, MarketState>((ref) {
+final marketProvider =
+    StateNotifierProvider<MarketNotifier, MarketState>((ref) {
   return MarketNotifier();
 });
 

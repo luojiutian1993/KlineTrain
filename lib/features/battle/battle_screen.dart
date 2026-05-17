@@ -11,6 +11,8 @@ import 'package:kline_trainer/data/models/kline_model.dart'
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
+import 'package:kline_trainer/providers/battle_stock_provider.dart';
+import 'package:kline_trainer/core/enums/stock_filter_condition.dart';
 import 'package:drift/drift.dart' show Value;
 
 class BattleScreen extends ConsumerStatefulWidget {
@@ -45,6 +47,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   ];
 
   String _currentSymbol = 'SH600000';
+  String _currentSymbolName = '';
+  String _currentMarketCode = '';
   List<KlineModel> _allKlineData = [];
   List<TradePoint> _tradePoints = [];
 
@@ -55,7 +59,22 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleRouteExtra();
+    });
     _loadKlineData();
+  }
+
+  void _handleRouteExtra() {
+    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+    if (extra != null) {
+      setState(() {
+        _currentSymbol = extra['stockCode'] as String? ?? _currentSymbol;
+        _currentSymbolName = extra['stockName'] as String? ?? '';
+        _currentMarketCode = extra['marketCode'] as String? ?? '';
+      });
+      _loadKlineData();
+    }
   }
 
   @override
@@ -65,11 +84,20 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Future<void> _loadKlineData() async {
     final repository = KlineRepository();
-    final data = await repository.fetchKlineData(
+
+    var data = await repository.fetchKlineDataFromDb(
       symbol: _currentSymbol,
-      timeframe: 'day',
+      period: 'day',
       limit: _trainingDays + _historyDays,
     );
+
+    if (data.isEmpty) {
+      data = await repository.fetchKlineData(
+        symbol: _currentSymbol,
+        timeframe: 'day',
+        limit: _trainingDays + _historyDays,
+      );
+    }
 
     setState(() {
       _allKlineData = data;
@@ -2158,21 +2186,39 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _StockSelectionSheet extends StatelessWidget {
+class _StockSelectionSheet extends ConsumerStatefulWidget {
   final Function(String) onSelect;
 
   const _StockSelectionSheet({required this.onSelect});
 
   @override
+  ConsumerState<_StockSelectionSheet> createState() =>
+      _StockSelectionSheetState();
+}
+
+class _StockSelectionSheetState extends ConsumerState<_StockSelectionSheet> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadStocks();
+    });
+  }
+
+  Future<void> _loadStocks() async {
+    final now = DateTime.now();
+    final oneYearAgo = DateTime(now.year - 1, now.month, now.day);
+
+    await ref.read(battleStockProvider.notifier).loadStocks(
+          condition: StockFilterCondition.random,
+          startDate: oneYearAgo,
+          endDate: now,
+        );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final stocks = [
-      {'code': 'SH600000', 'name': '浦发银行'},
-      {'code': 'SH600036', 'name': '招商银行'},
-      {'code': 'SH600519', 'name': '贵州茅台'},
-      {'code': 'SH601318', 'name': '中国平安'},
-      {'code': 'SZ300750', 'name': '宁德时代'},
-      {'code': 'SZ002594', 'name': '比亚迪'},
-    ];
+    final stockState = ref.watch(battleStockProvider);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2183,11 +2229,37 @@ class _StockSelectionSheet extends StatelessWidget {
           const Text('选择股票',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          ...stocks.map((stock) => ListTile(
-                title: Text(stock['name']!),
-                subtitle: Text(stock['code']!),
-                onTap: () => onSelect(stock['code']!),
-              )),
+          if (stockState.isLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (stockState.error != null)
+            Center(
+              child: Column(
+                children: [
+                  Text(stockState.error!,
+                      style: const TextStyle(color: Colors.red)),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: _loadStocks,
+                    child: const Text('重试'),
+                  ),
+                ],
+              ),
+            )
+          else if (stockState.stocks.isEmpty)
+            const Center(child: Text('暂无股票数据'))
+          else
+            ...stockState.stocks.map((stock) => ListTile(
+                  title: Text(stock.symbolName),
+                  subtitle: Text('${stock.marketCode}${stock.symbol}'),
+                  trailing: Text(
+                    '¥${stock.closePrice.toStringAsFixed(2)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  onTap: () {
+                    widget.onSelect(stock.symbol);
+                    ref.read(battleStockProvider.notifier).selectStock(stock);
+                  },
+                )),
         ],
       ),
     );

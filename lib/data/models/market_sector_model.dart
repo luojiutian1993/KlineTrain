@@ -48,7 +48,8 @@ class MarketSectorModel {
     }
   }
 
-  static MarketSectorModel fromSector(MarketSector sector, {bool selected = false}) {
+  static MarketSectorModel fromSector(MarketSector sector,
+      {bool selected = false}) {
     return MarketSectorModel(
       id: sector.id,
       name: sector.name,

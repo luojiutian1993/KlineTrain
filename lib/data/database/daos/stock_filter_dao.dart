@@ -14,10 +14,38 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
 
   Future<List<Symbol>> getActiveSymbols({String? marketCode}) {
     final query = select(symbols)..where((t) => t.enabled.equals(true));
+
     if (marketCode != null) {
-      query.where((t) => t.marketCode.equals(marketCode));
+      final mappedMarketCode = _mapMarketCode(marketCode);
+      query.where((t) => t.marketCode.equals(mappedMarketCode));
     }
+
     return query.get();
+  }
+
+  String _mapMarketCode(String marketCode) {
+    switch (marketCode) {
+      case 'XSHG':
+        return 'SH';
+      case 'XSHE':
+        return 'SZ';
+      case 'HKEX':
+        return 'HK';
+      case 'NASDAQ':
+      case 'NYSE':
+        return 'US';
+      default:
+        return marketCode;
+    }
+  }
+
+  /// 获取有K线数据的最近日期
+  Future<DateTime?> getLatestKlineDate() async {
+    final result = await (selectOnly(klineData)
+          ..addColumns([klineData.tradeDate.max()])
+          ..where(klineData.period.equals('day')))
+        .getSingle();
+    return result.read(klineData.tradeDate.max());
   }
 
   Future<KlineDataData?> getKlineDataForDate(

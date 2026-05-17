@@ -14,6 +14,9 @@ class StockFilterState {
   final bool isLoading;
   final String? error;
   final int? filterCount;
+  final String? selectedStockCode;
+  final String? selectedStockName;
+  final StockFilterResultModel? selectedStock;
 
   const StockFilterState({
     this.selectedCondition,
@@ -24,6 +27,9 @@ class StockFilterState {
     this.isLoading = false,
     this.error,
     this.filterCount,
+    this.selectedStockCode,
+    this.selectedStockName,
+    this.selectedStock,
   });
 
   StockFilterState copyWith({
@@ -35,6 +41,9 @@ class StockFilterState {
     bool? isLoading,
     String? error,
     int? filterCount,
+    String? selectedStockCode,
+    String? selectedStockName,
+    StockFilterResultModel? selectedStock,
   }) {
     return StockFilterState(
       selectedCondition: selectedCondition ?? this.selectedCondition,
@@ -45,6 +54,9 @@ class StockFilterState {
       isLoading: isLoading ?? this.isLoading,
       error: error,
       filterCount: filterCount ?? this.filterCount,
+      selectedStockCode: selectedStockCode ?? this.selectedStockCode,
+      selectedStockName: selectedStockName ?? this.selectedStockName,
+      selectedStock: selectedStock ?? this.selectedStock,
     );
   }
 
@@ -52,7 +64,9 @@ class StockFilterState {
 
   bool get hasResults => filterResult != null && filterResult!.items.isNotEmpty;
 
-  bool get canStartTraining => hasResults && !isLoading;
+  bool get hasSelectedStock => selectedStockCode != null;
+
+  bool get canStartTraining => hasResults && hasSelectedStock && !isLoading;
 }
 
 class StockFilterNotifier extends StateNotifier<StockFilterState> {
@@ -196,6 +210,14 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
       );
       return null;
     }
+  }
+
+  void selectStock(StockFilterResultModel stock) {
+    state = state.copyWith(
+      selectedStock: stock,
+      selectedStockCode: stock.symbol,
+      selectedStockName: stock.symbolName,
+    );
   }
 
   void clearError() {

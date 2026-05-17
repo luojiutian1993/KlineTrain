@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/enums/stock_filter_condition.dart';
+import '../../../data/models/stock_filter_result_model.dart';
 import '../../../providers/stock_filter_provider.dart';
 import '../../../theme/app_theme.dart';
 
@@ -40,6 +41,7 @@ class _StockConditionSelectorState
     final filterState = ref.watch(stockFilterProvider);
     final filterCount = filterState.filterCount;
     final isLoading = filterState.isLoading;
+    final filterResult = filterState.filterResult;
 
     final upTrendConditions = StockFilterCondition.upTrendConditions;
     final downTrendConditions = StockFilterCondition.downTrendConditions;
@@ -68,6 +70,8 @@ class _StockConditionSelectorState
         ),
         const SizedBox(height: 12),
         _buildResultIndicator(filterCount, isLoading),
+        const SizedBox(height: 16),
+        _buildStockList(filterResult, isLoading),
       ],
     );
   }
@@ -336,6 +340,144 @@ class _StockConditionSelectorState
   void _onConditionSelected(StockFilterCondition condition) {
     widget.onChanged(condition.label);
     ref.read(stockFilterProvider.notifier).selectCondition(condition);
+  }
+
+  Widget _buildStockList(StockFilterResultResponse? result, bool isLoading) {
+    if (isLoading) {
+      return const SizedBox.shrink();
+    }
+
+    if (result == null || result.items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 16,
+              decoration: BoxDecoration(
+                color: AppTheme.accent,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              '选股结果',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.fg,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppTheme.border),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children:
+                result.items.map((stock) => _buildStockItem(stock)).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStockItem(StockFilterResultModel stock) {
+    final isUp = stock.changePercent >= 0;
+    final changeColor = isUp ? Colors.red : Colors.green;
+    final filterState = ref.watch(stockFilterProvider);
+    final isSelected = filterState.selectedStockCode == stock.symbol;
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(stockFilterProvider.notifier).selectStock(stock);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppTheme.border)),
+          color:
+              isSelected ? AppTheme.accent.withAlpha(15) : Colors.transparent,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected ? AppTheme.accent : AppTheme.border,
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? Center(
+                      child: CircleAvatar(
+                        radius: 5,
+                        backgroundColor: AppTheme.accent,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    stock.symbolName,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.normal,
+                      color: isSelected ? AppTheme.accent : AppTheme.fg,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${stock.marketCode}${stock.symbol}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  stock.closePrice.toStringAsFixed(2),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: changeColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${isUp ? '+' : ''}${stock.changePercent.toStringAsFixed(2)}%',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: changeColor,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
