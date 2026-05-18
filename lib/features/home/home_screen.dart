@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
-import 'package:kline_trainer/features/home/widgets/market_sector_selector.dart';
+import 'package:kline_trainer/features/home/widgets/market_selector.dart';
 import 'package:kline_trainer/features/home/widgets/stock_condition_selector.dart';
+import 'package:kline_trainer/features/home/widgets/training_date_display.dart';
 import 'package:kline_trainer/providers/asset_summary_provider.dart';
 import 'package:kline_trainer/providers/recent_trades_provider.dart';
 import 'package:kline_trainer/providers/stock_trade_summary_provider.dart';
 import 'package:kline_trainer/providers/stock_filter_provider.dart';
+import 'package:kline_trainer/providers/selection_provider.dart';
+import 'package:kline_trainer/data/services/time_range_service.dart';
+import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/models/asset_summary_model.dart';
 import 'package:kline_trainer/data/models/recent_trade_model.dart';
 import 'package:kline_trainer/data/models/stock_trade_summary_model.dart';
-import 'package:kline_trainer/core/enums/stock_filter_condition.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +26,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
   String _selectedCondition = '随机';
-  StockTimeRange? _selectedTimeRange;
+  DateTime? _trainingStartDate;
+  bool _isGeneratingDate = false;
 
   final List<String> _conditions = [
     '随机',
@@ -77,6 +81,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _formatPercent(double value) {
     final prefix = value >= 0 ? '+' : '';
     return '$prefix${value.toStringAsFixed(1)}%';
+  }
+
+  Future<void> _generateTrainingDate() async {
+    setState(() {
+      _isGeneratingDate = true;
+    });
+
+    try {
+      final service = TimeRangeService(DatabaseService.instance.stockFilterDao);
+      final date = await service.generateRandomTrainingStartDate();
+      setState(() {
+        _trainingStartDate = date;
+      });
+      ref.read(selectionProvider.notifier).setTrainingStartDate(date);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('生成时间失败: ${e.toString()}')),
+      );
+    } finally {
+      setState(() {
+        _isGeneratingDate = false;
+      });
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _generateTrainingDate();
   }
 
   @override
@@ -406,6 +439,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildStockSelection() {
+    final selectionState = ref.watch(selectionProvider);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -419,8 +454,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        const MarketSectorSelector(),
-        const SizedBox(height: 16),
         Card(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -428,18 +461,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
+                MarketSelector(
+                  selectedMarket: selectionState.selectedMarket,
+                  selectedSubMarkets: selectionState.selectedSubMarkets,
+                  onMarketChanged: (market) {
+                    ref.read(selectionProvider.notifier).setMarket(market);
+                  },
+                  onSubMarketsChanged: (subMarkets) {
+                    ref.read(selectionProvider.notifier).setSubMarkets(subMarkets);
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildIndustrySectorSelector(),
+                const SizedBox(height: 16),
+                TrainingDateDisplay(
+                  startDate: _trainingStartDate,
+                  trainingDays: 150,
+                  onRegenerate: _generateTrainingDate,
+                ),
+                const SizedBox(height: 16),
                 StockConditionSelector(
                   selectedCondition: _selectedCondition,
                   onChanged: (value) {
                     setState(() {
                       _selectedCondition = value;
                     });
-                  },
-                  selectedTimeRange: _selectedTimeRange,
-                  onTimeRangeChanged: (timeRange) {
-                    setState(() {
-                      _selectedTimeRange = timeRange;
-                    });
+                    ref.read(selectionProvider.notifier).setCondition(value);
                   },
                 ),
                 const SizedBox(height: 16),
@@ -447,7 +494,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   builder: (context, ref, child) {
                     final filterState = ref.watch(stockFilterProvider);
                     final hasSelectedStock = filterState.hasSelectedStock;
-                    final isLoading = filterState.isLoading;
+                    final isLoading = filterState.isLoading || _isGeneratingDate;
 
                     return SizedBox(
                       width: double.infinity,
@@ -466,7 +513,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 }
 
                                 final stock = filterState.selectedStock;
-                                if (stock != null) {
+                                if (stock != null && _trainingStartDate != null) {
                                   context.go(
                                     '/battle',
                                     extra: {
@@ -475,6 +522,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       'marketCode': stock.marketCode,
                                       'closePrice': stock.closePrice,
                                       'condition': _selectedCondition,
+                                      'trainingStartDate': _trainingStartDate,
+                                      'trainingDays': 150,
                                     },
                                   );
                                 }
@@ -515,6 +564,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildIndustrySectorSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          '行业板块',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: null,
+              isExpanded: true,
+              hint: const Text('行业板块（后续实现）'),
+              items: const [
+                DropdownMenuItem(
+                  value: null,
+                  enabled: false,
+                  child: Text('行业板块（后续实现）'),
+                ),
+              ],
+              onChanged: null,
+              disabledHint: const Text('行业板块（后续实现）'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Divider(),
       ],
     );
   }

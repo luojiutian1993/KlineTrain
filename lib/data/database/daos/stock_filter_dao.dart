@@ -48,6 +48,27 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     return result.read(klineData.tradeDate.max());
   }
 
+  /// 获取K线数据库的时间范围
+  Future<(DateTime, DateTime)> getKlineDateRange() async {
+    final minResult = await (selectOnly(klineData)
+          ..addColumns([klineData.tradeDate.min()])
+          ..where(klineData.period.equals('day')))
+        .getSingle();
+
+    final maxResult = await (selectOnly(klineData)
+          ..addColumns([klineData.tradeDate.max()])
+          ..where(klineData.period.equals('day')))
+        .getSingle();
+
+    final minTimestamp = minResult.read(klineData.tradeDate.min());
+    final maxTimestamp = maxResult.read(klineData.tradeDate.max());
+
+    return (
+      minTimestamp ?? DateTime(2000, 1, 1),
+      maxTimestamp ?? DateTime.now(),
+    );
+  }
+
   Future<KlineDataData?> getKlineDataForDate(
       String symbol, String period, DateTime date) {
     return (select(klineData)
@@ -453,6 +474,7 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     String? marketCode,
     DateTime? startDate,
     DateTime? endDate,
+    List<String>? marketCodes,
   }) async {
     switch (condition) {
       case StockFilterCondition.allTimeHigh:

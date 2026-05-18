@@ -3,14 +3,15 @@ import '../data/database/database_service.dart';
 import '../data/database/daos/kline_dao.dart';
 import '../data/repositories/stock_filter_repository.dart';
 import '../data/models/kline_model.dart';
-import '../data/models/market_sector_model.dart';
 import '../data/models/stock_filter_result_model.dart';
 import '../core/enums/stock_filter_condition.dart';
 
 class SelectionState {
   final String? selectedCondition;
-  final MarketSectorModel? selectedSector;
-  final StockTimeRange? timeRange;
+  final String selectedMarket;
+  final List<String> selectedSubMarkets;
+  final DateTime? trainingStartDate;
+  final int trainingDays;
   final List<KlineModel> klineData;
   final bool isLoading;
   final String? error;
@@ -21,8 +22,10 @@ class SelectionState {
 
   const SelectionState({
     this.selectedCondition,
-    this.selectedSector,
-    this.timeRange,
+    this.selectedMarket = 'CN',
+    this.selectedSubMarkets = const [],
+    this.trainingStartDate,
+    this.trainingDays = 150,
     this.klineData = const [],
     this.isLoading = false,
     this.error,
@@ -34,8 +37,10 @@ class SelectionState {
 
   SelectionState copyWith({
     String? selectedCondition,
-    MarketSectorModel? selectedSector,
-    StockTimeRange? timeRange,
+    String? selectedMarket,
+    List<String>? selectedSubMarkets,
+    DateTime? trainingStartDate,
+    int? trainingDays,
     List<KlineModel>? klineData,
     bool? isLoading,
     String? error,
@@ -46,8 +51,10 @@ class SelectionState {
   }) {
     return SelectionState(
       selectedCondition: selectedCondition ?? this.selectedCondition,
-      selectedSector: selectedSector ?? this.selectedSector,
-      timeRange: timeRange ?? this.timeRange,
+      selectedMarket: selectedMarket ?? this.selectedMarket,
+      selectedSubMarkets: selectedSubMarkets ?? this.selectedSubMarkets,
+      trainingStartDate: trainingStartDate ?? this.trainingStartDate,
+      trainingDays: trainingDays ?? this.trainingDays,
       klineData: klineData ?? this.klineData,
       isLoading: isLoading ?? this.isLoading,
       error: error,
@@ -59,7 +66,7 @@ class SelectionState {
   }
 
   bool get hasKlineData => klineData.isNotEmpty;
-  bool get canStartTraining => hasKlineData && selectedStockCode != null;
+  bool get canStartTraining => hasKlineData && selectedStockCode != null && trainingStartDate != null;
   bool get hasFilteredStocks => filteredStocks.isNotEmpty;
 }
 
@@ -85,12 +92,23 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
     _executeStockFilter();
   }
 
-  void setSector(MarketSectorModel sector) {
-    state = state.copyWith(selectedSector: sector);
+  void setMarket(String market) {
+    state = state.copyWith(selectedMarket: market);
   }
 
-  void setTimeRange(StockTimeRange timeRange) {
-    state = state.copyWith(timeRange: timeRange);
+  void setSubMarkets(List<String> subMarkets) {
+    state = state.copyWith(selectedSubMarkets: subMarkets);
+  }
+
+  void setTrainingStartDate(DateTime date) {
+    state = state.copyWith(
+      trainingStartDate: date,
+      selectedStock: null,
+      selectedStockCode: null,
+      selectedStockName: null,
+    );
+
+    _executeStockFilter();
   }
 
   Future<void> _executeStockFilter() async {
@@ -98,15 +116,18 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
     if (conditionLabel == null) return;
 
     final condition = StockFilterCondition.fromString(conditionLabel);
+    final trainingStartDate = state.trainingStartDate;
+
+    if (trainingStartDate == null) return;
 
     state = state.copyWith(isLoading: true, error: null);
 
     try {
       final result = await _stockFilterRepository.filterStocks(
         condition: condition,
-        marketCode: state.selectedSector?.code,
-        startDate: state.timeRange?.startDate,
-        endDate: state.timeRange?.endDate,
+        trainingStartDate: trainingStartDate,
+        trainingDays: state.trainingDays,
+        subMarketCodes: state.selectedSubMarkets.isNotEmpty ? state.selectedSubMarkets : null,
       );
 
       state = state.copyWith(
@@ -134,29 +155,58 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
     );
 
     try {
-      final klineDataList = await _klineDao.getKlineData(
-        stock.symbol,
-        'day',
-        limit: 100,
-      );
+      final trainingStartDate = state.trainingStartDate;
+      if (trainingStartDate != null) {
+        final endDate = trainingStartDate.add(Duration(days: state.trainingDays));
+        final klineDataList = await _klineDao.getKlineDataRange(
+          stock.symbol,
+          'day',
+          trainingStartDate.subtract(const Duration(days: 30)),
+          endDate,
+        );
 
-      final klineModels = klineDataList
-          .map((k) => KlineModel(
-                symbol: k.symbol,
-                timestamp: k.tradeDate.millisecondsSinceEpoch,
-                open: k.open.toDouble(),
-                high: k.high.toDouble(),
-                low: k.low.toDouble(),
-                close: k.close.toDouble(),
-                volume: k.volume.toDouble(),
-                turnover: k.amount.toDouble(),
-              ))
-          .toList();
+        final klineModels = klineDataList
+            .map((k) => KlineModel(
+                  symbol: k.symbol,
+                  timestamp: k.tradeDate.millisecondsSinceEpoch,
+                  open: k.open.toDouble(),
+                  high: k.high.toDouble(),
+                  low: k.low.toDouble(),
+                  close: k.close.toDouble(),
+                  volume: k.volume.toDouble(),
+                  turnover: k.amount.toDouble(),
+                ))
+            .toList();
 
-      state = state.copyWith(
-        isLoading: false,
-        klineData: klineModels,
-      );
+        state = state.copyWith(
+          isLoading: false,
+          klineData: klineModels,
+        );
+      } else {
+        final klineDataList = await _klineDao.getKlineData(
+          stock.symbol,
+          'day',
+          limit: 100,
+        );
+
+        final klineModels = klineDataList
+            .map((k) => KlineModel(
+                  symbol: k.symbol,
+                  timestamp: k.tradeDate.millisecondsSinceEpoch,
+                  open: k.open.toDouble(),
+                  high: k.high.toDouble(),
+                  low: k.low.toDouble(),
+                  close: k.close.toDouble(),
+                  volume: k.volume.toDouble(),
+                  turnover: k.amount.toDouble(),
+                ))
+            .toList();
+
+        state = state.copyWith(
+          isLoading: false,
+          klineData: klineModels,
+        );
+      }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -166,10 +216,8 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
   }
 
   Future<void> executeSelection() async {
-    final sector = state.selectedSector;
-
-    if (sector == null || state.selectedCondition == null) {
-      state = state.copyWith(error: '请先选择板块和条件');
+    if (state.selectedCondition == null || state.trainingStartDate == null) {
+      state = state.copyWith(error: '请先选择选股条件和等待时间生成');
       return;
     }
 

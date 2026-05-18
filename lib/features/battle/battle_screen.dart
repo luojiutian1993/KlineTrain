@@ -28,8 +28,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   String _selectedTopIndicator = '成交量';
   String _selectedBottomIndicator = 'MACD';
   int _currentDayIndex = 0;
-  int _trainingDays = 60;
+  int _trainingDays = 150;
   final int _historyDays = 30;
+  DateTime? _trainingStartDate;
 
   final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
   final List<String> _indicators = [
@@ -72,6 +73,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _currentSymbol = extra['stockCode'] as String? ?? _currentSymbol;
         _currentSymbolName = extra['stockName'] as String? ?? '';
         _currentMarketCode = extra['marketCode'] as String? ?? '';
+        _trainingStartDate = extra['trainingStartDate'] as DateTime?;
+        _trainingDays = extra['trainingDays'] as int? ?? 150;
       });
       _loadKlineData();
     }
@@ -84,18 +87,33 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Future<void> _loadKlineData() async {
     final repository = KlineRepository();
+    final totalDays = _trainingDays + _historyDays;
 
-    var data = await repository.fetchKlineDataFromDb(
-      symbol: _currentSymbol,
-      period: 'day',
-      limit: _trainingDays + _historyDays,
-    );
+    List<KlineModel> data;
+    
+    if (_trainingStartDate != null) {
+      final startTime = _trainingStartDate!.subtract(Duration(days: _historyDays));
+      final endTime = _trainingStartDate!.add(Duration(days: _trainingDays));
+      
+      data = await repository.fetchKlineDataFromDbWithDateRange(
+        symbol: _currentSymbol,
+        period: 'day',
+        startTime: startTime,
+        endTime: endTime,
+      );
+    } else {
+      data = await repository.fetchKlineDataFromDb(
+        symbol: _currentSymbol,
+        period: 'day',
+        limit: totalDays,
+      );
+    }
 
     if (data.isEmpty) {
       data = await repository.fetchKlineData(
         symbol: _currentSymbol,
         timeframe: 'day',
-        limit: _trainingDays + _historyDays,
+        limit: totalDays,
       );
     }
 

@@ -42,6 +42,8 @@ class StockFilterResultResponse {
   final DateTime date;
   final int total;
   final List<StockFilterResultModel> items;
+  final DateTime? trainingStartDate;
+  final int? trainingDays;
 
   StockFilterResultResponse({
     required this.condition,
@@ -49,6 +51,8 @@ class StockFilterResultResponse {
     required this.date,
     required this.total,
     required this.items,
+    this.trainingStartDate,
+    this.trainingDays,
   });
 
   factory StockFilterResultResponse.fromJson(Map<String, dynamic> json) =>

@@ -6,7 +6,6 @@ import '../models/stock_filter_result_model.dart';
 import '../../core/enums/stock_filter_condition.dart';
 import '../../shared/utils/logger.dart';
 
-/// 选股仓库
 class StockFilterRepository {
   final StockFilterDao _stockFilterDao;
 
@@ -25,12 +24,20 @@ class StockFilterRepository {
     DateTime? startDate,
     DateTime? endDate,
     bool useCache = true,
+    DateTime? trainingStartDate,
+    int trainingDays = 150,
+    List<String>? subMarketCodes,
   }) async {
-    // 获取有K线数据的最近日期，如果没有数据就使用今天
-    DateTime? latestDate = await _stockFilterDao.getLatestKlineDate();
-    final targetDate = date ?? latestDate ?? DateTime.now();
+    final (minDate, maxDate) = await _stockFilterDao.getKlineDateRange();
+    final targetDate = trainingStartDate ?? date ?? maxDate ?? DateTime.now();
+    final conditionStartDate = startDate ?? minDate;
+
     appLogger.i(
-        '开始选股: condition=${condition.name}, date=$targetDate, startDate=$startDate, endDate=$endDate');
+      '开始选股: condition=${condition.name}, '
+      'conditionStartDate=$conditionStartDate, '
+      'conditionEndDate=$targetDate, '
+      'trainingDays=$trainingDays',
+    );
 
     try {
       if (useCache && condition != StockFilterCondition.random) {
@@ -56,6 +63,8 @@ class StockFilterRepository {
                       changePercent: r.changePercent,
                     ))
                 .toList(),
+            trainingStartDate: trainingStartDate,
+            trainingDays: trainingDays,
           );
         }
       }
@@ -64,8 +73,9 @@ class StockFilterRepository {
         condition,
         targetDate,
         marketCode: marketCode,
-        startDate: startDate,
-        endDate: endDate,
+        startDate: conditionStartDate,
+        endDate: targetDate,
+        marketCodes: subMarketCodes,
       );
 
       appLogger.i('选股完成: 共 ${symbols.length} 支股票满足条件');
@@ -83,6 +93,8 @@ class StockFilterRepository {
         date: targetDate,
         total: items.length,
         items: items,
+        trainingStartDate: trainingStartDate,
+        trainingDays: trainingDays,
       );
     } catch (e, stackTrace) {
       appLogger.e('选股失败', error: e, stackTrace: stackTrace);

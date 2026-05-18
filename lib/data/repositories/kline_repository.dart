@@ -57,6 +57,40 @@ class KlineRepository {
     }
   }
 
+  Future<List<KlineModel>> fetchKlineDataFromDbWithDateRange({
+    required String symbol,
+    required String period,
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async {
+    try {
+      final dbService = await _getDbService();
+      final dbData = await dbService.klineDao.getKlineDataRange(
+        symbol,
+        period,
+        startTime,
+        endTime,
+      );
+
+      if (dbData.isEmpty) {
+        return [];
+      }
+
+      return dbData.map((item) => KlineModel(
+        symbol: item.symbol,
+        timestamp: item.tradeDate.millisecondsSinceEpoch,
+        open: item.open,
+        high: item.high,
+        low: item.low,
+        close: item.close,
+        volume: item.volume,
+        turnover: item.amount,
+      )).toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
   Future<List<KlineModel>> _aggregateFromDailyData(String symbol, String targetPeriod) async {
     try {
       final dbService = await _getDbService();

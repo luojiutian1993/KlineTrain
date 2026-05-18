@@ -273,4 +273,20 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     final result = await query.getSingle();
     return result.read(countQuery) ?? 0;
   }
+
+  /// 获取指定时间范围内的K线数据
+  Future<List<KlineDataData>> getKlineDataRange(
+    String symbol,
+    String period,
+    DateTime startTime,
+    DateTime endTime,
+  ) {
+    return (select(klineData)
+          ..where((t) => t.symbol.equals(symbol))
+          ..where((t) => t.period.equals(period))
+          ..where((t) => t.tradeDate.isBiggerOrEqualValue(startTime))
+          ..where((t) => t.tradeDate.isSmallerOrEqualValue(endTime))
+          ..orderBy([(t) => OrderingTerm.asc(t.tradeDate)]))
+        .get();
+  }
 }
