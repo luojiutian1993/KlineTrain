@@ -2860,19 +2860,15 @@ class $SymbolsTable extends Symbols with TableInfo<$SymbolsTable, Symbol> {
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
-  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
-      'created_at', aliasedName, false,
-      type: DriftSqlType.dateTime,
-      requiredDuringInsert: false,
-      defaultValue: currentDateAndTime);
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+      'created_at', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _updatedAtMeta =
       const VerificationMeta('updatedAt');
   @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-      'updated_at', aliasedName, false,
-      type: DriftSqlType.dateTime,
-      requiredDuringInsert: false,
-      defaultValue: currentDateAndTime);
+  late final GeneratedColumn<String> updatedAt = GeneratedColumn<String>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -2990,9 +2986,9 @@ class $SymbolsTable extends Symbols with TableInfo<$SymbolsTable, Symbol> {
       enabled: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}enabled'])!,
       createdAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+          .read(DriftSqlType.string, data['${effectivePrefix}created_at']),
       updatedAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+          .read(DriftSqlType.string, data['${effectivePrefix}updated_at']),
     );
   }
 
@@ -3037,10 +3033,10 @@ class Symbol extends DataClass implements Insertable<Symbol> {
   final bool enabled;
 
   /// 创建时间
-  final DateTime createdAt;
+  final String? createdAt;
 
   /// 更新时间
-  final DateTime updatedAt;
+  final String? updatedAt;
   const Symbol(
       {required this.id,
       required this.symbol,
@@ -3053,8 +3049,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
       this.lotSize,
       this.minTick,
       required this.enabled,
-      required this.createdAt,
-      required this.updatedAt});
+      this.createdAt,
+      this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3081,8 +3077,12 @@ class Symbol extends DataClass implements Insertable<Symbol> {
       map['min_tick'] = Variable<double>(minTick);
     }
     map['enabled'] = Variable<bool>(enabled);
-    map['created_at'] = Variable<DateTime>(createdAt);
-    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<String>(createdAt);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<String>(updatedAt);
+    }
     return map;
   }
 
@@ -3109,8 +3109,12 @@ class Symbol extends DataClass implements Insertable<Symbol> {
           ? const Value.absent()
           : Value(minTick),
       enabled: Value(enabled),
-      createdAt: Value(createdAt),
-      updatedAt: Value(updatedAt),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -3129,8 +3133,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
       lotSize: serializer.fromJson<int?>(json['lotSize']),
       minTick: serializer.fromJson<double?>(json['minTick']),
       enabled: serializer.fromJson<bool>(json['enabled']),
-      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      createdAt: serializer.fromJson<String?>(json['createdAt']),
+      updatedAt: serializer.fromJson<String?>(json['updatedAt']),
     );
   }
   @override
@@ -3148,8 +3152,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
       'lotSize': serializer.toJson<int?>(lotSize),
       'minTick': serializer.toJson<double?>(minTick),
       'enabled': serializer.toJson<bool>(enabled),
-      'createdAt': serializer.toJson<DateTime>(createdAt),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'createdAt': serializer.toJson<String?>(createdAt),
+      'updatedAt': serializer.toJson<String?>(updatedAt),
     };
   }
 
@@ -3165,8 +3169,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
           Value<int?> lotSize = const Value.absent(),
           Value<double?> minTick = const Value.absent(),
           bool? enabled,
-          DateTime? createdAt,
-          DateTime? updatedAt}) =>
+          Value<String?> createdAt = const Value.absent(),
+          Value<String?> updatedAt = const Value.absent()}) =>
       Symbol(
         id: id ?? this.id,
         symbol: symbol ?? this.symbol,
@@ -3179,8 +3183,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
         lotSize: lotSize.present ? lotSize.value : this.lotSize,
         minTick: minTick.present ? minTick.value : this.minTick,
         enabled: enabled ?? this.enabled,
-        createdAt: createdAt ?? this.createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
+        createdAt: createdAt.present ? createdAt.value : this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
       );
   Symbol copyWithCompanion(SymbolsCompanion data) {
     return Symbol(
@@ -3267,8 +3271,8 @@ class SymbolsCompanion extends UpdateCompanion<Symbol> {
   final Value<int?> lotSize;
   final Value<double?> minTick;
   final Value<bool> enabled;
-  final Value<DateTime> createdAt;
-  final Value<DateTime> updatedAt;
+  final Value<String?> createdAt;
+  final Value<String?> updatedAt;
   const SymbolsCompanion({
     this.id = const Value.absent(),
     this.symbol = const Value.absent(),
@@ -3313,8 +3317,8 @@ class SymbolsCompanion extends UpdateCompanion<Symbol> {
     Expression<int>? lotSize,
     Expression<double>? minTick,
     Expression<bool>? enabled,
-    Expression<DateTime>? createdAt,
-    Expression<DateTime>? updatedAt,
+    Expression<String>? createdAt,
+    Expression<String>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3345,8 +3349,8 @@ class SymbolsCompanion extends UpdateCompanion<Symbol> {
       Value<int?>? lotSize,
       Value<double?>? minTick,
       Value<bool>? enabled,
-      Value<DateTime>? createdAt,
-      Value<DateTime>? updatedAt}) {
+      Value<String?>? createdAt,
+      Value<String?>? updatedAt}) {
     return SymbolsCompanion(
       id: id ?? this.id,
       symbol: symbol ?? this.symbol,
@@ -3401,10 +3405,10 @@ class SymbolsCompanion extends UpdateCompanion<Symbol> {
       map['enabled'] = Variable<bool>(enabled.value);
     }
     if (createdAt.present) {
-      map['created_at'] = Variable<DateTime>(createdAt.value);
+      map['created_at'] = Variable<String>(createdAt.value);
     }
     if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+      map['updated_at'] = Variable<String>(updatedAt.value);
     }
     return map;
   }
@@ -15793,8 +15797,8 @@ typedef $$SymbolsTableCreateCompanionBuilder = SymbolsCompanion Function({
   Value<int?> lotSize,
   Value<double?> minTick,
   Value<bool> enabled,
-  Value<DateTime> createdAt,
-  Value<DateTime> updatedAt,
+  Value<String?> createdAt,
+  Value<String?> updatedAt,
 });
 typedef $$SymbolsTableUpdateCompanionBuilder = SymbolsCompanion Function({
   Value<int> id,
@@ -15808,8 +15812,8 @@ typedef $$SymbolsTableUpdateCompanionBuilder = SymbolsCompanion Function({
   Value<int?> lotSize,
   Value<double?> minTick,
   Value<bool> enabled,
-  Value<DateTime> createdAt,
-  Value<DateTime> updatedAt,
+  Value<String?> createdAt,
+  Value<String?> updatedAt,
 });
 
 final class $$SymbolsTableReferences
@@ -15871,10 +15875,10 @@ class $$SymbolsTableFilterComposer
   ColumnFilters<bool> get enabled => $composableBuilder(
       column: $table.enabled, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+  ColumnFilters<String> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+  ColumnFilters<String> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
 
   $$MarketsTableFilterComposer get marketCode {
@@ -15937,10 +15941,10 @@ class $$SymbolsTableOrderingComposer
   ColumnOrderings<bool> get enabled => $composableBuilder(
       column: $table.enabled, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+  ColumnOrderings<String> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+  ColumnOrderings<String> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 
   $$MarketsTableOrderingComposer get marketCode {
@@ -16003,10 +16007,10 @@ class $$SymbolsTableAnnotationComposer
   GeneratedColumn<bool> get enabled =>
       $composableBuilder(column: $table.enabled, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get createdAt =>
+  GeneratedColumn<String> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
-  GeneratedColumn<DateTime> get updatedAt =>
+  GeneratedColumn<String> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   $$MarketsTableAnnotationComposer get marketCode {
@@ -16064,8 +16068,8 @@ class $$SymbolsTableTableManager extends RootTableManager<
             Value<int?> lotSize = const Value.absent(),
             Value<double?> minTick = const Value.absent(),
             Value<bool> enabled = const Value.absent(),
-            Value<DateTime> createdAt = const Value.absent(),
-            Value<DateTime> updatedAt = const Value.absent(),
+            Value<String?> createdAt = const Value.absent(),
+            Value<String?> updatedAt = const Value.absent(),
           }) =>
               SymbolsCompanion(
             id: id,
@@ -16094,8 +16098,8 @@ class $$SymbolsTableTableManager extends RootTableManager<
             Value<int?> lotSize = const Value.absent(),
             Value<double?> minTick = const Value.absent(),
             Value<bool> enabled = const Value.absent(),
-            Value<DateTime> createdAt = const Value.absent(),
-            Value<DateTime> updatedAt = const Value.absent(),
+            Value<String?> createdAt = const Value.absent(),
+            Value<String?> updatedAt = const Value.absent(),
           }) =>
               SymbolsCompanion.insert(
             id: id,

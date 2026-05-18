@@ -37,8 +37,8 @@ class Symbols extends Table {
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
 
   /// 创建时间
-  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get createdAt => text().nullable()();
 
   /// 更新时间
-  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  TextColumn get updatedAt => text().nullable()();
 }

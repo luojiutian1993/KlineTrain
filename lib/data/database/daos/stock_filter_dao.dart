@@ -14,16 +14,30 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   StockFilterDao(super.db);
 
   Future<List<Symbol>> getActiveSymbols(
-      {String? marketCode, List<String>? marketCodes}) {
+      {String? marketCode, List<String>? marketCodes}) async {
+    appLogger.i(
+        'getActiveSymbols - marketCode: $marketCode, marketCodes: $marketCodes');
+
+    // 过滤掉无效的市场代码
+    List<String>? validMarketCodes;
+    if (marketCodes != null && marketCodes.isNotEmpty) {
+      validMarketCodes = marketCodes
+          .where((code) => ['XSHG', 'XSHE', 'HKEX'].contains(code))
+          .toList();
+      appLogger.i('过滤后有效的市场代码: $validMarketCodes');
+    }
+
     final query = select(symbols)..where((t) => t.enabled.equals(true));
 
-    if (marketCodes != null && marketCodes.isNotEmpty) {
-      query.where((t) => t.marketCode.isIn(marketCodes));
+    if (validMarketCodes != null && validMarketCodes.isNotEmpty) {
+      query.where((t) => t.marketCode.isIn(validMarketCodes!));
     } else if (marketCode != null) {
       query.where((t) => t.marketCode.equals(marketCode));
     }
 
-    return query.get();
+    final result = await query.get();
+    appLogger.i('getActiveSymbols - 返回 ${result.length} 个标的');
+    return result;
   }
 
   String _mapMarketCode(String marketCode) {
@@ -682,19 +696,30 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       marketCode: marketCode,
       marketCodes: marketCodes,
     );
-    final results = <String>[];
 
-    for (final symbol in allSymbols) {
+    appLogger.i('_filterSingleSymbolCheck - 开始检查 ${allSymbols.length} 个标的...');
+
+    if (allSymbols.isEmpty) return [];
+
+    // 使用并行处理，提高性能
+    final futures = allSymbols.map((symbol) async {
       try {
         if (await check(symbol.symbol)) {
-          results.add(symbol.symbol);
+          return symbol.symbol;
         }
       } catch (e) {
-        continue;
+        // 忽略单个标的的错误
       }
-    }
+      return null;
+    });
 
-    return results;
+    final results = await Future.wait(futures);
+    final validResults =
+        results.where((s) => s != null).cast<String>().toList();
+
+    appLogger
+        .i('_filterSingleSymbolCheck - 完成，共找到 ${validResults.length} 个符合条件的标的');
+    return validResults;
   }
 
   Future<List<String>> _getRandomSymbols(

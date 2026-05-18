@@ -113,13 +113,21 @@ class StockFilterRepository {
   }) async {
     final results = <StockFilterResultModel>[];
 
+    if (symbols.isEmpty) return results;
+
+    appLogger.i('开始获取 ${symbols.length} 支股票的详情...');
+
+    // 一次性获取所有标的信息，避免循环查询
+    final symbolList = await _stockFilterDao.getActiveSymbols();
+    final symbolMap = {for (var s in symbolList) s.symbol: s};
+
     for (final symbolCode in symbols) {
       try {
-        final symbolList = await _stockFilterDao.getActiveSymbols();
-        final symbol = symbolList.firstWhere(
-          (s) => s.symbol == symbolCode,
-          orElse: () => throw Exception('Symbol not found'),
-        );
+        final symbol = symbolMap[symbolCode];
+        if (symbol == null) {
+          appLogger.w('标的不存在: $symbolCode');
+          continue;
+        }
 
         KlineDataData? klineData;
         if (startDate != null && endDate != null) {
@@ -150,6 +158,7 @@ class StockFilterRepository {
       }
     }
 
+    appLogger.i('股票详情获取完成，共 ${results.length} 条');
     return results;
   }
 
