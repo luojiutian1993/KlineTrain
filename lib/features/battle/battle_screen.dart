@@ -57,6 +57,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   double _positionQuantity = 0.0;
   double _positionCost = 0.0;
 
+  int _visibleStartIndex = 0;
+  int _visibleKlineCount = 20;
+  double _zoomScale = 1.0;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +125,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       _allKlineData = data;
       _currentDayIndex = _historyDays;
       _tradePoints = [];
+      final endIndex = _currentDayIndex + 1;
+      _visibleStartIndex = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     });
   }
 
@@ -128,6 +134,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     if (_currentDayIndex < _allKlineData.length - 1) {
       setState(() {
         _currentDayIndex++;
+        final endIndex = _currentDayIndex + 1;
+        final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+        _visibleStartIndex = maxStart;
         _checkConditionalOrders();
         _updateAccount();
       });
@@ -140,6 +149,48 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   void _updateAccount() {
     if (_positionQuantity > 0 && _allKlineData.isNotEmpty) {}
+  }
+
+  void _zoomIn() {
+    setState(() {
+      _zoomScale = (_zoomScale * 1.2).clamp(0.5, 3.0);
+      _updateVisibleRange();
+    });
+  }
+
+  void _zoomOut() {
+    setState(() {
+      _zoomScale = (_zoomScale / 1.2).clamp(0.5, 3.0);
+      _updateVisibleRange();
+    });
+  }
+
+  void _updateVisibleRange() {
+    final baseCount = 20;
+    _visibleKlineCount = (baseCount / _zoomScale).round().clamp(10, 40);
+  }
+
+  void _slideLeft() {
+    setState(() {
+      _visibleStartIndex -= 5;
+      if (_visibleStartIndex < 0) {
+        _visibleStartIndex = 0;
+      }
+    });
+  }
+
+  void _slideRight() {
+    setState(() {
+      final endIndex = _currentDayIndex + 1;
+      final maxStart = endIndex - 10;
+      _visibleStartIndex += 5;
+      if (_visibleStartIndex > maxStart) {
+        _visibleStartIndex = maxStart;
+      }
+      if (_visibleStartIndex < 0) {
+        _visibleStartIndex = 0;
+      }
+    });
   }
 
   void _showBuyDialog() {
@@ -289,8 +340,11 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   List<KlineData> get _displayKlineData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     return _allKlineData
-        .take(endIndex)
+        .skip(startIndex)
+        .take(_visibleKlineCount)
         .map((e) => KlineData(
               date: e.dateTime,
               open: e.open,
@@ -302,11 +356,32 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         .toList();
   }
 
+  List<TradePoint> get _visibleTradePoints {
+    if (_tradePoints.isEmpty) return [];
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
+    
+    return _tradePoints
+        .where((point) => point.index >= startIndex && point.index < startIndex + _visibleKlineCount)
+        .map((point) => TradePoint(
+              index: point.index - startIndex,
+              price: point.price,
+              isBuy: point.isBuy,
+              label: point.label,
+              date: point.date,
+            ))
+        .toList();
+  }
+
   List<VolumeData> get _displayVolumes {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     return _allKlineData
-        .take(endIndex)
+        .skip(startIndex)
+        .take(_visibleKlineCount)
         .map((e) => VolumeData(volume: e.volume, isUp: e.isUp))
         .toList();
   }
@@ -314,6 +389,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   List<MacdData> get _displayMacdData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final macdResult = IndicatorCalculator.calculateMACD(displayData);
@@ -331,12 +408,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       ));
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
   List<KdjData> get _displayKdjData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final kdjResult = IndicatorCalculator.calculateKDJ(displayData);
@@ -354,12 +437,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       ));
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
   List<RsiData> get _displayRsiData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final rsiResult = IndicatorCalculator.calculateRSI(displayData);
@@ -373,6 +462,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       result.add(RsiData(rsi: rsiResult.values[i]));
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
@@ -804,20 +897,56 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
-      child: SizedBox(
-        height: 280,
-        child: displayData.isNotEmpty
-            ? KlineChart(
-                klineData: displayData,
-                ma5: _calculateMA(displayData, 5),
-                ma10: _calculateMA(displayData, 10),
-                ma20: _calculateMA(displayData, 20),
-                ma30: _calculateMA(displayData, 30),
-                volumes: _displayVolumes,
-                macdData: _displayMacdData,
-                tradePoints: _tradePoints,
-              )
-            : const Center(child: Text('加载中...')),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove, size: 20),
+                onPressed: _zoomOut,
+                padding: EdgeInsets.zero,
+              ),
+              Text(
+                '${(_zoomScale * 100).round()}%',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add, size: 20),
+                onPressed: _zoomIn,
+                padding: EdgeInsets.zero,
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                icon: const Icon(Icons.arrow_back_ios, size: 16),
+                onPressed: _slideLeft,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32),
+              ),
+              IconButton(
+                icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                onPressed: _slideRight,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 280,
+            child: displayData.isNotEmpty
+                ? KlineChart(
+                    klineData: displayData,
+                    ma5: _calculateMA(displayData, 5),
+                    ma10: _calculateMA(displayData, 10),
+                    ma20: _calculateMA(displayData, 20),
+                    ma30: _calculateMA(displayData, 30),
+                    volumes: _displayVolumes,
+                    macdData: _displayMacdData,
+                    tradePoints: _visibleTradePoints,
+                  )
+                : const Center(child: Text('加载中...')),
+          ),
+        ],
       ),
     );
   }
