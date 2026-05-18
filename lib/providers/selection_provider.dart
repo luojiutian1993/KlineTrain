@@ -98,6 +98,7 @@ class SelectionNotifier extends StateNotifier<SelectionState> {
 
   void setSubMarkets(List<String> subMarkets) {
     state = state.copyWith(selectedSubMarkets: subMarkets);
+    _executeStockFilter();
   }
 
   void setTrainingStartDate(DateTime date) {

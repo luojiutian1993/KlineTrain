@@ -29,30 +29,31 @@ class StockFilterRepository {
     List<String>? subMarketCodes,
   }) async {
     final (minDate, maxDate) = await _stockFilterDao.getKlineDateRange();
-    final targetDate = trainingStartDate ?? date ?? maxDate ?? DateTime.now();
+    // 使用用户选择的时间范围的结束日期作为筛选目标日期
+    final effectiveEndDate = endDate ?? date ?? maxDate ?? DateTime.now();
     final conditionStartDate = startDate ?? minDate;
 
     appLogger.i(
       '开始选股: condition=${condition.name}, '
       'conditionStartDate=$conditionStartDate, '
-      'conditionEndDate=$targetDate, '
+      'conditionEndDate=$effectiveEndDate, '
       'trainingDays=$trainingDays',
     );
 
     try {
       if (useCache && condition != StockFilterCondition.random) {
         final hasCache =
-            await _stockFilterDao.hasCachedResults(targetDate, condition);
+            await _stockFilterDao.hasCachedResults(effectiveEndDate, condition);
         if (hasCache) {
           appLogger.i('使用缓存的选股结果');
           final cachedResults = await _stockFilterDao.getCachedFilterResults(
-            targetDate,
+            effectiveEndDate,
             condition,
           );
           return StockFilterResultResponse(
             condition: condition.name,
             conditionName: condition.label,
-            date: targetDate,
+            date: effectiveEndDate,
             total: cachedResults.length,
             items: cachedResults
                 .map((r) => StockFilterResultModel(
@@ -71,26 +72,28 @@ class StockFilterRepository {
 
       final symbols = await _stockFilterDao.filterByCondition(
         condition,
-        targetDate,
+        effectiveEndDate,
         marketCode: marketCode,
         startDate: conditionStartDate,
-        endDate: targetDate,
+        endDate: effectiveEndDate,
         marketCodes: subMarketCodes,
       );
 
       appLogger.i('选股完成: 共 ${symbols.length} 支股票满足条件');
 
-      final items = await _getStockDetails(symbols, targetDate);
+      final items = await _getStockDetails(symbols, effectiveEndDate,
+          startDate: conditionStartDate, endDate: effectiveEndDate);
 
       if (useCache && condition != StockFilterCondition.random) {
-        await _stockFilterDao.saveFilterResults(targetDate, condition, symbols);
+        await _stockFilterDao.saveFilterResults(
+            effectiveEndDate, condition, symbols);
         appLogger.i('选股结果已缓存');
       }
 
       return StockFilterResultResponse(
         condition: condition.name,
         conditionName: condition.label,
-        date: targetDate,
+        date: effectiveEndDate,
         total: items.length,
         items: items,
         trainingStartDate: trainingStartDate,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/enums/stock_filter_condition.dart';
 import '../../../data/models/stock_filter_result_model.dart';
 import '../../../providers/stock_filter_provider.dart';
+import '../../../providers/selection_provider.dart';
 import '../../../theme/app_theme.dart';
 
 class StockConditionSelector extends ConsumerStatefulWidget {
@@ -161,6 +162,18 @@ class _StockConditionSelectorState
 
   void _onConditionSelected(StockFilterCondition condition) {
     widget.onChanged(condition.label);
+
+    // 获取 selectionProvider 中的市场选择
+    final selectionState = ref.read(selectionProvider);
+    final selectedSubMarkets = selectionState.selectedSubMarkets;
+
+    // 同步市场选择到 stockFilterProvider
+    if (selectedSubMarkets.isNotEmpty) {
+      selectedSubMarkets.forEach((marketCode) {
+        ref.read(stockFilterProvider.notifier).toggleMarket(marketCode);
+      });
+    }
+
     ref.read(stockFilterProvider.notifier).selectCondition(condition);
   }
 

@@ -151,14 +151,19 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
 
     state = state.copyWith(isLoading: true, error: null);
 
-    try {
-      final result = await _repository.filterStocks(
-        condition: condition,
-        date: date,
-        marketCode: marketCode,
-        startDate: startDate,
-        endDate: endDate,
-      );
+    final marketCodes = state.selectedMarkets.isNotEmpty 
+          ? state.selectedMarkets 
+          : null;
+
+      try {
+        final result = await _repository.filterStocks(
+          condition: condition,
+          date: date,
+          marketCode: marketCode,
+          startDate: startDate,
+          endDate: endDate,
+          subMarketCodes: marketCodes,
+        );
 
       state = state.copyWith(
         isLoading: false,

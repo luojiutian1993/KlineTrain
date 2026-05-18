@@ -28,10 +28,10 @@ class Symbols extends Table {
   RealColumn get change => real().nullable()();
 
   /// 每手数量
-  IntColumn get lotSize => integer().withDefault(const Constant(100))();
+  IntColumn get lotSize => integer().nullable()();
 
   /// 最小变动价位
-  RealColumn get minTick => real().withDefault(const Constant(0.01))();
+  RealColumn get minTick => real().nullable()();
 
   /// 是否启用
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();

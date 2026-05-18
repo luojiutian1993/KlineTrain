@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'tables/tables.dart';
@@ -88,30 +89,39 @@ class AppDatabase extends _$AppDatabase {
 /// 打开数据库连接
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    if (kDebugMode) {
-      final externalDbPath = p.join(
-        p.dirname(p.current),
-        'lib',
-        'data',
-        'database',
-        'kline_trainer.db',
-      );
+    final dbFolder = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dbFolder.path, 'stock_data.db'));
 
-      if (File(externalDbPath).existsSync()) {
-        final file = File(externalDbPath);
-        return NativeDatabase(
-          file,
-          setup: (db) {
-            db.execute('PRAGMA journal_mode = WAL');
-            db.execute('PRAGMA cache_size = -2000');
-            db.execute('PRAGMA synchronous = NORMAL');
-          },
-        );
+    if (!file.existsSync()) {
+      print('数据库文件不存在，从assets复制...');
+      try {
+        final ByteData data =
+            await rootBundle.load('assets/data/stock_data/stock_data.db');
+        final List<int> bytes =
+            data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        await file.writeAsBytes(bytes);
+        print('数据库文件复制成功: ${file.path}');
+      } catch (e) {
+        print('从assets复制数据库失败: $e');
+        if (kDebugMode) {
+          final possiblePaths = [
+            p.join(Directory.current.path, 'lib', 'data', 'database',
+                'stock_data.db'),
+            p.join(Directory.current.path, 'lib', 'data', 'database',
+                'kline_trainer.db'),
+          ];
+
+          for (final path in possiblePaths) {
+            if (File(path).existsSync()) {
+              print('从本地路径复制: $path');
+              await File(path).copy(file.path);
+              break;
+            }
+          }
+        }
       }
     }
 
-    final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'kline_trainer.db'));
     return NativeDatabase(
       file,
       setup: (db) {

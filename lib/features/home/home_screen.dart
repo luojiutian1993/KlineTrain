@@ -15,6 +15,7 @@ import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/models/asset_summary_model.dart';
 import 'package:kline_trainer/data/models/recent_trade_model.dart';
 import 'package:kline_trainer/data/models/stock_trade_summary_model.dart';
+import 'package:kline_trainer/shared/utils/logger.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -84,6 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _generateTrainingDate() async {
+    appLogger.i('开始生成训练日期...');
     setState(() {
       _isGeneratingDate = true;
     });
@@ -91,14 +93,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final service = TimeRangeService(DatabaseService.instance.stockFilterDao);
       final date = await service.generateRandomTrainingStartDate();
+      appLogger.i('成功生成训练日期: $date');
       setState(() {
         _trainingStartDate = date;
       });
       ref.read(selectionProvider.notifier).setTrainingStartDate(date);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('生成时间失败: ${e.toString()}')),
-      );
+    } catch (e, stackTrace) {
+      appLogger.e('生成训练日期失败', error: e, stackTrace: stackTrace);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('生成时间失败: ${e.toString()}')),
+        );
+      }
     } finally {
       setState(() {
         _isGeneratingDate = false;

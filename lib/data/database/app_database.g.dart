@@ -2839,18 +2839,14 @@ class $SymbolsTable extends Symbols with TableInfo<$SymbolsTable, Symbol> {
       const VerificationMeta('lotSize');
   @override
   late final GeneratedColumn<int> lotSize = GeneratedColumn<int>(
-      'lot_size', aliasedName, false,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(100));
+      'lot_size', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _minTickMeta =
       const VerificationMeta('minTick');
   @override
   late final GeneratedColumn<double> minTick = GeneratedColumn<double>(
-      'min_tick', aliasedName, false,
-      type: DriftSqlType.double,
-      requiredDuringInsert: false,
-      defaultValue: const Constant(0.01));
+      'min_tick', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _enabledMeta =
       const VerificationMeta('enabled');
   @override
@@ -2988,9 +2984,9 @@ class $SymbolsTable extends Symbols with TableInfo<$SymbolsTable, Symbol> {
       change: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}change']),
       lotSize: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}lot_size'])!,
+          .read(DriftSqlType.int, data['${effectivePrefix}lot_size']),
       minTick: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}min_tick'])!,
+          .read(DriftSqlType.double, data['${effectivePrefix}min_tick']),
       enabled: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}enabled'])!,
       createdAt: attachedDatabase.typeMapping
@@ -3032,10 +3028,10 @@ class Symbol extends DataClass implements Insertable<Symbol> {
   final double? change;
 
   /// 每手数量
-  final int lotSize;
+  final int? lotSize;
 
   /// 最小变动价位
-  final double minTick;
+  final double? minTick;
 
   /// 是否启用
   final bool enabled;
@@ -3054,8 +3050,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
       this.sector,
       this.lastPrice,
       this.change,
-      required this.lotSize,
-      required this.minTick,
+      this.lotSize,
+      this.minTick,
       required this.enabled,
       required this.createdAt,
       required this.updatedAt});
@@ -3078,8 +3074,12 @@ class Symbol extends DataClass implements Insertable<Symbol> {
     if (!nullToAbsent || change != null) {
       map['change'] = Variable<double>(change);
     }
-    map['lot_size'] = Variable<int>(lotSize);
-    map['min_tick'] = Variable<double>(minTick);
+    if (!nullToAbsent || lotSize != null) {
+      map['lot_size'] = Variable<int>(lotSize);
+    }
+    if (!nullToAbsent || minTick != null) {
+      map['min_tick'] = Variable<double>(minTick);
+    }
     map['enabled'] = Variable<bool>(enabled);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -3102,8 +3102,12 @@ class Symbol extends DataClass implements Insertable<Symbol> {
           : Value(lastPrice),
       change:
           change == null && nullToAbsent ? const Value.absent() : Value(change),
-      lotSize: Value(lotSize),
-      minTick: Value(minTick),
+      lotSize: lotSize == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lotSize),
+      minTick: minTick == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minTick),
       enabled: Value(enabled),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -3122,8 +3126,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
       sector: serializer.fromJson<String?>(json['sector']),
       lastPrice: serializer.fromJson<double?>(json['lastPrice']),
       change: serializer.fromJson<double?>(json['change']),
-      lotSize: serializer.fromJson<int>(json['lotSize']),
-      minTick: serializer.fromJson<double>(json['minTick']),
+      lotSize: serializer.fromJson<int?>(json['lotSize']),
+      minTick: serializer.fromJson<double?>(json['minTick']),
       enabled: serializer.fromJson<bool>(json['enabled']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -3141,8 +3145,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
       'sector': serializer.toJson<String?>(sector),
       'lastPrice': serializer.toJson<double?>(lastPrice),
       'change': serializer.toJson<double?>(change),
-      'lotSize': serializer.toJson<int>(lotSize),
-      'minTick': serializer.toJson<double>(minTick),
+      'lotSize': serializer.toJson<int?>(lotSize),
+      'minTick': serializer.toJson<double?>(minTick),
       'enabled': serializer.toJson<bool>(enabled),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -3158,8 +3162,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
           Value<String?> sector = const Value.absent(),
           Value<double?> lastPrice = const Value.absent(),
           Value<double?> change = const Value.absent(),
-          int? lotSize,
-          double? minTick,
+          Value<int?> lotSize = const Value.absent(),
+          Value<double?> minTick = const Value.absent(),
           bool? enabled,
           DateTime? createdAt,
           DateTime? updatedAt}) =>
@@ -3172,8 +3176,8 @@ class Symbol extends DataClass implements Insertable<Symbol> {
         sector: sector.present ? sector.value : this.sector,
         lastPrice: lastPrice.present ? lastPrice.value : this.lastPrice,
         change: change.present ? change.value : this.change,
-        lotSize: lotSize ?? this.lotSize,
-        minTick: minTick ?? this.minTick,
+        lotSize: lotSize.present ? lotSize.value : this.lotSize,
+        minTick: minTick.present ? minTick.value : this.minTick,
         enabled: enabled ?? this.enabled,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
@@ -3260,8 +3264,8 @@ class SymbolsCompanion extends UpdateCompanion<Symbol> {
   final Value<String?> sector;
   final Value<double?> lastPrice;
   final Value<double?> change;
-  final Value<int> lotSize;
-  final Value<double> minTick;
+  final Value<int?> lotSize;
+  final Value<double?> minTick;
   final Value<bool> enabled;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -3338,8 +3342,8 @@ class SymbolsCompanion extends UpdateCompanion<Symbol> {
       Value<String?>? sector,
       Value<double?>? lastPrice,
       Value<double?>? change,
-      Value<int>? lotSize,
-      Value<double>? minTick,
+      Value<int?>? lotSize,
+      Value<double?>? minTick,
       Value<bool>? enabled,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt}) {
@@ -15786,8 +15790,8 @@ typedef $$SymbolsTableCreateCompanionBuilder = SymbolsCompanion Function({
   Value<String?> sector,
   Value<double?> lastPrice,
   Value<double?> change,
-  Value<int> lotSize,
-  Value<double> minTick,
+  Value<int?> lotSize,
+  Value<double?> minTick,
   Value<bool> enabled,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -15801,8 +15805,8 @@ typedef $$SymbolsTableUpdateCompanionBuilder = SymbolsCompanion Function({
   Value<String?> sector,
   Value<double?> lastPrice,
   Value<double?> change,
-  Value<int> lotSize,
-  Value<double> minTick,
+  Value<int?> lotSize,
+  Value<double?> minTick,
   Value<bool> enabled,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -16057,8 +16061,8 @@ class $$SymbolsTableTableManager extends RootTableManager<
             Value<String?> sector = const Value.absent(),
             Value<double?> lastPrice = const Value.absent(),
             Value<double?> change = const Value.absent(),
-            Value<int> lotSize = const Value.absent(),
-            Value<double> minTick = const Value.absent(),
+            Value<int?> lotSize = const Value.absent(),
+            Value<double?> minTick = const Value.absent(),
             Value<bool> enabled = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -16087,8 +16091,8 @@ class $$SymbolsTableTableManager extends RootTableManager<
             Value<String?> sector = const Value.absent(),
             Value<double?> lastPrice = const Value.absent(),
             Value<double?> change = const Value.absent(),
-            Value<int> lotSize = const Value.absent(),
-            Value<double> minTick = const Value.absent(),
+            Value<int?> lotSize = const Value.absent(),
+            Value<double?> minTick = const Value.absent(),
             Value<bool> enabled = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import '../app_database.dart';
 import '../tables/tables.dart';
 import '../../../core/enums/stock_filter_condition.dart';
+import '../../../shared/utils/logger.dart';
 
 part 'stock_filter_dao.g.dart';
 
@@ -12,12 +13,14 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     with _$StockFilterDaoMixin {
   StockFilterDao(super.db);
 
-  Future<List<Symbol>> getActiveSymbols({String? marketCode}) {
+  Future<List<Symbol>> getActiveSymbols(
+      {String? marketCode, List<String>? marketCodes}) {
     final query = select(symbols)..where((t) => t.enabled.equals(true));
 
-    if (marketCode != null) {
-      final mappedMarketCode = _mapMarketCode(marketCode);
-      query.where((t) => t.marketCode.equals(mappedMarketCode));
+    if (marketCodes != null && marketCodes.isNotEmpty) {
+      query.where((t) => t.marketCode.isIn(marketCodes));
+    } else if (marketCode != null) {
+      query.where((t) => t.marketCode.equals(marketCode));
     }
 
     return query.get();
@@ -39,55 +42,113 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
+  /// 日期转字符串格式 "YYYY-MM-DD"
+  String _dateToString(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 字符串转日期 "YYYY-MM-DD"
+  DateTime _stringToDate(String dateStr) {
+    try {
+      final parts = dateStr.split('-');
+      if (parts.length == 3) {
+        return DateTime(
+            int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      }
+    } catch (e) {
+      // 如果解析失败，返回默认日期
+    }
+    return DateTime(2000, 1, 1);
+  }
+
+  /// 从 QueryRow 构建 KlineDataData 对象
+  KlineDataData _buildKlineDataFromRow(QueryRow row) {
+    final tradeDateStr = row.read<String>('trade_date');
+    return KlineDataData(
+      symbol: row.read<String>('symbol'),
+      marketCode: row.read<String>('market_code'),
+      period: row.read<String>('period'),
+      tradeDate: _stringToDate(tradeDateStr),
+      open: row.read<double>('open'),
+      close: row.read<double>('close'),
+      high: row.read<double>('high'),
+      low: row.read<double>('low'),
+      volume: row.read<double>('volume'),
+      amount: row.read<double>('amount'),
+      turnoverRate: row.read<double?>('turnover_rate'),
+      pe: row.read<double?>('pe'),
+      pb: row.read<double?>('pb'),
+      createdAt: DateTime.now(),
+    );
+  }
+
   /// 获取有K线数据的最近日期
   Future<DateTime?> getLatestKlineDate() async {
-    final result = await (selectOnly(klineData)
-          ..addColumns([klineData.tradeDate.max()])
-          ..where(klineData.period.equals('day')))
-        .getSingle();
-    return result.read(klineData.tradeDate.max());
+    final result = await customSelect(
+      'SELECT MAX(trade_date) as max_date FROM kline_data WHERE period = ?',
+      variables: [const Variable('day')],
+    ).getSingle();
+    final dateStr = result.read<String?>('max_date');
+    return dateStr != null ? _stringToDate(dateStr) : null;
   }
 
   /// 获取K线数据库的时间范围
   Future<(DateTime, DateTime)> getKlineDateRange() async {
-    final minResult = await (selectOnly(klineData)
-          ..addColumns([klineData.tradeDate.min()])
-          ..where(klineData.period.equals('day')))
-        .getSingle();
+    appLogger.i('开始查询K线数据日期范围...');
 
-    final maxResult = await (selectOnly(klineData)
-          ..addColumns([klineData.tradeDate.max()])
-          ..where(klineData.period.equals('day')))
-        .getSingle();
+    // 使用自定义SQL查询，因为数据库中存储的是日期字符串
+    final minResult = await customSelect(
+      'SELECT MIN(trade_date) as min_date FROM kline_data WHERE period = ?',
+      variables: [const Variable('day')],
+    ).getSingle();
 
-    final minTimestamp = minResult.read(klineData.tradeDate.min());
-    final maxTimestamp = maxResult.read(klineData.tradeDate.max());
+    final maxResult = await customSelect(
+      'SELECT MAX(trade_date) as max_date FROM kline_data WHERE period = ?',
+      variables: [const Variable('day')],
+    ).getSingle();
+
+    final minDateStr = minResult.read<String?>('min_date');
+    final maxDateStr = maxResult.read<String?>('max_date');
+
+    appLogger.i('查询到的日期字符串: min=$minDateStr, max=$maxDateStr');
 
     return (
-      minTimestamp ?? DateTime(2000, 1, 1),
-      maxTimestamp ?? DateTime.now(),
+      minDateStr != null ? _stringToDate(minDateStr) : DateTime(2000, 1, 1),
+      maxDateStr != null ? _stringToDate(maxDateStr) : DateTime.now(),
     );
   }
 
   Future<KlineDataData?> getKlineDataForDate(
-      String symbol, String period, DateTime date) {
-    return (select(klineData)
-          ..where((t) => t.symbol.equals(symbol))
-          ..where((t) => t.period.equals(period))
-          ..where((t) => t.tradeDate.equals(date)))
-        .getSingleOrNull();
+      String symbol, String period, DateTime date) async {
+    final dateStr = _dateToString(date);
+    final results = await customSelect(
+      'SELECT * FROM kline_data WHERE symbol = ? AND period = ? AND trade_date = ? LIMIT 1',
+      variables: [Variable(symbol), Variable(period), Variable(dateStr)],
+    ).get();
+
+    if (results.isEmpty) return null;
+
+    return _buildKlineDataFromRow(results.first);
   }
 
   Future<KlineDataData?> getLastKlineDataInRange(String symbol, String period,
       DateTime startDate, DateTime endDate) async {
-    return (select(klineData)
-          ..where((t) => t.symbol.equals(symbol))
-          ..where((t) => t.period.equals(period))
-          ..where((t) => t.tradeDate.isBiggerOrEqualValue(startDate))
-          ..where((t) => t.tradeDate.isSmallerOrEqualValue(endDate))
-          ..orderBy([(t) => OrderingTerm.desc(t.tradeDate)])
-          ..limit(1))
-        .getSingleOrNull();
+    final startDateStr = _dateToString(startDate);
+    final endDateStr = _dateToString(endDate);
+
+    final results = await customSelect(
+      'SELECT * FROM kline_data WHERE symbol = ? AND period = ? AND trade_date >= ? AND trade_date <= ? ORDER BY trade_date DESC LIMIT 1',
+      variables: [
+        Variable(symbol),
+        Variable(period),
+        Variable(startDateStr),
+        Variable(endDateStr)
+      ],
+    ).get();
+
+    if (results.isEmpty) return null;
+
+    return _buildKlineDataFromRow(results.first);
   }
 
   Future<List<KlineDataData>> getKlineDataBefore(
@@ -97,18 +158,24 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     int days, {
     DateTime? startDate,
     DateTime? endDate,
-  }) {
-    DateTime effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
-    DateTime effectiveEndDate = endDate ?? date;
+  }) async {
+    final dateStr = _dateToString(date);
+    final effectiveStartDate =
+        startDate != null ? _dateToString(startDate) : '1990-01-01';
+    final effectiveEndDate = endDate != null ? _dateToString(endDate) : dateStr;
 
-    return (select(klineData)
-          ..where((t) => t.symbol.equals(symbol))
-          ..where((t) => t.period.equals(period))
-          ..where((t) => t.tradeDate.isBiggerOrEqualValue(effectiveStartDate))
-          ..where((t) => t.tradeDate.isSmallerOrEqualValue(effectiveEndDate))
-          ..orderBy([(t) => OrderingTerm.desc(t.tradeDate)])
-          ..limit(days))
-        .get();
+    final results = await customSelect(
+      'SELECT * FROM kline_data WHERE symbol = ? AND period = ? AND trade_date >= ? AND trade_date <= ? ORDER BY trade_date DESC LIMIT ?',
+      variables: [
+        Variable(symbol),
+        Variable(period),
+        Variable(effectiveStartDate),
+        Variable(effectiveEndDate),
+        Variable(days)
+      ],
+    ).get();
+
+    return results.map((row) => _buildKlineDataFromRow(row)).toList();
   }
 
   Future<bool> checkAllTimeHigh(String symbol, DateTime date,
@@ -123,17 +190,22 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
 
   Future<double> _getHistoricalMaxClose(String symbol, DateTime date,
       {DateTime? startDate, DateTime? endDate}) async {
-    DateTime effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
-    DateTime effectiveEndDate = endDate ?? date;
+    final effectiveStartDateStr =
+        startDate != null ? _dateToString(startDate) : '1990-01-01';
+    final effectiveEndDateStr =
+        endDate != null ? _dateToString(endDate) : _dateToString(date);
 
-    final result = await (selectOnly(klineData)
-          ..addColumns([klineData.close.max()])
-          ..where(klineData.symbol.equals(symbol))
-          ..where(klineData.period.equals('day'))
-          ..where(klineData.tradeDate.isBiggerOrEqualValue(effectiveStartDate))
-          ..where(klineData.tradeDate.isSmallerOrEqualValue(effectiveEndDate)))
-        .getSingle();
-    return result.read(klineData.close.max()) ?? 0.0;
+    final result = await customSelect(
+      'SELECT MAX(close) as max_close FROM kline_data WHERE symbol = ? AND period = ? AND trade_date >= ? AND trade_date <= ?',
+      variables: [
+        Variable(symbol),
+        const Variable('day'),
+        Variable(effectiveStartDateStr),
+        Variable(effectiveEndDateStr)
+      ],
+    ).getSingle();
+
+    return result.read<double?>('max_close') ?? 0.0;
   }
 
   Future<bool> checkYearHigh(String symbol, DateTime date,
@@ -150,11 +222,19 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     return (currentData.close - maxClose).abs() < 0.0001;
   }
 
-  Future<bool> check200DayHigh(String symbol, DateTime date) async {
-    final currentData = await getKlineDataForDate(symbol, 'day', date);
+  Future<bool> check200DayHigh(String symbol, DateTime date,
+      {DateTime? startDate, DateTime? endDate}) async {
+    KlineDataData? currentData;
+    if (startDate != null && endDate != null) {
+      currentData =
+          await getLastKlineDataInRange(symbol, 'day', startDate, endDate);
+    } else {
+      currentData = await getKlineDataForDate(symbol, 'day', date);
+    }
     if (currentData == null) return false;
 
-    final day200Data = await getKlineDataBefore(symbol, 'day', date, 200);
+    final day200Data = await getKlineDataBefore(symbol, 'day', date, 200,
+        startDate: startDate, endDate: endDate);
     if (day200Data.isEmpty) return false;
 
     final maxClose =
@@ -174,17 +254,22 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
 
   Future<double> _getHistoricalMinClose(String symbol, DateTime date,
       {DateTime? startDate, DateTime? endDate}) async {
-    DateTime effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
-    DateTime effectiveEndDate = endDate ?? date;
+    final effectiveStartDateStr =
+        startDate != null ? _dateToString(startDate) : '1990-01-01';
+    final effectiveEndDateStr =
+        endDate != null ? _dateToString(endDate) : _dateToString(date);
 
-    final result = await (selectOnly(klineData)
-          ..addColumns([klineData.close.min()])
-          ..where(klineData.symbol.equals(symbol))
-          ..where(klineData.period.equals('day'))
-          ..where(klineData.tradeDate.isBiggerOrEqualValue(effectiveStartDate))
-          ..where(klineData.tradeDate.isSmallerOrEqualValue(effectiveEndDate)))
-        .getSingle();
-    return result.read(klineData.close.min()) ?? double.infinity;
+    final result = await customSelect(
+      'SELECT MIN(close) as min_close FROM kline_data WHERE symbol = ? AND period = ? AND trade_date >= ? AND trade_date <= ?',
+      variables: [
+        Variable(symbol),
+        const Variable('day'),
+        Variable(effectiveStartDateStr),
+        Variable(effectiveEndDateStr)
+      ],
+    ).getSingle();
+
+    return result.read<double?>('min_close') ?? double.infinity;
   }
 
   Future<bool> checkYearLow(String symbol, DateTime date,
@@ -229,8 +314,10 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<String>> getReturn30dTop50(DateTime date,
-      {DateTime? startDate, DateTime? endDate}) async {
-    final allSymbols = await getActiveSymbols();
+      {DateTime? startDate,
+      DateTime? endDate,
+      List<String>? marketCodes}) async {
+    final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final returns = <String, double>{};
 
     for (final symbol in allSymbols) {
@@ -251,8 +338,10 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<String>> getReturn15dTop50(DateTime date,
-      {DateTime? startDate, DateTime? endDate}) async {
-    final allSymbols = await getActiveSymbols();
+      {DateTime? startDate,
+      DateTime? endDate,
+      List<String>? marketCodes}) async {
+    final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final returns = <String, double>{};
 
     for (final symbol in allSymbols) {
@@ -273,8 +362,10 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<String>> getLoss30dTop50(DateTime date,
-      {DateTime? startDate, DateTime? endDate}) async {
-    final allSymbols = await getActiveSymbols();
+      {DateTime? startDate,
+      DateTime? endDate,
+      List<String>? marketCodes}) async {
+    final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final losses = <String, double>{};
 
     for (final symbol in allSymbols) {
@@ -295,8 +386,10 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<String>> getLoss15dTop50(DateTime date,
-      {DateTime? startDate, DateTime? endDate}) async {
-    final allSymbols = await getActiveSymbols();
+      {DateTime? startDate,
+      DateTime? endDate,
+      List<String>? marketCodes}) async {
+    final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final losses = <String, double>{};
 
     for (final symbol in allSymbols) {
@@ -482,90 +575,113 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
           (symbol) => checkAllTimeHigh(symbol, date,
               startDate: startDate, endDate: endDate),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.yearHigh:
         return _filterSingleSymbolCheck(
           (symbol) => checkYearHigh(symbol, date,
               startDate: startDate, endDate: endDate),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.day200High:
         return _filterSingleSymbolCheck(
-          (symbol) => check200DayHigh(symbol, date),
+          (symbol) => check200DayHigh(symbol, date,
+              startDate: startDate, endDate: endDate),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.return30dTop:
-        return getReturn30dTop50(date, startDate: startDate, endDate: endDate);
+        return getReturn30dTop50(date,
+            startDate: startDate, endDate: endDate, marketCodes: marketCodes);
       case StockFilterCondition.return15dTop:
-        return getReturn15dTop50(date, startDate: startDate, endDate: endDate);
+        return getReturn15dTop50(date,
+            startDate: startDate, endDate: endDate, marketCodes: marketCodes);
       case StockFilterCondition.limitUp:
         return _filterSingleSymbolCheck(
           (symbol) => checkLimitUp(symbol, date),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.consecutiveLimitUp:
         return _filterSingleSymbolCheck(
           (symbol) => checkConsecutiveLimitUp(symbol, date),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.volumePriceUp:
         return _filterSingleSymbolCheck(
           (symbol) => checkVolumePriceUp(symbol, date),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.upTrend:
         return _filterSingleSymbolCheck(
           (symbol) => checkUpTrend(symbol, date,
               startDate: startDate, endDate: endDate),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.allTimeLow:
         return _filterSingleSymbolCheck(
           (symbol) => checkAllTimeLow(symbol, date,
               startDate: startDate, endDate: endDate),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.yearLow:
         return _filterSingleSymbolCheck(
           (symbol) => checkYearLow(symbol, date,
               startDate: startDate, endDate: endDate),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.day200Low:
         return _filterSingleSymbolCheck(
           (symbol) => check200DayLow(symbol, date),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.loss30dTop:
-        return getLoss30dTop50(date, startDate: startDate, endDate: endDate);
+        return getLoss30dTop50(date,
+            startDate: startDate, endDate: endDate, marketCodes: marketCodes);
       case StockFilterCondition.loss15dTop:
-        return getLoss15dTop50(date, startDate: startDate, endDate: endDate);
+        return getLoss15dTop50(date,
+            startDate: startDate, endDate: endDate, marketCodes: marketCodes);
       case StockFilterCondition.downTrend:
         return _filterSingleSymbolCheck(
           (symbol) => checkDownTrend(symbol, date,
               startDate: startDate, endDate: endDate),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.limitDown:
         return _filterSingleSymbolCheck(
           (symbol) => checkLimitDown(symbol, date),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.consecutiveLimitDown:
         return _filterSingleSymbolCheck(
           (symbol) => checkConsecutiveLimitDown(symbol, date),
           marketCode: marketCode,
+          marketCodes: marketCodes,
         );
       case StockFilterCondition.random:
-        return _getRandomSymbols(marketCode: marketCode);
+        return _getRandomSymbols(
+            marketCode: marketCode, marketCodes: marketCodes);
     }
   }
 
   Future<List<String>> _filterSingleSymbolCheck(
     Future<bool> Function(String) check, {
     String? marketCode,
+    List<String>? marketCodes,
   }) async {
-    final allSymbols = await getActiveSymbols(marketCode: marketCode);
+    final allSymbols = await getActiveSymbols(
+      marketCode: marketCode,
+      marketCodes: marketCodes,
+    );
     final results = <String>[];
 
     for (final symbol in allSymbols) {
@@ -582,8 +698,11 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<List<String>> _getRandomSymbols(
-      {String? marketCode, int count = 10}) async {
-    final allSymbols = await getActiveSymbols(marketCode: marketCode);
+      {String? marketCode, int count = 10, List<String>? marketCodes}) async {
+    final allSymbols = await getActiveSymbols(
+      marketCode: marketCode,
+      marketCodes: marketCodes,
+    );
     allSymbols.shuffle();
     return allSymbols.take(count).map((s) => s.symbol).toList();
   }

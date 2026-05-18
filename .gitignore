@@ -78,3 +78,11 @@ yarn.lock
 1000_stocks_post_fq_history.csv
 1000_stocks_post_fq_history.xlsx
 lib/data/database/kline_trainer.db
+# 数据库文件
+assets/data/stock_data/stock_data.db
+lib/data/database/stock_data.db
+*.db
+
+# 数据文件
+数据库导入数据/
+数据导入数据/

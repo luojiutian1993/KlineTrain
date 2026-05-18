@@ -39,6 +39,10 @@ StockFilterResultResponse _$StockFilterResultResponseFromJson(
           .map(
               (e) => StockFilterResultModel.fromJson(e as Map<String, dynamic>))
           .toList(),
+      trainingStartDate: json['trainingStartDate'] == null
+          ? null
+          : DateTime.parse(json['trainingStartDate'] as String),
+      trainingDays: (json['trainingDays'] as num?)?.toInt(),
     );
 
 Map<String, dynamic> _$StockFilterResultResponseToJson(
@@ -49,4 +53,6 @@ Map<String, dynamic> _$StockFilterResultResponseToJson(
       'date': instance.date.toIso8601String(),
       'total': instance.total,
       'items': instance.items,
+      'trainingStartDate': instance.trainingStartDate?.toIso8601String(),
+      'trainingDays': instance.trainingDays,
     };

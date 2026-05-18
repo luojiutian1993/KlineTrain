@@ -41,6 +41,15 @@ class DatabaseService {
     try {
       appLogger.i('开始初始化基础数据');
 
+      // 检查数据库中是否已经有数据
+      final hasExistingData = await _checkHasExistingData();
+      
+      if (hasExistingData) {
+        appLogger.i('检测到数据库已存在数据，跳过初始化');
+        appLogger.i('基础数据初始化完成');
+        return;
+      }
+
       await db.configDao.initMarketData();
       appLogger.i('市场数据初始化成功');
 
@@ -67,6 +76,41 @@ class DatabaseService {
     } catch (e, stackTrace) {
       appLogger.e('基础数据初始化失败', error: e, stackTrace: stackTrace);
       rethrow;
+    }
+  }
+
+  /// 检查数据库中是否已经有数据
+  Future<bool> _checkHasExistingData() async {
+    try {
+      // 检查 symbols 表是否有数据
+      final symbolCount = await db.customSelect(
+        'SELECT COUNT(*) as count FROM symbols',
+      ).getSingle();
+      
+      final count = symbolCount.data['count'] as int? ?? 0;
+      
+      if (count > 0) {
+        appLogger.i('检测到已有 $count 支股票数据');
+        return true;
+      }
+      
+      // 也可以检查 kline_data 表
+      final klineCount = await db.customSelect(
+        'SELECT COUNT(*) as count FROM kline_data LIMIT 1',
+      ).getSingle();
+      
+      final klineDataCount = klineCount.data['count'] as int? ?? 0;
+      
+      if (klineDataCount > 0) {
+        appLogger.i('检测到已有K线数据');
+        return true;
+      }
+      
+      return false;
+    } catch (e) {
+      // 如果查询失败，可能表还不存在
+      appLogger.w('检查现有数据失败: $e');
+      return false;
     }
   }
 

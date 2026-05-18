@@ -59,6 +59,7 @@ flutter:
   assets:
     - assets/images/
     - assets/data/
+    - assets/data/stock_data/
     - .env
 
 
