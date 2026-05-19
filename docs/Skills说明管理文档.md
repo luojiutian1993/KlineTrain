@@ -1,7 +1,7 @@
 # K线训练营App - Skills 说明管理文档
 
-> **文档版本**: v1.2  
-> **最后更新**: 2026-05-14  
+> **文档版本**: v1.3  
+> **最后更新**: 2026-05-19  
 > **维护者**: 开发团队  
 > **描述**: 本项目所有 skills 能力说明文档，用于快速查询和管理各技能的功能、用途和调用方式。
 
@@ -12,8 +12,9 @@
 1. [Skills 分类概览](#1-skills-分类概览)
 2. [核心 Skills 详细说明](#2-核心-skills-详细说明)
 3. [技能调用流程](#3-技能调用流程)
-4. [添加新 Skills](#4-添加新-skills)
-5. [更新记录](#5-更新记录)
+4. [文档管理规范](#4-文档管理规范)
+5. [添加新 Skills](#5-添加新-skills)
+6. [更新记录](#6-更新记录)
 
 ---
 
@@ -27,7 +28,7 @@
 | **Bug修复** | bugfix-workflow | 问题定位、修复、验证 |
 | **文档协作** | doc-coauthoring, writing-plans | 文档写作工作流、实施计划生成 |
 | **前端设计** | frontend-design, ui-ux-pro-max | UI界面设计 |
-| **Git工作流** | git-workflow | Git规范和提交指南 |
+| **Git工作流** | git-workflow, git-commit | Git规范和提交指南 |
 | **敏捷管理** | sprint-planner | 敏捷冲刺规划 |
 | **数据工程** | explore-data, sql-queries, statistical-analysis | K线数据探索、数据库查询、收益率统计 |
 | **工程部署** | deploy-checklist | iOS/Android部署检查 |
@@ -35,6 +36,7 @@
 | **编码准则** | karpathy-guidelines | Karpathy编码准则 |
 | **自动化测试** | webapp-testing, agent-browser | Web应用测试、浏览器自动化 |
 | **治理调试** | pua | 高能动性治理调试 |
+| **文档管理** | doc-coauthoring | 文档整理、重命名、索引更新 |
 | **其他工具** | pdf, pptx, docx, xlsx 等 | 文档处理、艺术生成等 |
 
 ---
@@ -287,7 +289,8 @@
   - 调试策略制定
   - 根因追踪
 - **调用方式**: `Use Skill: systematic-debugging`
-- **子命令列表**:
+
+#### **development-essentials 子命令列表**
 
 | 命令 | 功能 | 触发词 | 文档 |
 |------|------|--------|------|
@@ -434,7 +437,23 @@
 
 ---
 
-### 2.15 其他工具类
+### 2.15 文档管理类
+
+#### **doc-coauthoring**
+- **名称**: 文档协作器（增强版）
+- **路径**: `skills/doc-coauthoring/SKILL.md`
+- **功能**: 文档整理、合并重复文档、统一命名规范、更新文档索引
+- **核心能力**:
+  - 文档重复性检测
+  - 文档合并与整理
+  - 文档命名规范化
+  - 文档索引更新
+- **触发时机**: 文档整理、文档命名规范化、文档索引更新时
+- **调用方式**: `Use Skill: doc-coauthoring`
+
+---
+
+### 2.16 其他工具类
 
 #### **skill-creator**
 - **名称**: 技能创建器
@@ -508,8 +527,6 @@
   - 包含邮件、通讯等模板
 - **web-artifacts-builder**: Web构件构建器
   - 路径: `skills/web-artifacts-builder/SKILL.md`
-- **webapp-testing**: Web应用测试
-  - 路径: `skills/webapp-testing/SKILL.md`
 
 ---
 
@@ -562,7 +579,18 @@ graph TD
     E --> F[生成冲刺计划]
 ```
 
-### 3.5 调用方式说明
+### 3.5 文档管理流程
+
+```mermaid
+graph TD
+    A[用户发起文档整理请求] --> B[分析文档结构和内容]
+    B --> C[检查文档重复性和一致性]
+    C --> D[整理并更新文档命名]
+    D --> E[更新文档索引和目录]
+    E --> F[生成整理报告]
+```
+
+### 3.6 调用方式说明
 
 所有 skills 都遵循统一的调用格式：
 
@@ -577,17 +605,64 @@ Use Skill: feature-requirements-clarification
 Use Skill: project-initialization
 Use Skill: sprint-planner
 Use Skill: explore-data
+Use Skill: doc-coauthoring
 ```
 
 某些 skills 会在特定对话场景自动触发，无需显式调用。
 
 ---
 
-## 4. 添加新 Skills
+## 4. 文档管理规范
+
+### 4.1 文档命名规范
+
+为保证文档管理的规范性，新建文档请遵循以下命名规则：
+
+| 类型 | 命名格式 | 示例 |
+|------|----------|------|
+| 功能说明 | `XXX功能说明文档.md` | `选股功能说明文档.md` |
+| 需求说明 | `XXX需求说明文档.md` | `选股需求说明文档.md` |
+| 技术说明 | `XXX技术说明文档.md` | `选股技术说明文档.md` |
+| 测试说明 | `XXX测试说明文档.md` | `选股测试说明文档.md` |
+| 开发记录 | `XXX开发记录.md` | `XXX功能开发记录.md` |
+| 设计文档 | `XXX设计文档.md` | `XXX架构设计文档.md` |
+| 实现计划 | `XXX实现计划.md` | `选股条件算法实现计划.md` |
+
+### 4.2 文档目录结构
+
+```
+docs/
+├── superpowers/                    # 核心功能文档
+│   ├── requirements/              # 需求文档
+│   ├── designs/                  # 技术设计文档
+│   └── plans/                    # 开发计划文档
+├── 开发记录/                      # 开发过程记录
+├── requirements/                  # 需求说明
+├── tech/                         # 技术说明
+├── features/                     # 功能说明
+├── test/                         # 测试说明
+├── README.md                      # 文档首页（综合索引）
+├── Skills说明管理文档.md          # AI辅助开发说明
+├── 测试账号.md                    # 测试账号信息
+└── 数据库命令脚本.sh              # 数据库操作命令
+```
+
+### 4.3 文档更新流程
+
+当添加或修改文档时，请按以下步骤操作：
+
+1. **创建/修改文档** - 在对应目录下创建或更新文档
+2. **更新索引** - 更新 `docs/README.md` 中的文档索引
+3. **检查链接** - 确保所有文档链接有效
+4. **更新版本** - 在本文档的更新记录中添加新条目
+
+---
+
+## 5. 添加新 Skills
 
 当添加新 skills 时，请按以下步骤更新本文档：
 
-### 4.1 添加步骤
+### 5.1 添加步骤
 
 1. **在 `skills/` 目录下创建新 skill**
    - 确保有 `SKILL.md` 文件
@@ -608,6 +683,7 @@ Use Skill: explore-data
    - 编码准则
    - 自动化测试
    - 治理调试
+   - 文档管理
    - 其他工具
 
 3. **在对应分类下添加说明**
@@ -615,13 +691,13 @@ Use Skill: explore-data
    - 添加必要的文档路径
 
 4. **更新更新记录**
-   - 在第 5 章节添加新记录
+   - 在第 6 章节添加新记录
 
 5. **更新版本号**
    - 小更新：v1.0 → v1.1
    - 大更新：v1.0 → v2.0
 
-### 4.2 Skill 说明模板
+### 5.2 Skill 说明模板
 
 添加新 skill 时，请使用以下模板：
 
@@ -638,19 +714,20 @@ Use Skill: explore-data
 
 ---
 
-## 5. 更新记录
+## 6. 更新记录
 
 | 版本 | 日期 | 更新内容 | 更新者 |
 |------|------|---------|--------|
 | v1.0 | 2026-05-13 | 初始版本，整理现有所有 skills | DevOps Engineer |
 | v1.1 | 2026-05-13 | 添加 sprint-planner 敏捷冲刺规划技能；添加数据工程类技能（explore-data、sql-queries、statistical-analysis）；添加工程部署类技能（deploy-checklist）；添加 git-commit 技能 | DevOps Engineer |
 | v1.2 | 2026-05-14 | 添加10个新技能：brainstorming、ui-ux-pro-max、systematic-debugging、writing-plans、find-skills、using-superpowers、karpathy-guidelines、webapp-testing、agent-browser、pua；新增框架工具、编码准则、自动化测试、治理调试分类 | DevOps Engineer |
+| v1.3 | 2026-05-19 | 新增文档管理分类；增强 doc-coauthoring 技能的文档管理能力；添加文档管理规范章节（命名规范、目录结构、更新流程）；更新文档目录结构示例；更新完整 Skills 清单 | DevOps Engineer |
 
 ---
 
-## 6. 附录
+## 7. 附录
 
-### 6.1 完整 Skills 清单
+### 7.1 完整 Skills 清单
 
 | 序号 | Skill 名称 | 分类 | 路径 |
 |------|-----------|------|------|
@@ -677,7 +754,7 @@ Use Skill: explore-data
 | 21 | development-essentials | 开发工具 | `skills/development-essentials` |
 | 22 | brainstorming | 开发工具 | `skills/brainstorming/SKILL.md` |
 | 23 | systematic-debugging | 开发工具 | `skills/systematic-debugging/SKILL.md` |
-| 24 | doc-coauthoring | 文档协作 | `skills/doc-coauthoring/SKILL.md` |
+| 24 | doc-coauthoring | 文档协作/文档管理 | `skills/doc-coauthoring/SKILL.md` |
 | 25 | writing-plans | 文档协作 | `skills/writing-plans/SKILL.md` |
 | 26 | frontend-design | 前端设计 | `skills/frontend-design/SKILL.md` |
 | 27 | ui-ux-pro-max | 前端设计 | `skills/ui-ux-pro-max/SKILL.md` |

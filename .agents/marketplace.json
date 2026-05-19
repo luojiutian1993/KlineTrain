@@ -1,0 +1,125 @@
+{
+  "name": "kline-trainer-skills",
+  "owner": {
+    "name": "KlineTrain Team"
+  },
+  "metadata": {
+    "description": "K线训练营项目技能集",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "dev-workflow",
+      "description": "Development workflow skills including bugfix workflow, project management, and feature development.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/bugfix-workflow",
+        "./skills/project/project-structure",
+        "./skills/project/project-tech-stack",
+        "./skills/project/project-product-overview",
+        "./skills/project/project-dev-standards",
+        "./skills/project/project-requirements-clarification",
+        "./skills/project/project-roadmap-planning",
+        "./skills/project/project-initialization",
+        "./skills/feature/feature-task-planning",
+        "./skills/feature/feature-evolution",
+        "./skills/feature/feature-implementation",
+        "./skills/feature/feature-requirements-clarification",
+        "./skills/feature/feature-tech-design"
+      ]
+    },
+    {
+      "name": "document-skills",
+      "description": "Document processing suite including Excel, Word, PowerPoint, and PDF capabilities",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/xlsx",
+        "./skills/docx",
+        "./skills/pptx",
+        "./skills/pdf"
+      ]
+    },
+    {
+      "name": "example-skills",
+      "description": "Example skills demonstrating various capabilities",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/algorithmic-art",
+        "./skills/brand-guidelines",
+        "./skills/canvas-design",
+        "./skills/doc-coauthoring",
+        "./skills/frontend-design",
+        "./skills/internal-comms",
+        "./skills/mcp-builder",
+        "./skills/skill-creator",
+        "./skills/slack-gif-creator",
+        "./skills/theme-factory",
+        "./skills/web-artifacts-builder",
+        "./skills/webapp-testing"
+      ]
+    },
+    {
+      "name": "community-skills",
+      "description": "Community-contributed skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/product-manager",
+        "./skills/fullstack-developer",
+        "./skills/ui-ux-pro-max",
+        "./skills/UI-Interface-Design-Review"
+      ]
+    },
+    {
+      "name": "git-workflow",
+      "description": "Git workflow and version control skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/git-workflow",
+        "./skills/sprint-planner"
+      ]
+    },
+    {
+      "name": "claude-api",
+      "description": "Claude API and SDK documentation",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/claude-api"
+      ]
+    },
+    {
+      "name": "data-skills",
+      "description": "Data engineering and analysis skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/knowledge-work-plugins-main/data/skills/explore-data",
+        "./skills/knowledge-work-plugins-main/data/skills/sql-queries",
+        "./skills/knowledge-work-plugins-main/data/skills/statistical-analysis"
+      ]
+    },
+    {
+      "name": "engineering-skills",
+      "description": "Engineering workflow skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/knowledge-work-plugins-main/engineering/skills/architecture",
+        "./skills/knowledge-work-plugins-main/engineering/skills/code-review",
+        "./skills/knowledge-work-plugins-main/engineering/skills/debug",
+        "./skills/knowledge-work-plugins-main/engineering/skills/deploy-checklist",
+        "./skills/knowledge-work-plugins-main/engineering/skills/documentation",
+        "./skills/knowledge-work-plugins-main/engineering/skills/incident-response",
+        "./skills/knowledge-work-plugins-main/engineering/skills/standup",
+        "./skills/knowledge-work-plugins-main/engineering/skills/system-design",
+        "./skills/knowledge-work-plugins-main/engineering/skills/tech-debt",
+        "./skills/knowledge-work-plugins-main/engineering/skills/testing-strategy"
+      ]
+    }
+  ]
+}

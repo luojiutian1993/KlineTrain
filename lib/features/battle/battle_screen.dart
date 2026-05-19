@@ -94,11 +94,12 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final totalDays = _trainingDays + _historyDays;
 
     List<KlineModel> data;
-    
+
     if (_trainingStartDate != null) {
-      final startTime = _trainingStartDate!.subtract(Duration(days: _historyDays));
+      final startTime =
+          _trainingStartDate!.subtract(Duration(days: _historyDays));
       final endTime = _trainingStartDate!.add(Duration(days: _trainingDays));
-      
+
       data = await repository.fetchKlineDataFromDbWithDateRange(
         symbol: _currentSymbol,
         period: 'day',
@@ -171,6 +172,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   void _slideLeft() {
+    if (_visibleStartIndex <= 0) {
+      _showEdgeAlert('已经到达最左边');
+      return;
+    }
     setState(() {
       _visibleStartIndex -= 5;
       if (_visibleStartIndex < 0) {
@@ -180,9 +185,13 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   void _slideRight() {
+    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    if (_visibleStartIndex >= maxStart) {
+      _showEdgeAlert('已经到达最右边');
+      return;
+    }
     setState(() {
-      final endIndex = _currentDayIndex + 1;
-      final maxStart = endIndex - 10;
       _visibleStartIndex += 5;
       if (_visibleStartIndex > maxStart) {
         _visibleStartIndex = maxStart;
@@ -191,6 +200,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _visibleStartIndex = 0;
       }
     });
+  }
+
+  void _showEdgeAlert(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(milliseconds: 1500),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _showBuyDialog() {
@@ -361,9 +380,11 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    
+
     return _tradePoints
-        .where((point) => point.index >= startIndex && point.index < startIndex + _visibleKlineCount)
+        .where((point) =>
+            point.index >= startIndex &&
+            point.index < startIndex + _visibleKlineCount)
         .map((point) => TradePoint(
               index: point.index - startIndex,
               price: point.price,
@@ -394,7 +415,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final macdResult = IndicatorCalculator.calculateMACD(displayData);
-    final paddingCount = endIndex - macdResult.macd.length;
+    final paddingCount = displayData.length - macdResult.macd.length;
 
     final result = <MacdData>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -423,7 +444,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final kdjResult = IndicatorCalculator.calculateKDJ(displayData);
-    final paddingCount = endIndex - kdjResult.k.length;
+    final paddingCount = displayData.length - kdjResult.k.length;
 
     final result = <KdjData>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -452,7 +473,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final rsiResult = IndicatorCalculator.calculateRSI(displayData);
-    final paddingCount = endIndex - rsiResult.values.length;
+    final paddingCount = displayData.length - rsiResult.values.length;
 
     final result = <RsiData>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -475,7 +496,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final bollResult = IndicatorCalculator.calculateBoll(displayData);
-    final paddingCount = endIndex - bollResult.mb.length;
+    final paddingCount = displayData.length - bollResult.mb.length;
 
     final result = <BollData>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -503,7 +524,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final wrResult = IndicatorCalculator.calculateWR(displayData);
-    final paddingCount = endIndex - wrResult.values.length;
+    final paddingCount = displayData.length - wrResult.values.length;
 
     final result = <double>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -522,7 +543,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final cciResult = IndicatorCalculator.calculateCCI(displayData);
-    final paddingCount = endIndex - cciResult.values.length;
+    final paddingCount = displayData.length - cciResult.values.length;
 
     final result = <double>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -550,7 +571,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final dmiResult = IndicatorCalculator.calculateDMI(displayData);
-    final paddingCount = endIndex - dmiResult.plusDI.length;
+    final paddingCount = displayData.length - dmiResult.plusDI.length;
 
     final result = <DmiData>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -574,7 +595,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final dmaResult = IndicatorCalculator.calculateDMA(displayData);
-    final paddingCount = endIndex - dmaResult.dma.length;
+    final paddingCount = displayData.length - dmaResult.dma.length;
 
     final result = <DmaData>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -594,7 +615,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _allKlineData.take(endIndex).toList();
 
     final bbiResult = IndicatorCalculator.calculateBBI(displayData);
-    final paddingCount = endIndex - bbiResult.values.length;
+    final paddingCount = displayData.length - bbiResult.values.length;
 
     final result = <double>[];
     for (int i = 0; i < paddingCount; i++) {
@@ -611,20 +632,25 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              _buildStockInfo(),
-              _buildMarketData(),
-              _buildPeriodSelector(),
-              _buildKlineChart(),
-              _buildIndicatorSelector(),
-              _buildTradeButtons(),
-              _buildNextStepButton(),
-              _buildAccountInfo(),
-              _buildSummaryCards(),
-            ],
-          ),
+        child: Column(
+          children: [
+            Expanded(
+              child: Column(
+                children: [
+                  _buildStockInfo(),
+                  _buildMarketData(),
+                  _buildPeriodSelector(),
+                  Expanded(
+                    child: _buildKlineChartWithoutControls(),
+                  ),
+                  _buildControlButtons(),
+                  _buildIndicatorWithSelector(_selectedTopIndicator, true),
+                  _buildIndicatorWithSelector(_selectedBottomIndicator, false),
+                ],
+              ),
+            ),
+            _buildTradeButtons(),
+          ],
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -658,81 +684,48 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
             : null;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(_getStockName(_currentSymbol),
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(_getStockName(_currentSymbol),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 4),
+                    Text(_currentSymbol,
+                        style: TextStyle(fontSize: 10, color: AppTheme.muted)),
+                  ],
+                ),
+              ),
               const SizedBox(width: 8),
-              Text(_currentSymbol, style: TextStyle(color: AppTheme.muted)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
               Text(
                 currentData != null
                     ? currentData.close.toStringAsFixed(2)
                     : '--',
                 style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Colors.red),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 4),
               if (currentData != null)
                 Text(
-                  '${currentData.change >= 0 ? '+' : ''}${currentData.change.toStringAsFixed(2)} (${currentData.changePercent.toStringAsFixed(2)}%)',
-                  style: const TextStyle(color: Colors.red),
+                  '${currentData.change >= 0 ? '+' : ''}${currentData.changePercent.toStringAsFixed(2)}%',
+                  style: TextStyle(
+                      fontSize: 10,
+                      color:
+                          currentData.change >= 0 ? Colors.red : Colors.green),
                 ),
             ],
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _buildTag('涨停', Colors.green),
-              const SizedBox(width: 8),
-              _buildTag('融资融券', AppTheme.bg),
-              const SizedBox(width: 8),
-              _buildTag('MSCI', AppTheme.bg),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTag(String text, Color bgColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(text, style: const TextStyle(fontSize: 12)),
-    );
-  }
-
-  Widget _buildMarketData() {
-    final currentData =
-        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-            ? _allKlineData[_currentDayIndex]
-            : null;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Column(
-        children: [
+          const SizedBox(height: 4),
           Row(
             children: [
               _MarketDataItem(
@@ -746,15 +739,15 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                   value: currentData?.low.toStringAsFixed(2) ?? '--'),
               _MarketDataItem(
                   label: '成交量', value: _formatVolume(currentData?.volume ?? 0)),
-              _MarketDataItem(
-                  label: '成交额',
-                  value: _formatAmount(currentData?.turnover ?? 0)),
-              _MarketDataItem(label: '换手率', value: '3.2%'),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildMarketData() {
+    return const SizedBox.shrink();
   }
 
   String _formatVolume(double volume) {
@@ -797,7 +790,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       items: _periods.map((period) {
         return DropdownMenuItem<String>(
           value: period,
-          child: Text(period, style: const TextStyle(fontSize: 14)),
+          child: Text(period, style: const TextStyle(fontSize: 11)),
         );
       }).toList(),
       onChanged: (value) {
@@ -810,11 +803,11 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       },
       underline: const SizedBox(),
       style: TextStyle(
-        fontSize: 16,
+        fontSize: 12,
         fontWeight: FontWeight.bold,
         color: AppTheme.accent,
       ),
-      icon: const Icon(Icons.arrow_drop_down, color: AppTheme.accent),
+      icon: const Icon(Icons.arrow_drop_down, size: 14, color: AppTheme.accent),
     );
   }
 
@@ -893,7 +886,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final displayData = _displayKlineData;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(4),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
@@ -902,49 +895,200 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.remove, size: 20),
+                icon: const Icon(Icons.remove, size: 14),
                 onPressed: _zoomOut,
                 padding: EdgeInsets.zero,
               ),
               Text(
                 '${(_zoomScale * 100).round()}%',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
               ),
               IconButton(
-                icon: const Icon(Icons.add, size: 20),
+                icon: const Icon(Icons.add, size: 14),
                 onPressed: _zoomIn,
                 padding: EdgeInsets.zero,
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 16),
+                icon: const Icon(Icons.arrow_back_ios, size: 10),
                 onPressed: _slideLeft,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32),
+                constraints: const BoxConstraints(minWidth: 20),
               ),
               IconButton(
-                icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                icon: const Icon(Icons.arrow_forward_ios, size: 10),
                 onPressed: _slideRight,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32),
+                constraints: const BoxConstraints(minWidth: 20),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 280,
-            child: displayData.isNotEmpty
-                ? KlineChart(
-                    klineData: displayData,
-                    ma5: _calculateMA(displayData, 5),
-                    ma10: _calculateMA(displayData, 10),
-                    ma20: _calculateMA(displayData, 20),
-                    ma30: _calculateMA(displayData, 30),
-                    volumes: _displayVolumes,
-                    macdData: _displayMacdData,
-                    tradePoints: _visibleTradePoints,
-                  )
-                : const Center(child: Text('加载中...')),
+          const SizedBox(height: 2),
+          Expanded(
+            child: ClipRect(
+              child: displayData.isNotEmpty
+                  ? KlineChart(
+                      klineData: displayData,
+                      ma5: _calculateMA(displayData, 5),
+                      ma10: _calculateMA(displayData, 10),
+                      ma20: _calculateMA(displayData, 20),
+                      ma30: _calculateMA(displayData, 30),
+                      volumes: _displayVolumes,
+                      macdData: _displayMacdData,
+                      tradePoints: _visibleTradePoints,
+                    )
+                  : const Center(child: Text('加载中...')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKlineChartWithoutControls() {
+    final displayData = _displayKlineData;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+      ),
+      child: ClipRect(
+        child: displayData.isNotEmpty
+            ? KlineChart(
+                klineData: displayData,
+                ma5: _calculateMA(displayData, 5),
+                ma10: _calculateMA(displayData, 10),
+                ma20: _calculateMA(displayData, 20),
+                ma30: _calculateMA(displayData, 30),
+                volumes: _displayVolumes,
+                macdData: _displayMacdData,
+                tradePoints: _visibleTradePoints,
+              )
+            : const Center(child: Text('加载中...')),
+      ),
+    );
+  }
+
+  Widget _buildControlButtons() {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.remove, size: 16),
+            onPressed: _zoomOut,
+            padding: EdgeInsets.zero,
+          ),
+          Text(
+            '${(_zoomScale * 100).round()}%',
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add, size: 16),
+            onPressed: _zoomIn,
+            padding: EdgeInsets.zero,
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios, size: 12),
+            onPressed: _slideLeft,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24),
+          ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward_ios, size: 12),
+            onPressed: _slideRight,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 24),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndicatorWithSelector(String indicator, bool isTop) {
+    return SizedBox(
+      height: 60,
+      child: Column(
+        children: [
+          Container(
+            height: 22,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: const BoxDecoration(
+              border: Border(
+                  bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DropdownButton<String>(
+                    value: indicator,
+                    items: _indicators.map((ind) {
+                      return DropdownMenuItem<String>(
+                        value: ind,
+                        child: Text(ind,
+                            style: const TextStyle(
+                                fontSize: 10, color: Colors.black)),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          if (isTop) {
+                            _selectedTopIndicator = value;
+                          } else {
+                            _selectedBottomIndicator = value;
+                          }
+                        });
+                      }
+                    },
+                    underline: const SizedBox(),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black),
+                    iconSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              child: indicator == '成交量'
+                  ? _buildVolumeChart()
+                  : indicator == 'MACD'
+                      ? _buildMacdChart()
+                      : indicator == 'KDJ'
+                          ? _buildKdjChart()
+                          : indicator == 'RSI'
+                              ? _buildRsiChart()
+                              : indicator == 'BOLL'
+                                  ? _buildBollChart()
+                                  : indicator == 'WR'
+                                      ? _buildWrChart()
+                                      : indicator == 'CCI'
+                                          ? _buildCciChart()
+                                          : indicator == 'OBV'
+                                              ? _buildObvChart()
+                                              : indicator == 'DMI'
+                                                  ? _buildDmiChart()
+                                                  : indicator == 'DMA'
+                                                      ? _buildDmaChart()
+                                                      : indicator == 'BBI'
+                                                          ? _buildBbiChart()
+                                                          : const Center(
+                                                              child:
+                                                                  Text('指标')),
+            ),
           ),
         ],
       ),
@@ -965,6 +1109,81 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           });
         }),
       ],
+    );
+  }
+
+  Widget _buildIndicatorSelectorForSingleScreen() {
+    return SizedBox(
+      height: 28,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Row(
+                children: [
+                  const Text('副图1:', style: TextStyle(fontSize: 9)),
+                  const SizedBox(width: 3),
+                  DropdownButton<String>(
+                    value: _selectedTopIndicator,
+                    items: _indicators.map((indicator) {
+                      return DropdownMenuItem<String>(
+                        value: indicator,
+                        child: Text(indicator,
+                            style: const TextStyle(fontSize: 8)),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedTopIndicator = value;
+                        });
+                      }
+                    },
+                    underline: const SizedBox(),
+                    style: const TextStyle(
+                        fontSize: 9, fontWeight: FontWeight.bold),
+                    iconSize: 10,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Row(
+                children: [
+                  const Text('副图2:', style: TextStyle(fontSize: 9)),
+                  const SizedBox(width: 3),
+                  DropdownButton<String>(
+                    value: _selectedBottomIndicator,
+                    items: _indicators.map((indicator) {
+                      return DropdownMenuItem<String>(
+                        value: indicator,
+                        child: Text(indicator,
+                            style: const TextStyle(fontSize: 8)),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedBottomIndicator = value;
+                        });
+                      }
+                    },
+                    underline: const SizedBox(),
+                    style: const TextStyle(
+                        fontSize: 9, fontWeight: FontWeight.bold),
+                    iconSize: 10,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1042,90 +1261,89 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Widget _buildSingleIndicatorChart(String indicator) {
-    return Container(
-      height: 100,
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+    return SizedBox(
+      height: 50,
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: const BoxDecoration(
+          border:
+              Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+        ),
+        child: indicator == '成交量'
+            ? _buildVolumeChart()
+            : indicator == 'MACD'
+                ? _buildMacdChart()
+                : indicator == 'KDJ'
+                    ? _buildKdjChart()
+                    : indicator == 'RSI'
+                        ? _buildRsiChart()
+                        : indicator == 'BOLL'
+                            ? _buildBollChart()
+                            : indicator == 'WR'
+                                ? _buildWrChart()
+                                : indicator == 'CCI'
+                                    ? _buildCciChart()
+                                    : indicator == 'OBV'
+                                        ? _buildObvChart()
+                                        : indicator == 'DMI'
+                                            ? _buildDmiChart()
+                                            : indicator == 'DMA'
+                                                ? _buildDmaChart()
+                                                : indicator == 'BBI'
+                                                    ? _buildBbiChart()
+                                                    : const Center(
+                                                        child: Text('指标'),
+                                                      ),
       ),
-      child: indicator == '成交量'
-          ? _buildVolumeChart()
-          : indicator == 'MACD'
-              ? _buildMacdChart()
-              : indicator == 'KDJ'
-                  ? _buildKdjChart()
-                  : indicator == 'RSI'
-                      ? _buildRsiChart()
-                      : indicator == 'BOLL'
-                          ? _buildBollChart()
-                          : indicator == 'WR'
-                              ? _buildWrChart()
-                              : indicator == 'CCI'
-                                  ? _buildCciChart()
-                                  : indicator == 'OBV'
-                                      ? _buildObvChart()
-                                      : indicator == 'DMI'
-                                          ? _buildDmiChart()
-                                          : indicator == 'DMA'
-                                              ? _buildDmaChart()
-                                              : indicator == 'BBI'
-                                                  ? _buildBbiChart()
-                                                  : Center(
-                                                      child: Text(
-                                                          '[$indicator 指标图表]'),
-                                                    ),
     );
   }
 
   Widget _buildVolumeChart() {
-    if (_displayVolumes.isEmpty) return const SizedBox();
+    if (_displayVolumes.isEmpty) return const SizedBox.expand();
     final maxVolume =
         _displayVolumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
     final safeMax = maxVolume > 0 ? maxVolume : 1.0;
 
-    return SizedBox(
-      height: 100,
-      child: BarChart(
-        BarChartData(
-          alignment: BarChartAlignment.spaceAround,
-          maxY: safeMax * 1.2,
-          barTouchData: BarTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: safeMax / 4,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          barGroups: _displayVolumes
-              .asMap()
-              .entries
-              .map(
-                (entry) => BarChartGroupData(
-                  x: entry.key,
-                  barRods: [
-                    BarChartRodData(
-                      toY: entry.value.volume,
-                      color: entry.value.isUp ? Colors.red : Colors.green,
-                      width: 4,
-                    ),
-                  ],
-                ),
-              )
-              .toList(),
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: safeMax * 1.2,
+        barTouchData: BarTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: safeMax / 4,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
         ),
+        barGroups: _displayVolumes
+            .asMap()
+            .entries
+            .map(
+              (entry) => BarChartGroupData(
+                x: entry.key,
+                barRods: [
+                  BarChartRodData(
+                    toY: entry.value.volume,
+                    color: entry.value.isUp ? Colors.red : Colors.green,
+                    width: 3,
+                  ),
+                ],
+              ),
+            )
+            .toList(),
       ),
     );
   }
 
   Widget _buildMacdChart() {
-    if (_displayMacdData.isEmpty) return const SizedBox();
+    if (_displayMacdData.isEmpty) return const SizedBox.expand();
 
     final values =
         _displayMacdData.expand((m) => [m.macd, m.diff, m.dea]).toList();
@@ -1133,193 +1351,183 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
     final safeMax = maxValue > 0 ? maxValue : 1.0;
 
-    return SizedBox(
-      height: 100,
-      child: Stack(
-        children: [
-          BarChart(
-            BarChartData(
-              alignment: BarChartAlignment.spaceAround,
-              maxY: safeMax * 1.2,
-              minY: -safeMax * 1.2,
-              barTouchData: BarTouchData(enabled: false),
-              titlesData: const FlTitlesData(show: false),
-              borderData: FlBorderData(show: false),
-              gridData: FlGridData(
-                show: true,
-                drawVerticalLine: false,
-                horizontalInterval: safeMax / 2,
-                getDrawingHorizontalLine: (value) {
-                  return FlLine(
-                    color: Colors.grey.withOpacity(0.2),
-                    strokeWidth: 0.5,
-                  );
-                },
-              ),
-              barGroups: _displayMacdData
-                  .asMap()
-                  .entries
-                  .map(
-                    (entry) => BarChartGroupData(
-                      x: entry.key,
-                      barRods: [
-                        BarChartRodData(
-                          toY: entry.value.macd,
-                          color:
-                              entry.value.macd > 0 ? Colors.red : Colors.green,
-                          width: 3,
-                        ),
-                      ],
-                    ),
-                  )
-                  .toList(),
+    return Stack(
+      children: [
+        BarChart(
+          BarChartData(
+            alignment: BarChartAlignment.spaceAround,
+            maxY: safeMax * 1.2,
+            minY: -safeMax * 1.2,
+            barTouchData: BarTouchData(enabled: false),
+            titlesData: const FlTitlesData(show: false),
+            borderData: FlBorderData(show: false),
+            gridData: FlGridData(
+              show: true,
+              drawVerticalLine: false,
+              horizontalInterval: safeMax / 2,
+              getDrawingHorizontalLine: (value) {
+                return FlLine(
+                  color: Colors.grey.withOpacity(0.2),
+                  strokeWidth: 0.5,
+                );
+              },
             ),
+            barGroups: _displayMacdData
+                .asMap()
+                .entries
+                .map(
+                  (entry) => BarChartGroupData(
+                    x: entry.key,
+                    barRods: [
+                      BarChartRodData(
+                        toY: entry.value.macd,
+                        color: entry.value.macd > 0 ? Colors.red : Colors.green,
+                        width: 2,
+                      ),
+                    ],
+                  ),
+                )
+                .toList(),
           ),
-          LineChart(
-            LineChartData(
-              minY: -safeMax * 1.2,
-              maxY: safeMax * 1.2,
-              lineTouchData: LineTouchData(enabled: false),
-              titlesData: const FlTitlesData(show: false),
-              borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: false),
-              lineBarsData: [
-                LineChartBarData(
-                  spots: _displayMacdData
-                      .asMap()
-                      .entries
-                      .map((e) => FlSpot(e.key.toDouble(), e.value.diff))
-                      .toList(),
-                  isCurved: true,
-                  color: Colors.blue,
-                  dotData: const FlDotData(show: false),
-                  barWidth: 1.5,
-                ),
-                LineChartBarData(
-                  spots: _displayMacdData
-                      .asMap()
-                      .entries
-                      .map((e) => FlSpot(e.key.toDouble(), e.value.dea))
-                      .toList(),
-                  isCurved: true,
-                  color: Colors.orange,
-                  dotData: const FlDotData(show: false),
-                  barWidth: 1.5,
-                ),
-              ],
-            ),
+        ),
+        LineChart(
+          LineChartData(
+            minY: -safeMax * 1.2,
+            maxY: safeMax * 1.2,
+            lineTouchData: LineTouchData(enabled: false),
+            titlesData: const FlTitlesData(show: false),
+            borderData: FlBorderData(show: false),
+            gridData: const FlGridData(show: false),
+            lineBarsData: [
+              LineChartBarData(
+                spots: _displayMacdData
+                    .asMap()
+                    .entries
+                    .map((e) => FlSpot(e.key.toDouble(), e.value.diff))
+                    .toList(),
+                isCurved: true,
+                color: Colors.blue,
+                dotData: const FlDotData(show: false),
+                barWidth: 1,
+              ),
+              LineChartBarData(
+                spots: _displayMacdData
+                    .asMap()
+                    .entries
+                    .map((e) => FlSpot(e.key.toDouble(), e.value.dea))
+                    .toList(),
+                isCurved: true,
+                color: Colors.orange,
+                dotData: const FlDotData(show: false),
+                barWidth: 1,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildKdjChart() {
+    if (_displayKdjData.isEmpty) return const SizedBox.expand();
+
+    return LineChart(
+      LineChartData(
+        minY: 0,
+        maxY: 100,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 25,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: _displayKdjData
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.k))
+                .toList(),
+            isCurved: true,
+            color: Colors.yellow,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+          LineChartBarData(
+            spots: _displayKdjData
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.d))
+                .toList(),
+            isCurved: true,
+            color: Colors.purple,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+          LineChartBarData(
+            spots: _displayKdjData
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.j))
+                .toList(),
+            isCurved: true,
+            color: Colors.red,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildKdjChart() {
-    if (_displayKdjData.isEmpty) return const SizedBox();
-
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: 0,
-          maxY: 100,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 25,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: _displayKdjData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.k))
-                  .toList(),
-              isCurved: true,
-              color: Colors.yellow,
-              dotData: const FlDotData(show: false),
-              barWidth: 2,
-            ),
-            LineChartBarData(
-              spots: _displayKdjData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.d))
-                  .toList(),
-              isCurved: true,
-              color: Colors.purple,
-              dotData: const FlDotData(show: false),
-              barWidth: 2,
-            ),
-            LineChartBarData(
-              spots: _displayKdjData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.j))
-                  .toList(),
-              isCurved: true,
-              color: Colors.red,
-              dotData: const FlDotData(show: false),
-              barWidth: 2,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildRsiChart() {
-    if (_displayRsiData.isEmpty) return const SizedBox();
+    if (_displayRsiData.isEmpty) return const SizedBox.expand();
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: 0,
-          maxY: 100,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 25,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: _displayRsiData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.rsi))
-                  .toList(),
-              isCurved: true,
-              color: Colors.blue,
-              dotData: const FlDotData(show: false),
-              barWidth: 2,
-            ),
-          ],
+    return LineChart(
+      LineChartData(
+        minY: 0,
+        maxY: 100,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 25,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: _displayRsiData
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.rsi))
+                .toList(),
+            isCurved: true,
+            color: Colors.blue,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBollChart() {
-    if (_displayBollData.isEmpty) return const SizedBox();
+    if (_displayBollData.isEmpty) return const SizedBox.expand();
     final prices = _displayBollData
         .map((e) => [e.upper, e.mid, e.lower])
         .expand((x) => x)
@@ -1329,188 +1537,179 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final safeMin = minPrice - (maxPrice - minPrice) * 0.1;
     final safeMax = maxPrice + (maxPrice - minPrice) * 0.1;
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: safeMin,
-          maxY: safeMax,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (safeMax - safeMin) / 4,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: _displayBollData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.upper))
-                  .toList(),
-              isCurved: true,
-              color: Colors.orange,
-              dotData: const FlDotData(show: false),
-              barWidth: 1,
-            ),
-            LineChartBarData(
-              spots: _displayBollData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.mid))
-                  .toList(),
-              isCurved: true,
-              color: Colors.purple,
-              dotData: const FlDotData(show: false),
-              barWidth: 1,
-            ),
-            LineChartBarData(
-              spots: _displayBollData
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.lower))
-                  .toList(),
-              isCurved: true,
-              color: Colors.green,
-              dotData: const FlDotData(show: false),
-              barWidth: 1,
-            ),
-          ],
+    return LineChart(
+      LineChartData(
+        minY: safeMin,
+        maxY: safeMax,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: (safeMax - safeMin) / 4,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: _displayBollData
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.upper))
+                .toList(),
+            isCurved: true,
+            color: Colors.orange,
+            dotData: const FlDotData(show: false),
+            barWidth: 1,
+          ),
+          LineChartBarData(
+            spots: _displayBollData
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.mid))
+                .toList(),
+            isCurved: true,
+            color: Colors.purple,
+            dotData: const FlDotData(show: false),
+            barWidth: 1,
+          ),
+          LineChartBarData(
+            spots: _displayBollData
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.lower))
+                .toList(),
+            isCurved: true,
+            color: Colors.green,
+            dotData: const FlDotData(show: false),
+            barWidth: 1,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildWrChart() {
-    if (_displayWrData.isEmpty) return const SizedBox();
+    if (_displayWrData.isEmpty) return const SizedBox.expand();
     final wrValues = _displayWrData;
     final maxWr = 0.0;
     final minWr = -100.0;
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: minWr,
-          maxY: maxWr,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 25,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          extraLinesData: ExtraLinesData(
-            horizontalLines: [
-              HorizontalLine(
-                y: -20,
-                color: Colors.red.withOpacity(0.5),
-                strokeWidth: 0.5,
-                dashArray: [5, 5],
-              ),
-              HorizontalLine(
-                y: -80,
-                color: Colors.green.withOpacity(0.5),
-                strokeWidth: 0.5,
-                dashArray: [5, 5],
-              ),
-            ],
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: wrValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), -e.value))
-                  .toList(),
-              isCurved: true,
-              color: Colors.blue,
-              dotData: const FlDotData(show: false),
-              barWidth: 1.5,
+    return LineChart(
+      LineChartData(
+        minY: minWr,
+        maxY: maxWr,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 25,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
+        ),
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(
+              y: -20,
+              color: Colors.red.withOpacity(0.5),
+              strokeWidth: 0.5,
+              dashArray: [5, 5],
+            ),
+            HorizontalLine(
+              y: -80,
+              color: Colors.green.withOpacity(0.5),
+              strokeWidth: 0.5,
+              dashArray: [5, 5],
             ),
           ],
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: wrValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), -e.value))
+                .toList(),
+            isCurved: true,
+            color: Colors.blue,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCciChart() {
-    if (_displayCciData.isEmpty) return const SizedBox();
+    if (_displayCciData.isEmpty) return const SizedBox.expand();
     final cciValues = _displayCciData;
     final maxCci = 200.0;
     final minCci = -200.0;
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: minCci,
-          maxY: maxCci,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 100,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          extraLinesData: ExtraLinesData(
-            horizontalLines: [
-              HorizontalLine(
-                y: 100,
-                color: Colors.red.withOpacity(0.5),
-                strokeWidth: 0.5,
-                dashArray: [5, 5],
-              ),
-              HorizontalLine(
-                y: -100,
-                color: Colors.green.withOpacity(0.5),
-                strokeWidth: 0.5,
-                dashArray: [5, 5],
-              ),
-            ],
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: cciValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value))
-                  .toList(),
-              isCurved: true,
-              color: Colors.purple,
-              dotData: const FlDotData(show: false),
-              barWidth: 1.5,
+    return LineChart(
+      LineChartData(
+        minY: minCci,
+        maxY: maxCci,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 100,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
+        ),
+        extraLinesData: ExtraLinesData(
+          horizontalLines: [
+            HorizontalLine(
+              y: 100,
+              color: Colors.red.withOpacity(0.5),
+              strokeWidth: 0.5,
+              dashArray: [5, 5],
+            ),
+            HorizontalLine(
+              y: -100,
+              color: Colors.green.withOpacity(0.5),
+              strokeWidth: 0.5,
+              dashArray: [5, 5],
             ),
           ],
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: cciValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value))
+                .toList(),
+            isCurved: true,
+            color: Colors.purple,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildObvChart() {
-    if (_displayObvData.isEmpty) return const SizedBox();
+    if (_displayObvData.isEmpty) return const SizedBox.expand();
     final obvValues = _displayObvData;
     final maxObv = obvValues.length == 1
         ? obvValues[0]
@@ -1523,116 +1722,110 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final safeMin = hasRange ? minObv - range * 0.1 : minObv - 1;
     final safeMax = hasRange ? maxObv + range * 0.1 : maxObv + 1;
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: safeMin,
-          maxY: safeMax,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (safeMax - safeMin) / 4,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: obvValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value))
-                  .toList(),
-              isCurved: true,
-              color: Colors.teal,
-              dotData: const FlDotData(show: false),
-              barWidth: 1.5,
-            ),
-          ],
+    return LineChart(
+      LineChartData(
+        minY: safeMin,
+        maxY: safeMax,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: (safeMax - safeMin) / 4,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: obvValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value))
+                .toList(),
+            isCurved: true,
+            color: Colors.teal,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDmiChart() {
-    if (_displayDmiData.isEmpty) return const SizedBox();
+    if (_displayDmiData.isEmpty) return const SizedBox.expand();
     final dmiValues = _displayDmiData;
     final maxDI = 100.0;
     final minDI = 0.0;
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: minDI,
-          maxY: maxDI,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: 25,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: dmiValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.plusDI))
-                  .toList(),
-              isCurved: true,
-              color: Colors.blue,
-              dotData: const FlDotData(show: false),
-              barWidth: 1,
-            ),
-            LineChartBarData(
-              spots: dmiValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.minusDI))
-                  .toList(),
-              isCurved: true,
-              color: Colors.red,
-              dotData: const FlDotData(show: false),
-              barWidth: 1,
-            ),
-            LineChartBarData(
-              spots: dmiValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.adx))
-                  .toList(),
-              isCurved: true,
-              color: Colors.orange,
-              dotData: const FlDotData(show: false),
-              barWidth: 1,
-            ),
-          ],
+    return LineChart(
+      LineChartData(
+        minY: minDI,
+        maxY: maxDI,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: 25,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: dmiValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.plusDI))
+                .toList(),
+            isCurved: true,
+            color: Colors.blue,
+            dotData: const FlDotData(show: false),
+            barWidth: 1,
+          ),
+          LineChartBarData(
+            spots: dmiValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.minusDI))
+                .toList(),
+            isCurved: true,
+            color: Colors.red,
+            dotData: const FlDotData(show: false),
+            barWidth: 1,
+          ),
+          LineChartBarData(
+            spots: dmiValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.adx))
+                .toList(),
+            isCurved: true,
+            color: Colors.orange,
+            dotData: const FlDotData(show: false),
+            barWidth: 1,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDmaChart() {
-    if (_displayDmaData.isEmpty) return const SizedBox();
+    if (_displayDmaData.isEmpty) return const SizedBox.expand();
     final dmaValues = _displayDmaData;
     final prices =
         dmaValues.map((e) => [e.dma, e.ama]).expand((x) => x).toList();
-    if (prices.isEmpty) return const SizedBox();
+    if (prices.isEmpty) return const SizedBox.expand();
     final minPrice =
         prices.length == 1 ? prices[0] : prices.reduce((a, b) => a < b ? a : b);
     final maxPrice =
@@ -1642,60 +1835,57 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final safeMin = hasRange ? minPrice - range * 0.1 : minPrice - 1;
     final safeMax = hasRange ? maxPrice + range * 0.1 : maxPrice + 1;
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: safeMin,
-          maxY: safeMax,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (safeMax - safeMin) / 4,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: dmaValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.dma))
-                  .toList(),
-              isCurved: true,
-              color: Colors.indigo,
-              dotData: const FlDotData(show: false),
-              barWidth: 1.5,
-            ),
-            LineChartBarData(
-              spots: dmaValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value.ama))
-                  .toList(),
-              isCurved: true,
-              color: Colors.amber,
-              dotData: const FlDotData(show: false),
-              barWidth: 1,
-            ),
-          ],
+    return LineChart(
+      LineChartData(
+        minY: safeMin,
+        maxY: safeMax,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: (safeMax - safeMin) / 4,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: dmaValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.dma))
+                .toList(),
+            isCurved: true,
+            color: Colors.indigo,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+          LineChartBarData(
+            spots: dmaValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.ama))
+                .toList(),
+            isCurved: true,
+            color: Colors.amber,
+            dotData: const FlDotData(show: false),
+            barWidth: 1,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildBbiChart() {
-    if (_displayBbiData.isEmpty) return const SizedBox();
+    if (_displayBbiData.isEmpty) return const SizedBox.expand();
     final bbiValues = _displayBbiData;
     final prices = bbiValues;
-    if (prices.isEmpty) return const SizedBox();
+    if (prices.isEmpty) return const SizedBox.expand();
     final minPrice =
         prices.length == 1 ? prices[0] : prices.reduce((a, b) => a < b ? a : b);
     final maxPrice =
@@ -1705,50 +1895,52 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final safeMin = hasRange ? minPrice - range * 0.1 : minPrice - 1;
     final safeMax = hasRange ? maxPrice + range * 0.1 : maxPrice + 1;
 
-    return SizedBox(
-      height: 100,
-      child: LineChart(
-        LineChartData(
-          minY: safeMin,
-          maxY: safeMax,
-          lineTouchData: LineTouchData(enabled: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: (safeMax - safeMin) / 4,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 0.5,
-              );
-            },
-          ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: bbiValues
-                  .asMap()
-                  .entries
-                  .map((e) => FlSpot(e.key.toDouble(), e.value))
-                  .toList(),
-              isCurved: true,
-              color: Colors.deepOrange,
-              dotData: const FlDotData(show: false),
-              barWidth: 1.5,
-            ),
-          ],
+    return LineChart(
+      LineChartData(
+        minY: safeMin,
+        maxY: safeMax,
+        lineTouchData: LineTouchData(enabled: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: (safeMax - safeMin) / 4,
+          getDrawingHorizontalLine: (value) {
+            return FlLine(
+              color: Colors.grey.withOpacity(0.2),
+              strokeWidth: 0.5,
+            );
+          },
         ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: bbiValues
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value))
+                .toList(),
+            isCurved: true,
+            color: Colors.deepOrange,
+            dotData: const FlDotData(show: false),
+            barWidth: 1.5,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTradeButtons() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+      ),
       child: Row(
         children: [
           Expanded(
+            flex: 2,
             child: ElevatedButton(
               onPressed: _showStockSelectionDialog,
               style: ElevatedButton.styleFrom(
@@ -1756,15 +1948,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 foregroundColor: AppTheme.muted,
                 side: const BorderSide(color: AppTheme.border),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 6),
               ),
-              child: const Text('换股'),
+              child: const Text('换股', style: TextStyle(fontSize: 10)),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 4),
           Expanded(
+            flex: 2,
             child: ElevatedButton(
               onPressed: _showConditionalOrderDialog,
               style: ElevatedButton.styleFrom(
@@ -1772,41 +1965,74 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 foregroundColor: AppTheme.muted,
                 side: const BorderSide(color: AppTheme.border),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 6),
               ),
-              child: const Text('条件单'),
+              child: const Text('条件单', style: TextStyle(fontSize: 10)),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 4),
           Expanded(
+            flex: 2,
             child: ElevatedButton(
               onPressed: _showBuyDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 6),
               ),
-              child: const Text('买入'),
+              child: const Text('买入', style: TextStyle(fontSize: 10)),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 4),
           Expanded(
+            flex: 2,
             child: ElevatedButton(
               onPressed: _showSellDialog,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 6),
               ),
-              child: const Text('卖出'),
+              child: const Text('卖出', style: TextStyle(fontSize: 10)),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.bg,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              '${_currentDayIndex - _historyDays + 1}/$_trainingDays',
+              style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.accent),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: _nextDay,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+              ),
+              child: const Text('下一步', style: TextStyle(fontSize: 10)),
             ),
           ),
         ],
@@ -1815,43 +2041,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Widget _buildNextStepButton() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text('训练周期: '),
-              Text(
-                '${_currentDayIndex - _historyDays + 1}/$_trainingDays',
-                style: const TextStyle(
-                    fontWeight: FontWeight.bold, color: AppTheme.accent),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _nextDay,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('下一步 (推进到下一天)'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildAccountInfo() {
@@ -2780,7 +2970,7 @@ class _MaDisplay extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 10,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -2788,11 +2978,11 @@ class _MaDisplay extends StatelessWidget {
         if (value != null && value! > 0)
           Row(
             children: [
-              const SizedBox(width: 4),
+              const SizedBox(width: 3),
               Text(
                 '${value!.toStringAsFixed(2)}',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 9,
                   color: color,
                 ),
               ),
