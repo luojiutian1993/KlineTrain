@@ -14,27 +14,20 @@ void main() async {
 
   try {
     await dotenv.load();
-    appLogger.i('环境配置加载完成', category: LogCategory.app);
-
-    AppLogger.initialize(const LogConfig(
-      minLevel: LogLevel.debug,
-      enableConsole: true,
-      enableFile: true,
-    ));
-    appLogger.i('日志系统初始化完成', category: LogCategory.app);
+    appLogger.i('环境配置加载完成');
 
     PerformanceMonitor.initialize(enabled: true);
-    appLogger.i('性能监控系统初始化完成', category: LogCategory.performance);
+    appLogger.i('性能监控系统初始化完成');
 
     HealthMonitor.initialize();
     _registerHealthChecks();
-    appLogger.i('健康监控系统初始化完成', category: LogCategory.app);
+    appLogger.i('健康监控系统初始化完成');
 
     await DatabaseService.instance.initialize();
-    appLogger.i('数据库初始化完成', category: LogCategory.database);
+    appLogger.i('数据库初始化完成');
 
     healthMonitor.startPeriodicChecks();
-    appLogger.i('定时健康检查已启动', category: LogCategory.app);
+    appLogger.i('定时健康检查已启动');
 
     runApp(
       const ProviderScope(
@@ -42,7 +35,7 @@ void main() async {
       ),
     );
   } catch (e, stackTrace) {
-    appLogger.e('应用初始化失败', error: e, stackTrace: stackTrace, category: LogCategory.app);
+    appLogger.e('应用初始化失败', error: e, stackTrace: stackTrace);
 
     runApp(
       ErrorPage(

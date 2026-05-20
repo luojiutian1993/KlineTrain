@@ -86,3 +86,5 @@ lib/data/database/stock_data.db
 # 数据文件
 数据库导入数据/
 数据导入数据/
+*.db
+test/data/

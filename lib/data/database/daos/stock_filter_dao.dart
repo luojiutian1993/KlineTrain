@@ -110,25 +110,42 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   Future<(DateTime, DateTime)> getKlineDateRange() async {
     appLogger.i('开始查询K线数据日期范围...');
 
-    final minResult = await (selectOnly(klineData)
-          ..addColumns([klineData.tradeDate.min()])
-          ..where(klineData.period.equals('day')))
-        .getSingle();
+    try {
+      // 先检查是否有数据
+      final countResult = await (selectOnly(klineData)
+            ..addColumns([klineData.symbol.count()])
+            ..where(klineData.period.equals('day')))
+          .getSingle();
 
-    final maxResult = await (selectOnly(klineData)
-          ..addColumns([klineData.tradeDate.max()])
-          ..where(klineData.period.equals('day')))
-        .getSingle();
+      final count = countResult.read(klineData.symbol.count());
+      if (count == null || count == 0) {
+        appLogger.w('K线数据表为空，返回默认日期范围');
+        return (DateTime(2000, 1, 1), DateTime.now());
+      }
 
-    final minDate = minResult.read(klineData.tradeDate.min());
-    final maxDate = maxResult.read(klineData.tradeDate.max());
+      final minResult = await (selectOnly(klineData)
+            ..addColumns([klineData.tradeDate.min()])
+            ..where(klineData.period.equals('day')))
+          .getSingle();
 
-    appLogger.i('查询到的日期范围: min=$minDate, max=$maxDate');
+      final maxResult = await (selectOnly(klineData)
+            ..addColumns([klineData.tradeDate.max()])
+            ..where(klineData.period.equals('day')))
+          .getSingle();
 
-    return (
-      minDate ?? DateTime(2000, 1, 1),
-      maxDate ?? DateTime.now(),
-    );
+      final minDate = minResult.read(klineData.tradeDate.min());
+      final maxDate = maxResult.read(klineData.tradeDate.max());
+
+      appLogger.i('查询到的日期范围: min=$minDate, max=$maxDate');
+
+      return (
+        minDate ?? DateTime(2000, 1, 1),
+        maxDate ?? DateTime.now(),
+      );
+    } catch (e, stackTrace) {
+      appLogger.e('查询K线日期范围失败', error: e, stackTrace: stackTrace);
+      return (DateTime(2000, 1, 1), DateTime.now());
+    }
   }
 
   /// 批量获取多个标的的K线数据

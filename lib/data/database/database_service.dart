@@ -1,7 +1,16 @@
+import 'dart:math';
 import 'app_database.dart';
 import 'daos/daos.dart';
 import '../services/stock_data_sync_service.dart';
 import '../../shared/utils/logger.dart';
+import 'exceptions/database_exceptions.dart';
+
+enum InitializationStatus {
+  uninitialized,
+  initializing,
+  completed,
+  failed,
+}
 
 /// 数据库服务单例
 class DatabaseService {
@@ -9,12 +18,42 @@ class DatabaseService {
   static DatabaseService get instance => _instance;
 
   late final AppDatabase db;
+  
+  InitializationStatus _status = InitializationStatus.uninitialized;
+  bool _isInitializing = false;
 
   DatabaseService._internal();
 
+  InitializationStatus get status => _status;
+
+  bool get isInitialized => _status == InitializationStatus.completed;
+
   /// 初始化数据库
   /// [maxRetries] 最大重试次数，默认为3次
-  Future<void> initialize({int maxRetries = 3}) async {
+  /// [initialDelayMs] 初始退避延迟(毫秒)，默认为1000ms
+  Future<void> initialize({
+    int maxRetries = 3,
+    int initialDelayMs = 1000,
+  }) async {
+    if (_isInitializing) {
+      appLogger.w('数据库正在初始化中，等待完成...');
+      while (_isInitializing) {
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+      if (_status != InitializationStatus.completed) {
+        throw DatabaseInitializationException('数据库初始化失败');
+      }
+      return;
+    }
+
+    if (_status == InitializationStatus.completed) {
+      appLogger.i('数据库已初始化完成，跳过初始化');
+      return;
+    }
+
+    _isInitializing = true;
+    _status = InitializationStatus.initializing;
+
     appLogger.i('开始初始化数据库服务');
     db = AppDatabase();
 
@@ -22,18 +61,31 @@ class DatabaseService {
     while (retryCount < maxRetries) {
       try {
         await _initData();
+        _status = InitializationStatus.completed;
+        _isInitializing = false;
         appLogger.i('数据库服务初始化完成');
         return;
       } catch (e) {
         retryCount++;
         if (retryCount >= maxRetries) {
+          _status = InitializationStatus.failed;
+          _isInitializing = false;
           appLogger.e('数据库初始化失败，已达到最大重试次数: $maxRetries');
-          rethrow;
+          throw DatabaseInitializationException(
+            '数据库初始化失败，已达到最大重试次数',
+            cause: e,
+          );
         }
-        appLogger.w('数据库初始化失败，正在进行第 $retryCount 次重试...');
-        await Future.delayed(Duration(seconds: retryCount));
+        
+        final delayMs = initialDelayMs * pow(2, retryCount - 1);
+        appLogger.w('数据库初始化失败，正在进行第 $retryCount 次重试，等待 ${delayMs}ms...');
+        await Future.delayed(Duration(milliseconds: delayMs.toInt()));
       }
     }
+
+    _isInitializing = false;
+    _status = InitializationStatus.failed;
+    throw DatabaseInitializationException('数据库初始化失败');
   }
 
   /// 初始化基础数据

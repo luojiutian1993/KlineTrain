@@ -31,6 +31,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   int _trainingDays = 150;
   final int _historyDays = 30;
   DateTime? _trainingStartDate;
+  DateTime? _lastEdgeAlertTime;
 
   final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
   final List<String> _indicators = [
@@ -203,6 +204,14 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   void _showEdgeAlert(String message) {
+    final now = DateTime.now();
+    if (_lastEdgeAlertTime != null) {
+      final diff = now.difference(_lastEdgeAlertTime!);
+      if (diff.inMilliseconds < 1500) {
+        return;
+      }
+    }
+    _lastEdgeAlertTime = now;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -493,6 +502,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   List<BollData> get _displayBollData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final bollResult = IndicatorCalculator.calculateBoll(displayData);
@@ -515,12 +526,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       ));
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
   List<double> get _displayWrData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final wrResult = IndicatorCalculator.calculateWR(displayData);
@@ -534,12 +551,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       result.add(wrResult.values[i]);
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
   List<double> get _displayCciData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final cciResult = IndicatorCalculator.calculateCCI(displayData);
@@ -553,21 +576,35 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       result.add(cciResult.values[i]);
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
   List<double> get _displayObvData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final obvResult = IndicatorCalculator.calculateOBV(displayData);
-    return obvResult.values;
+    final result = obvResult.values;
+
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
+    return result;
   }
 
   List<DmiData> get _displayDmiData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final dmiResult = IndicatorCalculator.calculateDMI(displayData);
@@ -586,12 +623,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       ));
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
   List<DmaData> get _displayDmaData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final dmaResult = IndicatorCalculator.calculateDMA(displayData);
@@ -606,12 +649,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       result.add(DmaData(dma: dmaResult.dma[i], ama: amaValue));
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
   List<double> get _displayBbiData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
+    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+    final startIndex = _visibleStartIndex.clamp(0, maxStart);
     final displayData = _allKlineData.take(endIndex).toList();
 
     final bbiResult = IndicatorCalculator.calculateBBI(displayData);
@@ -625,6 +674,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       result.add(bbiResult.values[i]);
     }
 
+    if (result.length > startIndex) {
+      final end = startIndex + _visibleKlineCount;
+      return result.sublist(startIndex, end.clamp(startIndex, result.length));
+    }
     return result;
   }
 
@@ -689,60 +742,139 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(_getStockName(_currentSymbol),
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 4),
-                    Text(_currentSymbol,
-                        style: TextStyle(fontSize: 10, color: AppTheme.muted)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                currentData != null
-                    ? currentData.close.toStringAsFixed(2)
-                    : '--',
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red),
-              ),
-              const SizedBox(width: 4),
-              if (currentData != null)
-                Text(
-                  '${currentData.change >= 0 ? '+' : ''}${currentData.changePercent.toStringAsFixed(2)}%',
-                  style: TextStyle(
-                      fontSize: 10,
-                      color:
-                          currentData.change >= 0 ? Colors.red : Colors.green),
-                ),
+              Text(_getStockName(_currentSymbol),
+                  style: const TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 4),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _MarketDataItem(
-                  label: '今开',
-                  value: currentData?.open.toStringAsFixed(2) ?? '--'),
-              _MarketDataItem(
-                  label: '最高',
-                  value: currentData?.high.toStringAsFixed(2) ?? '--'),
-              _MarketDataItem(
-                  label: '最低',
-                  value: currentData?.low.toStringAsFixed(2) ?? '--'),
-              _MarketDataItem(
-                  label: '成交量', value: _formatVolume(currentData?.volume ?? 0)),
+              // 第一列：收盘价和涨跌
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        currentData != null
+                            ? currentData.close.toStringAsFixed(2)
+                            : '--',
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '收',
+                        style: TextStyle(fontSize: 10, color: AppTheme.muted),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        currentData != null
+                            ? '${currentData.change >= 0 ? '+' : ''}${currentData.change.toStringAsFixed(2)}'
+                            : '--',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color:
+                                currentData != null && currentData.change >= 0
+                                    ? Colors.red
+                                    : Colors.green),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        currentData != null
+                            ? '${currentData.change >= 0 ? '+' : ''}${currentData.changePercent.toStringAsFixed(2)}%'
+                            : '--',
+                        style: TextStyle(
+                            fontSize: 10,
+                            color:
+                                currentData != null && currentData.change >= 0
+                                    ? Colors.red
+                                    : Colors.green),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              // 第二列：高/低
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem(
+                      '高', currentData?.high.toStringAsFixed(2) ?? '--'),
+                  const SizedBox(height: 4),
+                  _buildInfoItem(
+                      '低', currentData?.low.toStringAsFixed(2) ?? '--'),
+                ],
+              ),
+              const SizedBox(width: 12),
+              // 第三列：开/换手
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem(
+                      '开', currentData?.open.toStringAsFixed(2) ?? '--'),
+                  const SizedBox(height: 4),
+                  _buildInfoItem('换手', '待更新'),
+                ],
+              ),
+              const SizedBox(width: 12),
+              // 第四列：流通/上证
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem('流通', '待更新'),
+                  const SizedBox(height: 4),
+                  _buildInfoItem('上证', '待更新'),
+                ],
+              ),
+              const SizedBox(width: 12),
+              // 第五列：量/金额
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildInfoItem(
+                      '量',
+                      currentData != null
+                          ? _formatVolume(currentData.volume)
+                          : '--'),
+                  const SizedBox(height: 4),
+                  _buildInfoItem('金额', '待更新'),
+                ],
+              ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInfoItem(String label, String value) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 10, color: AppTheme.muted),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 11),
+        ),
+      ],
     );
   }
 
