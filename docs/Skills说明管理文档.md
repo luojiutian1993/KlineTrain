@@ -1,7 +1,7 @@
 # K线训练营App - Skills 说明管理文档
 
 > **文档版本**: v1.3  
-> **最后更新**: 2026-05-19  
+> **最后更新**: 2026-05-20  
 > **维护者**: 开发团队  
 > **描述**: 本项目所有 skills 能力说明文档，用于快速查询和管理各技能的功能、用途和调用方式。
 
@@ -721,7 +721,7 @@ docs/
 | v1.0 | 2026-05-13 | 初始版本，整理现有所有 skills | DevOps Engineer |
 | v1.1 | 2026-05-13 | 添加 sprint-planner 敏捷冲刺规划技能；添加数据工程类技能（explore-data、sql-queries、statistical-analysis）；添加工程部署类技能（deploy-checklist）；添加 git-commit 技能 | DevOps Engineer |
 | v1.2 | 2026-05-14 | 添加10个新技能：brainstorming、ui-ux-pro-max、systematic-debugging、writing-plans、find-skills、using-superpowers、karpathy-guidelines、webapp-testing、agent-browser、pua；新增框架工具、编码准则、自动化测试、治理调试分类 | DevOps Engineer |
-| v1.3 | 2026-05-19 | 新增文档管理分类；增强 doc-coauthoring 技能的文档管理能力；添加文档管理规范章节（命名规范、目录结构、更新流程）；更新文档目录结构示例；更新完整 Skills 清单 | DevOps Engineer |
+| v1.3 | 2026-05-20 | 在 skills-lock.json 中添加5个 feature 开发类技能的本地配置：feature-requirements-clarification、feature-tech-design、feature-task-planning、feature-implementation、feature-evolution | DevOps Engineer |
 
 ---
 

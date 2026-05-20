@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../database/database_service.dart';
 import '../database/daos/stock_filter_dao.dart';
 import '../database/app_database.dart';
@@ -5,6 +7,9 @@ import '../models/stock_filter_condition_model.dart';
 import '../models/stock_filter_result_model.dart';
 import '../../core/enums/stock_filter_condition.dart';
 import '../../shared/utils/logger.dart';
+
+/// 选股查询超时时间（秒）
+const _kFilterTimeoutSeconds = 60;
 
 class StockFilterRepository {
   final StockFilterDao _stockFilterDao;
@@ -28,8 +33,9 @@ class StockFilterRepository {
     int trainingDays = 150,
     List<String>? subMarketCodes,
   }) async {
+    final stopwatch = Stopwatch()..start();
+
     final (minDate, maxDate) = await _stockFilterDao.getKlineDateRange();
-    // 使用用户选择的时间范围的结束日期作为筛选目标日期
     final effectiveEndDate = endDate ?? date ?? maxDate ?? DateTime.now();
     final conditionStartDate = startDate ?? minDate;
 
@@ -50,6 +56,8 @@ class StockFilterRepository {
             effectiveEndDate,
             condition,
           );
+          stopwatch.stop();
+          appLogger.i('选股完成(缓存), 耗时: ${stopwatch.elapsedMilliseconds}ms');
           return StockFilterResultResponse(
             condition: condition.name,
             conditionName: condition.label,
@@ -70,25 +78,37 @@ class StockFilterRepository {
         }
       }
 
-      final symbols = await _stockFilterDao.filterByCondition(
-        condition,
-        effectiveEndDate,
-        marketCode: marketCode,
-        startDate: conditionStartDate,
-        endDate: effectiveEndDate,
-        marketCodes: subMarketCodes,
+      // 添加超时机制
+      final symbols = await _withTimeout(
+        _stockFilterDao.filterByCondition(
+          condition,
+          effectiveEndDate,
+          marketCode: marketCode,
+          startDate: conditionStartDate,
+          endDate: effectiveEndDate,
+          marketCodes: subMarketCodes,
+        ),
+        timeout: Duration(seconds: _kFilterTimeoutSeconds),
+        operationName: 'filterByCondition(${condition.name})',
       );
 
       appLogger.i('选股完成: 共 ${symbols.length} 支股票满足条件');
 
-      final items = await _getStockDetails(symbols, effectiveEndDate,
-          startDate: conditionStartDate, endDate: effectiveEndDate);
+      final items = await _withTimeout(
+        _getStockDetails(symbols, effectiveEndDate,
+            startDate: conditionStartDate, endDate: effectiveEndDate),
+        timeout: Duration(seconds: _kFilterTimeoutSeconds ~/ 2),
+        operationName: '_getStockDetails',
+      );
 
       if (useCache && condition != StockFilterCondition.random) {
         await _stockFilterDao.saveFilterResults(
             effectiveEndDate, condition, symbols);
         appLogger.i('选股结果已缓存');
       }
+
+      stopwatch.stop();
+      appLogger.i('选股完成, 耗时: ${stopwatch.elapsedMilliseconds}ms');
 
       return StockFilterResultResponse(
         condition: condition.name,
@@ -100,9 +120,41 @@ class StockFilterRepository {
         trainingDays: trainingDays,
       );
     } catch (e, stackTrace) {
-      appLogger.e('选股失败', error: e, stackTrace: stackTrace);
+      stopwatch.stop();
+      appLogger.e('选股失败, 耗时: ${stopwatch.elapsedMilliseconds}ms',
+          error: e, stackTrace: stackTrace);
       rethrow;
     }
+  }
+
+  /// 带超时的异步操作包装
+  Future<T> _withTimeout<T>(
+    Future<T> future, {
+    required Duration timeout,
+    required String operationName,
+  }) async {
+    final completer = Completer<T>();
+    final timer = Timer(timeout, () {
+      if (!completer.isCompleted) {
+        completer.completeError(
+          TimeoutException('$operationName 操作超时，超过 ${timeout.inSeconds} 秒'),
+        );
+      }
+    });
+
+    future.then((value) {
+      if (!completer.isCompleted) {
+        timer.cancel();
+        completer.complete(value);
+      }
+    }).catchError((error) {
+      if (!completer.isCompleted) {
+        timer.cancel();
+        completer.completeError(error);
+      }
+    });
+
+    return completer.future;
   }
 
   Future<List<StockFilterResultModel>> _getStockDetails(

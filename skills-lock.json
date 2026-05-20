@@ -66,6 +66,36 @@
       "sourceType": "github",
       "skillPath": "pua/SKILL.md",
       "computedHash": ""
+    },
+    "feature-requirements-clarification": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/feature/feature-requirements-clarification/SKILL.md",
+      "computedHash": ""
+    },
+    "feature-tech-design": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/feature/feature-tech-design/SKILL.md",
+      "computedHash": ""
+    },
+    "feature-task-planning": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/feature/feature-task-planning/SKILL.md",
+      "computedHash": ""
+    },
+    "feature-implementation": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/feature/feature-implementation/SKILL.md",
+      "computedHash": ""
+    },
+    "feature-evolution": {
+      "source": "local",
+      "sourceType": "local",
+      "skillPath": "skills/feature/feature-evolution/SKILL.md",
+      "computedHash": ""
     }
   }
 }

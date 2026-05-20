@@ -199,13 +199,22 @@ class _MineScreenState extends ConsumerState<MineScreen> {
 
   Widget _buildUserInfoCard(UserModel? user) {
     return Container(
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+          colors: [AppTheme.accent, AppTheme.accent.withOpacity(0.85)],
         ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accent.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -227,7 +236,7 @@ class _MineScreenState extends ConsumerState<MineScreen> {
                   children: [
                     CircleAvatar(
                       radius: 40,
-                      backgroundColor: Colors.white.withOpacity(0.2),
+                      backgroundColor: Color.fromRGBO(255, 255, 255, 0.2),
                       child: const Icon(Icons.person, size: 40, color: Colors.white),
                     ),
                     Positioned(
@@ -275,24 +284,28 @@ class _MineScreenState extends ConsumerState<MineScreen> {
   }
 
   Widget _buildStatsCard(UserModel? user) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.border),
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               _StatItem(icon: Icons.trending_up, label: '训练次数', value: '${user?.trainingCount ?? 0}'),
-              const _VerticalDivider(),
+              _StatVerticalDivider(),
               _StatItem(
                 icon: Icons.show_chart,
                 label: '总收益率',
                 value: '${(user?.totalReturnPercent ?? 0) >= 0 ? '+' : ''}${(user?.totalReturnPercent ?? 0).toStringAsFixed(1)}%',
                 color: (user?.totalReturnPercent ?? 0) >= 0 ? AppTheme.red : AppTheme.green,
               ),
-              const _VerticalDivider(),
+              _StatVerticalDivider(),
               _StatItem(
                 icon: Icons.emoji_events,
                 label: '交易胜率',
@@ -300,7 +313,7 @@ class _MineScreenState extends ConsumerState<MineScreen> {
                     ? '${((user.winCount / user.totalTrades) * 100).toStringAsFixed(0)}%'
                     : '0%',
               ),
-              const _VerticalDivider(),
+              _StatVerticalDivider(),
               _StatItem(icon: Icons.book, label: '学习进度', value: '${user?.learningProgress ?? 0}%'),
             ],
           ),
@@ -310,8 +323,8 @@ class _MineScreenState extends ConsumerState<MineScreen> {
   }
 
   Widget _buildMenuList() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -320,7 +333,11 @@ class _MineScreenState extends ConsumerState<MineScreen> {
             child: Text('功能区', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AppTheme.border),
+            ),
             child: Column(
               children: [
                 _MenuItem(icon: Icons.star, title: '自选管理', onTap: _navigateToFavorites),
@@ -331,7 +348,11 @@ class _MineScreenState extends ConsumerState<MineScreen> {
           ),
           const SizedBox(height: 16),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(color: AppTheme.border),
+            ),
             child: Column(
               children: [
                 _MenuItem(icon: Icons.notifications, title: '消息通知', badge: '3', onTap: _navigateToNotifications),
@@ -347,16 +368,19 @@ class _MineScreenState extends ConsumerState<MineScreen> {
   }
 
   Widget _buildLogoutButton() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
         width: double.infinity,
         child: OutlinedButton(
           onPressed: _showLogoutConfirm,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.red,
-            side: const BorderSide(color: AppTheme.red),
+            side: BorderSide(color: AppTheme.red),
             padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           child: const Text('退出登录'),
         ),
@@ -418,7 +442,7 @@ class _LevelBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [_levelColor.withOpacity(0.8), _levelColor]),
+        gradient: LinearGradient(colors: [Color.fromRGBO(_levelColor.red, _levelColor.green, _levelColor.blue, 0.8), _levelColor]),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -456,8 +480,8 @@ class _StatItem extends StatelessWidget {
   }
 }
 
-class _VerticalDivider extends StatelessWidget {
-  const _VerticalDivider();
+class _StatVerticalDivider extends StatelessWidget {
+  const _StatVerticalDivider();
 
   @override
   Widget build(BuildContext context) {
@@ -486,8 +510,8 @@ class _MenuItem extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, color: const Color(0xFF667eea), size: 20),
+              decoration: BoxDecoration(color: AppTheme.accentSoft, borderRadius: BorderRadius.circular(8)),
+              child: Icon(icon, color: AppTheme.accent, size: 20),
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(title, style: const TextStyle(fontSize: 16))),

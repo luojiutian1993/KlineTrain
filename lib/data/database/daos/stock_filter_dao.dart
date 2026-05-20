@@ -110,26 +110,154 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
   Future<(DateTime, DateTime)> getKlineDateRange() async {
     appLogger.i('开始查询K线数据日期范围...');
 
-    // 使用自定义SQL查询，因为数据库中存储的是日期字符串
-    final minResult = await customSelect(
-      'SELECT MIN(trade_date) as min_date FROM kline_data WHERE period = ?',
-      variables: [const Variable('day')],
-    ).getSingle();
+    final minResult = await (selectOnly(klineData)
+          ..addColumns([klineData.tradeDate.min()])
+          ..where(klineData.period.equals('day')))
+        .getSingle();
 
-    final maxResult = await customSelect(
-      'SELECT MAX(trade_date) as max_date FROM kline_data WHERE period = ?',
-      variables: [const Variable('day')],
-    ).getSingle();
+    final maxResult = await (selectOnly(klineData)
+          ..addColumns([klineData.tradeDate.max()])
+          ..where(klineData.period.equals('day')))
+        .getSingle();
 
-    final minDateStr = minResult.read<String?>('min_date');
-    final maxDateStr = maxResult.read<String?>('max_date');
+    final minDate = minResult.read(klineData.tradeDate.min());
+    final maxDate = maxResult.read(klineData.tradeDate.max());
 
-    appLogger.i('查询到的日期字符串: min=$minDateStr, max=$maxDateStr');
+    appLogger.i('查询到的日期范围: min=$minDate, max=$maxDate');
 
     return (
-      minDateStr != null ? _stringToDate(minDateStr) : DateTime(2000, 1, 1),
-      maxDateStr != null ? _stringToDate(maxDateStr) : DateTime.now(),
+      minDate ?? DateTime(2000, 1, 1),
+      maxDate ?? DateTime.now(),
     );
+  }
+
+  /// 批量获取多个标的的K线数据
+  Future<Map<String, List<KlineDataData>>> getBatchKlineData(
+    List<String> symbols,
+    String period,
+    DateTime startDate,
+    DateTime endDate, {
+    int? limit,
+  }) async {
+    appLogger.i('批量获取 ${symbols.length} 个标的的K线数据...');
+
+    final query = select(klineData)
+      ..where((t) => t.symbol.isIn(symbols))
+      ..where((t) => t.period.equals(period))
+      ..where((t) => t.tradeDate.isBiggerOrEqualValue(startDate))
+      ..where((t) => t.tradeDate.isSmallerOrEqualValue(endDate));
+
+    if (limit != null) {
+      query.limit(limit * symbols.length);
+    }
+
+    final results = await query.get();
+    final grouped = <String, List<KlineDataData>>{};
+
+    for (final data in results) {
+      grouped.putIfAbsent(data.symbol, () => []).add(data);
+    }
+
+    // 按日期排序
+    for (final list in grouped.values) {
+      list.sort((a, b) => b.tradeDate.compareTo(a.tradeDate));
+    }
+
+    appLogger.i('批量查询完成，获取到 ${results.length} 条K线数据');
+    return grouped;
+  }
+
+  /// 批量获取多个标的在指定日期的K线数据
+  Future<Map<String, KlineDataData?>> getBatchKlineDataForDate(
+    List<String> symbols,
+    String period,
+    DateTime date,
+  ) async {
+    appLogger.i('批量获取 ${symbols.length} 个标的在 $date 的K线数据...');
+
+    final result = <String, KlineDataData?>{};
+    if (symbols.isEmpty) return result;
+
+    // 使用子查询获取每个标的在指定日期或最近日期的数据
+    final results = await customSelect(
+      '''
+      SELECT k.* FROM kline_data k
+      INNER JOIN (
+        SELECT symbol, MAX(trade_date) as max_date 
+        FROM kline_data 
+        WHERE symbol IN (${symbols.map((_) => '?').join(',')}) 
+          AND period = ? 
+          AND trade_date <= ?
+        GROUP BY symbol
+      ) sub ON k.symbol = sub.symbol AND k.trade_date = sub.max_date
+      WHERE k.period = ?
+      ''',
+      variables: [
+        ...symbols.map((s) => Variable(s)),
+        const Variable('day'),
+        Variable(date),
+        const Variable('day'),
+      ],
+    ).get();
+
+    for (final row in results) {
+      final kline = _buildKlineDataFromRow(row);
+      result[kline.symbol] = kline;
+    }
+
+    // 确保所有标的都有记录（即使没有数据）
+    for (final symbol in symbols) {
+      result.putIfAbsent(symbol, () => null);
+    }
+
+    appLogger.i('批量日期查询完成');
+    return result;
+  }
+
+  /// 批量计算多个标的的历史最高收盘价
+  Future<Map<String, double>> getBatchHistoricalMaxClose(
+    List<String> symbols,
+    DateTime date, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量计算 ${symbols.length} 个标的的历史最高收盘价...');
+
+    final result = <String, double>{};
+    if (symbols.isEmpty) return result;
+
+    final effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
+    final effectiveEndDate = endDate ?? date;
+
+    final results = await customSelect(
+      '''
+      SELECT symbol, MAX(close) as max_close 
+      FROM kline_data 
+      WHERE symbol IN (${symbols.map((_) => '?').join(',')}) 
+        AND period = ? 
+        AND trade_date >= ? 
+        AND trade_date <= ?
+      GROUP BY symbol
+      ''',
+      variables: [
+        ...symbols.map((s) => Variable(s)),
+        const Variable('day'),
+        Variable(effectiveStartDate),
+        Variable(effectiveEndDate),
+      ],
+    ).get();
+
+    for (final row in results) {
+      result[row.read<String>('symbol')] =
+          row.read<double?>('max_close') ?? 0.0;
+    }
+
+    for (final symbol in symbols) {
+      result.putIfAbsent(symbol, () => 0.0);
+    }
+
+    appLogger.i('批量历史最高计算完成');
+    return result;
   }
 
   Future<KlineDataData?> getKlineDataForDate(
@@ -583,28 +711,23 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     DateTime? endDate,
     List<String>? marketCodes,
   }) async {
+    // 获取所有活跃标的
+    final allSymbols = await getActiveSymbols(
+      marketCode: marketCode,
+      marketCodes: marketCodes,
+    );
+    final symbolCodes = allSymbols.map((s) => s.symbol).toList();
+
     switch (condition) {
       case StockFilterCondition.allTimeHigh:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkAllTimeHigh(symbol, date,
-              startDate: startDate, endDate: endDate),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckAllTimeHigh(symbolCodes, date,
+            startDate: startDate, endDate: endDate);
       case StockFilterCondition.yearHigh:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkYearHigh(symbol, date,
-              startDate: startDate, endDate: endDate),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckYearHigh(symbolCodes, date,
+            startDate: startDate, endDate: endDate);
       case StockFilterCondition.day200High:
-        return _filterSingleSymbolCheck(
-          (symbol) => check200DayHigh(symbol, date,
-              startDate: startDate, endDate: endDate),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheck200DayHigh(symbolCodes, date,
+            startDate: startDate, endDate: endDate);
       case StockFilterCondition.return30dTop:
         return getReturn30dTop50(date,
             startDate: startDate, endDate: endDate, marketCodes: marketCodes);
@@ -612,50 +735,22 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
         return getReturn15dTop50(date,
             startDate: startDate, endDate: endDate, marketCodes: marketCodes);
       case StockFilterCondition.limitUp:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkLimitUp(symbol, date),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckLimitUp(symbolCodes, date);
       case StockFilterCondition.consecutiveLimitUp:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkConsecutiveLimitUp(symbol, date),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckConsecutiveLimitUp(symbolCodes, date);
       case StockFilterCondition.volumePriceUp:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkVolumePriceUp(symbol, date),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckVolumePriceUp(symbolCodes, date);
       case StockFilterCondition.upTrend:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkUpTrend(symbol, date,
-              startDate: startDate, endDate: endDate),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckTrend(symbolCodes, date, true,
+            startDate: startDate, endDate: endDate);
       case StockFilterCondition.allTimeLow:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkAllTimeLow(symbol, date,
-              startDate: startDate, endDate: endDate),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckAllTimeLow(symbolCodes, date,
+            startDate: startDate, endDate: endDate);
       case StockFilterCondition.yearLow:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkYearLow(symbol, date,
-              startDate: startDate, endDate: endDate),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckYearLow(symbolCodes, date,
+            startDate: startDate, endDate: endDate);
       case StockFilterCondition.day200Low:
-        return _filterSingleSymbolCheck(
-          (symbol) => check200DayLow(symbol, date),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheck200DayLow(symbolCodes, date);
       case StockFilterCondition.loss30dTop:
         return getLoss30dTop50(date,
             startDate: startDate, endDate: endDate, marketCodes: marketCodes);
@@ -663,24 +758,12 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
         return getLoss15dTop50(date,
             startDate: startDate, endDate: endDate, marketCodes: marketCodes);
       case StockFilterCondition.downTrend:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkDownTrend(symbol, date,
-              startDate: startDate, endDate: endDate),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckTrend(symbolCodes, date, false,
+            startDate: startDate, endDate: endDate);
       case StockFilterCondition.limitDown:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkLimitDown(symbol, date),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckLimitDown(symbolCodes, date);
       case StockFilterCondition.consecutiveLimitDown:
-        return _filterSingleSymbolCheck(
-          (symbol) => checkConsecutiveLimitDown(symbol, date),
-          marketCode: marketCode,
-          marketCodes: marketCodes,
-        );
+        return batchCheckConsecutiveLimitDown(symbolCodes, date);
       case StockFilterCondition.random:
         return _getRandomSymbols(
             marketCode: marketCode, marketCodes: marketCodes);
@@ -701,25 +784,570 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
 
     if (allSymbols.isEmpty) return [];
 
-    // 使用并行处理，提高性能
-    final futures = allSymbols.map((symbol) async {
-      try {
-        if (await check(symbol.symbol)) {
-          return symbol.symbol;
+    // 将标的分批处理，避免内存过大
+    const batchSize = 100;
+    final results = <String>[];
+
+    for (var i = 0; i < allSymbols.length; i += batchSize) {
+      final batch = allSymbols.sublist(
+        i,
+        i + batchSize > allSymbols.length ? allSymbols.length : i + batchSize,
+      );
+
+      // 并行处理批次内的标的
+      final futures = batch.map((symbol) async {
+        try {
+          if (await check(symbol.symbol)) {
+            return symbol.symbol;
+          }
+        } catch (e) {
+          // 忽略单个标的的错误
         }
-      } catch (e) {
-        // 忽略单个标的的错误
+        return null;
+      });
+
+      final batchResults = await Future.wait(futures);
+      results.addAll(batchResults.where((s) => s != null).cast<String>());
+    }
+
+    appLogger.i('_filterSingleSymbolCheck - 完成，共找到 ${results.length} 个符合条件的标的');
+    return results;
+  }
+
+  /// 批量检查历史新高（优化版本）
+  Future<List<String>> batchCheckAllTimeHigh(
+    List<String> symbols,
+    DateTime date, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的历史新高...');
+
+    if (symbols.isEmpty) return [];
+
+    // 批量获取K线数据和历史最高
+    final currentDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+    final maxCloseMap = await getBatchHistoricalMaxClose(
+      symbols,
+      date,
+      startDate: startDate,
+      endDate: endDate,
+    );
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final current = currentDataMap[symbol];
+      final maxClose = maxCloseMap[symbol];
+
+      if (current != null && maxClose != null && maxClose > 0) {
+        if ((current.close - maxClose).abs() < 0.0001) {
+          results.add(symbol);
+        }
       }
-      return null;
-    });
+    }
 
-    final results = await Future.wait(futures);
-    final validResults =
-        results.where((s) => s != null).cast<String>().toList();
+    appLogger.i('批量历史新高检查完成，找到 ${results.length} 个符合条件的标的');
+    return results;
+  }
 
-    appLogger
-        .i('_filterSingleSymbolCheck - 完成，共找到 ${validResults.length} 个符合条件的标的');
-    return validResults;
+  /// 批量检查趋势（优化版本）
+  Future<List<String>> batchCheckTrend(
+    List<String> symbols,
+    DateTime date,
+    bool isUpTrend, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的${isUpTrend ? '上升' : '下降'}趋势...');
+
+    if (symbols.isEmpty) return [];
+
+    // 批量获取K线数据（需要60天数据来计算MA）
+    final effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
+    final klineDataMap = await getBatchKlineData(
+      symbols,
+      'day',
+      effectiveStartDate,
+      endDate ?? date,
+      limit: 60,
+    );
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final klineList = klineDataMap[symbol];
+      if (klineList == null || klineList.length < 55) continue;
+
+      // 计算MA
+      final ma10 = _calculateMAFromList(klineList.take(10).toList());
+      final ma20 = _calculateMAFromList(klineList.take(20).toList());
+      final ma50 = _calculateMAFromList(klineList.take(50).toList());
+
+      if (ma10 == null || ma20 == null || ma50 == null) continue;
+
+      // 计算昨日MA
+      if (klineList.length < 56) continue;
+      final ma10Yesterday =
+          _calculateMAFromList(klineList.skip(1).take(10).toList());
+      final ma20Yesterday =
+          _calculateMAFromList(klineList.skip(1).take(20).toList());
+      final ma50Yesterday =
+          _calculateMAFromList(klineList.skip(1).take(50).toList());
+
+      if (ma10Yesterday == null ||
+          ma20Yesterday == null ||
+          ma50Yesterday == null) {
+        continue;
+      }
+
+      // 判断趋势
+      final ma10Up = ma10 > ma10Yesterday;
+      final ma20Up = ma20 > ma20Yesterday;
+      final ma50Up = ma50 > ma50Yesterday;
+
+      final bullishAlignment = ma10 > ma20 && ma20 > ma50;
+      final bearishAlignment = ma10 < ma20 && ma20 < ma50;
+
+      final angle10 = (ma10 - ma10Yesterday) / ma10Yesterday;
+      final angle20 = (ma20 - ma20Yesterday) / ma20Yesterday;
+      final angle50 = (ma50 - ma50Yesterday) / ma50Yesterday;
+
+      final angleIncreasing =
+          angle10 > angle20 - 0.0001 && angle20 > angle50 - 0.0001;
+      final angleDecreasing =
+          angle10 < angle20 + 0.0001 && angle20 < angle50 + 0.0001;
+
+      bool matches;
+      if (isUpTrend) {
+        matches =
+            ma10Up && ma20Up && ma50Up && bullishAlignment && angleIncreasing;
+      } else {
+        matches = !ma10Up &&
+            !ma20Up &&
+            !ma50Up &&
+            bearishAlignment &&
+            angleDecreasing;
+      }
+
+      if (matches) {
+        results.add(symbol);
+      }
+    }
+
+    appLogger.i('批量趋势检查完成，找到 ${results.length} 个符合条件的标的');
+    return results;
+  }
+
+  /// 从K线数据列表计算MA
+  double? _calculateMAFromList(List<KlineDataData> data) {
+    if (data.isEmpty) return null;
+    final sum = data.fold<double>(0, (acc, d) => acc + d.close);
+    return sum / data.length;
+  }
+
+  /// 批量检查年内新高
+  Future<List<String>> batchCheckYearHigh(
+    List<String> symbols,
+    DateTime date, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的年内新高...');
+
+    if (symbols.isEmpty) return [];
+
+    final yearStart = DateTime(date.year, 1, 1);
+    final effectiveStartDate = startDate != null && startDate.isAfter(yearStart)
+        ? startDate
+        : yearStart;
+
+    final currentDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+    final maxCloseMap = await getBatchHistoricalMaxClose(
+      symbols,
+      date,
+      startDate: effectiveStartDate,
+      endDate: endDate,
+    );
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final current = currentDataMap[symbol];
+      final maxClose = maxCloseMap[symbol];
+
+      if (current != null && maxClose != null && maxClose > 0) {
+        if ((current.close - maxClose).abs() < 0.0001) {
+          results.add(symbol);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /// 批量检查200日新高
+  Future<List<String>> batchCheck200DayHigh(
+    List<String> symbols,
+    DateTime date, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的200日新高...');
+
+    if (symbols.isEmpty) return [];
+
+    final day200Ago = date.subtract(const Duration(days: 200));
+    final effectiveStartDate = startDate != null && startDate.isAfter(day200Ago)
+        ? startDate
+        : day200Ago;
+
+    final currentDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+    final maxCloseMap = await getBatchHistoricalMaxClose(
+      symbols,
+      date,
+      startDate: effectiveStartDate,
+      endDate: endDate,
+    );
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final current = currentDataMap[symbol];
+      final maxClose = maxCloseMap[symbol];
+
+      if (current != null && maxClose != null && maxClose > 0) {
+        if ((current.close - maxClose).abs() < 0.0001) {
+          results.add(symbol);
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /// 批量检查涨停
+  Future<List<String>> batchCheckLimitUp(
+      List<String> symbols, DateTime date) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的涨停...');
+
+    if (symbols.isEmpty) return [];
+
+    final klineDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final kline = klineDataMap[symbol];
+      if (kline != null) {
+        if ((kline.high - kline.close).abs() < 0.0001) {
+          final change = (kline.close - kline.open) / kline.open;
+          if (change > 0.098) {
+            results.add(symbol);
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /// 批量检查连续涨停
+  Future<List<String>> batchCheckConsecutiveLimitUp(
+      List<String> symbols, DateTime date) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的连续涨停...');
+
+    if (symbols.isEmpty) return [];
+
+    // 需要获取今天和昨天的数据
+    final klineDataMap = await getBatchKlineData(
+      symbols,
+      'day',
+      date.subtract(const Duration(days: 5)),
+      date,
+      limit: 3,
+    );
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final klineList = klineDataMap[symbol];
+      if (klineList == null || klineList.length < 2) continue;
+
+      final today = klineList[0];
+      final yesterday = klineList[1];
+
+      // 今天涨停
+      final todayLimitUp = (today.high - today.close).abs() < 0.0001 &&
+          (today.close - today.open) / today.open > 0.098;
+
+      // 昨天涨停
+      final yesterdayLimitUp =
+          (yesterday.high - yesterday.close).abs() < 0.0001 &&
+              (yesterday.close - yesterday.open) / yesterday.open > 0.098;
+
+      if (todayLimitUp && yesterdayLimitUp) {
+        results.add(symbol);
+      }
+    }
+
+    return results;
+  }
+
+  /// 批量检查量价齐升
+  Future<List<String>> batchCheckVolumePriceUp(
+      List<String> symbols, DateTime date) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的量价齐升...');
+
+    if (symbols.isEmpty) return [];
+
+    final klineDataMap = await getBatchKlineData(
+      symbols,
+      'day',
+      date.subtract(const Duration(days: 5)),
+      date,
+      limit: 3,
+    );
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final klineList = klineDataMap[symbol];
+      if (klineList == null || klineList.length < 2) continue;
+
+      final today = klineList[0];
+      final yesterday = klineList[1];
+
+      if (yesterday.close == 0 || yesterday.volume == 0) continue;
+
+      final priceIncrease = (today.close / yesterday.close) - 1;
+      final volumeIncrease = (today.volume / yesterday.volume) - 1;
+
+      if (priceIncrease > 0.02 && volumeIncrease > 0.05) {
+        results.add(symbol);
+      }
+    }
+
+    return results;
+  }
+
+  /// 批量检查历史新低
+  Future<List<String>> batchCheckAllTimeLow(
+    List<String> symbols,
+    DateTime date, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的历史新低...');
+
+    if (symbols.isEmpty) return [];
+
+    final currentDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+
+    // 批量查询历史最低
+    final effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
+    final effectiveEndDate = endDate ?? date;
+
+    final results = await customSelect(
+      '''
+      SELECT symbol, MIN(close) as min_close 
+      FROM kline_data 
+      WHERE symbol IN (${symbols.map((_) => '?').join(',')}) 
+        AND period = ? 
+        AND trade_date >= ? 
+        AND trade_date <= ?
+      GROUP BY symbol
+      ''',
+      variables: [
+        ...symbols.map((s) => Variable(s)),
+        const Variable('day'),
+        Variable(effectiveStartDate),
+        Variable(effectiveEndDate),
+      ],
+    ).get();
+
+    final minCloseMap = <String, double>{};
+    for (final row in results) {
+      minCloseMap[row.read<String>('symbol')] =
+          row.read<double?>('min_close') ?? 0.0;
+    }
+
+    final resultList = <String>[];
+    for (final symbol in symbols) {
+      final current = currentDataMap[symbol];
+      final minClose = minCloseMap[symbol];
+
+      if (current != null && minClose != null && minClose > 0) {
+        if ((current.close - minClose).abs() < 0.0001) {
+          resultList.add(symbol);
+        }
+      }
+    }
+
+    return resultList;
+  }
+
+  /// 批量检查年内新低
+  Future<List<String>> batchCheckYearLow(
+    List<String> symbols,
+    DateTime date, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的年内新低...');
+
+    if (symbols.isEmpty) return [];
+
+    final yearStart = DateTime(date.year, 1, 1);
+    final effectiveStartDate = startDate != null && startDate.isAfter(yearStart)
+        ? startDate
+        : yearStart;
+
+    final currentDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+
+    final results = await customSelect(
+      '''
+      SELECT symbol, MIN(close) as min_close 
+      FROM kline_data 
+      WHERE symbol IN (${symbols.map((_) => '?').join(',')}) 
+        AND period = ? 
+        AND trade_date >= ? 
+        AND trade_date <= ?
+      GROUP BY symbol
+      ''',
+      variables: [
+        ...symbols.map((s) => Variable(s)),
+        const Variable('day'),
+        Variable(effectiveStartDate),
+        Variable(endDate ?? date),
+      ],
+    ).get();
+
+    final minCloseMap = <String, double>{};
+    for (final row in results) {
+      minCloseMap[row.read<String>('symbol')] =
+          row.read<double?>('min_close') ?? 0.0;
+    }
+
+    final resultList = <String>[];
+    for (final symbol in symbols) {
+      final current = currentDataMap[symbol];
+      final minClose = minCloseMap[symbol];
+
+      if (current != null && minClose != null && minClose > 0) {
+        if ((current.close - minClose).abs() < 0.0001) {
+          resultList.add(symbol);
+        }
+      }
+    }
+
+    return resultList;
+  }
+
+  /// 批量检查200日新低
+  Future<List<String>> batchCheck200DayLow(
+      List<String> symbols, DateTime date) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的200日新低...');
+
+    if (symbols.isEmpty) return [];
+
+    final day200Ago = date.subtract(const Duration(days: 200));
+
+    final currentDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+
+    final results = await customSelect(
+      '''
+      SELECT symbol, MIN(close) as min_close 
+      FROM kline_data 
+      WHERE symbol IN (${symbols.map((_) => '?').join(',')}) 
+        AND period = ? 
+        AND trade_date >= ? 
+        AND trade_date <= ?
+      GROUP BY symbol
+      ''',
+      variables: [
+        ...symbols.map((s) => Variable(s)),
+        const Variable('day'),
+        Variable(day200Ago),
+        Variable(date),
+      ],
+    ).get();
+
+    final minCloseMap = <String, double>{};
+    for (final row in results) {
+      minCloseMap[row.read<String>('symbol')] =
+          row.read<double?>('min_close') ?? 0.0;
+    }
+
+    final resultList = <String>[];
+    for (final symbol in symbols) {
+      final current = currentDataMap[symbol];
+      final minClose = minCloseMap[symbol];
+
+      if (current != null && minClose != null && minClose > 0) {
+        if ((current.close - minClose).abs() < 0.0001) {
+          resultList.add(symbol);
+        }
+      }
+    }
+
+    return resultList;
+  }
+
+  /// 批量检查跌停
+  Future<List<String>> batchCheckLimitDown(
+      List<String> symbols, DateTime date) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的跌停...');
+
+    if (symbols.isEmpty) return [];
+
+    final klineDataMap = await getBatchKlineDataForDate(symbols, 'day', date);
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final kline = klineDataMap[symbol];
+      if (kline != null) {
+        if ((kline.close - kline.low).abs() < 0.0001) {
+          final change = (kline.close - kline.open) / kline.open;
+          if (change < -0.098) {
+            results.add(symbol);
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  /// 批量检查连续跌停
+  Future<List<String>> batchCheckConsecutiveLimitDown(
+      List<String> symbols, DateTime date) async {
+    appLogger.i('批量检查 ${symbols.length} 个标的的连续跌停...');
+
+    if (symbols.isEmpty) return [];
+
+    final klineDataMap = await getBatchKlineData(
+      symbols,
+      'day',
+      date.subtract(const Duration(days: 5)),
+      date,
+      limit: 3,
+    );
+
+    final results = <String>[];
+    for (final symbol in symbols) {
+      final klineList = klineDataMap[symbol];
+      if (klineList == null || klineList.length < 2) continue;
+
+      final today = klineList[0];
+      final yesterday = klineList[1];
+
+      final todayLimitDown = (today.close - today.low).abs() < 0.0001 &&
+          (today.close - today.open) / today.open < -0.098;
+
+      final yesterdayLimitDown =
+          (yesterday.close - yesterday.low).abs() < 0.0001 &&
+              (yesterday.close - yesterday.open) / yesterday.open < -0.098;
+
+      if (todayLimitDown && yesterdayLimitDown) {
+        results.add(symbol);
+      }
+    }
+
+    return results;
   }
 
   Future<List<String>> _getRandomSymbols(
