@@ -476,6 +476,8 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       {DateTime? startDate,
       DateTime? endDate,
       List<String>? marketCodes}) async {
+    appLogger.i('getReturn30dTop50 - 开始计算30日涨幅前50%');
+
     final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final returns = <String, double>{};
 
@@ -487,12 +489,17 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       }
     }
 
-    if (returns.isEmpty) return [];
+    if (returns.isEmpty) {
+      appLogger.w('getReturn30dTop50 - 未找到符合条件的股票');
+      return [];
+    }
 
     final sorted = returns.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final cutoffIndex = (sorted.length * 0.5).ceil();
+    appLogger
+        .i('getReturn30dTop50 - 找到 ${sorted.length} 支股票，返回前 ${cutoffIndex} 支');
     return sorted.take(cutoffIndex).map((e) => e.key).toList();
   }
 
@@ -500,6 +507,8 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       {DateTime? startDate,
       DateTime? endDate,
       List<String>? marketCodes}) async {
+    appLogger.i('getReturn15dTop50 - 开始计算15日涨幅前50%');
+
     final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final returns = <String, double>{};
 
@@ -511,12 +520,17 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       }
     }
 
-    if (returns.isEmpty) return [];
+    if (returns.isEmpty) {
+      appLogger.w('getReturn15dTop50 - 未找到符合条件的股票');
+      return [];
+    }
 
     final sorted = returns.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final cutoffIndex = (sorted.length * 0.5).ceil();
+    appLogger
+        .i('getReturn15dTop50 - 找到 ${sorted.length} 支股票，返回前 ${cutoffIndex} 支');
     return sorted.take(cutoffIndex).map((e) => e.key).toList();
   }
 
@@ -524,6 +538,8 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       {DateTime? startDate,
       DateTime? endDate,
       List<String>? marketCodes}) async {
+    appLogger.i('getLoss30dTop50 - 开始计算30日跌幅前50%');
+
     final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final losses = <String, double>{};
 
@@ -535,12 +551,17 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       }
     }
 
-    if (losses.isEmpty) return [];
+    if (losses.isEmpty) {
+      appLogger.w('getLoss30dTop50 - 未找到符合条件的股票');
+      return [];
+    }
 
     final sorted = losses.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final cutoffIndex = (sorted.length * 0.5).ceil();
+    appLogger
+        .i('getLoss30dTop50 - 找到 ${sorted.length} 支股票，返回前 ${cutoffIndex} 支');
     return sorted.take(cutoffIndex).map((e) => e.key).toList();
   }
 
@@ -548,6 +569,8 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       {DateTime? startDate,
       DateTime? endDate,
       List<String>? marketCodes}) async {
+    appLogger.i('getLoss15dTop50 - 开始计算15日跌幅前50%');
+
     final allSymbols = await getActiveSymbols(marketCodes: marketCodes);
     final losses = <String, double>{};
 
@@ -559,12 +582,17 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
       }
     }
 
-    if (losses.isEmpty) return [];
+    if (losses.isEmpty) {
+      appLogger.w('getLoss15dTop50 - 未找到符合条件的股票');
+      return [];
+    }
 
     final sorted = losses.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final cutoffIndex = (sorted.length * 0.5).ceil();
+    appLogger
+        .i('getLoss15dTop50 - 找到 ${sorted.length} 支股票，返回前 ${cutoffIndex} 支');
     return sorted.take(cutoffIndex).map((e) => e.key).toList();
   }
 
@@ -1365,6 +1393,77 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     }
 
     return results;
+  }
+
+  /// 批量计算多个标的的N日收益率（使用SQL批量计算，优化性能）
+  Future<Map<String, double>> batchCalculateReturnNDays(
+    List<String> symbols,
+    DateTime date,
+    int n, {
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    appLogger.i('批量计算 ${symbols.length} 个标的的${n}日收益率...');
+
+    final result = <String, double>{};
+    if (symbols.isEmpty) return result;
+
+    final effectiveStartDate = startDate ?? DateTime(1990, 1, 1);
+    final effectiveEndDate = endDate ?? date;
+
+    // 分批处理，避免SQL参数过多
+    const batchSize = 100;
+    final batches = <List<String>>[];
+
+    for (var i = 0; i < symbols.length; i += batchSize) {
+      batches.add(symbols.sublist(
+        i,
+        i + batchSize > symbols.length ? symbols.length : i + batchSize,
+      ));
+    }
+
+    for (final batch in batches) {
+      final batchResults = await customSelect(
+        '''
+        WITH ranked_data AS (
+          SELECT 
+            symbol, 
+            close, 
+            trade_date,
+            ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY trade_date DESC) as rn
+          FROM kline_data 
+          WHERE symbol IN (${batch.map((_) => '?').join(',')}) 
+            AND period = 'day'
+            AND trade_date >= ? 
+            AND trade_date <= ?
+        )
+        SELECT 
+            current.symbol,
+            (current.close / past.close - 1) * 100 as return_rate
+        FROM ranked_data current
+        LEFT JOIN ranked_data past 
+            ON current.symbol = past.symbol AND past.rn = current.rn + ?
+        WHERE current.rn = 1
+        ''',
+        variables: [
+          ...batch.map((s) => Variable(s)),
+          Variable(effectiveStartDate),
+          Variable(effectiveEndDate),
+          Variable(n),
+        ],
+      ).get();
+
+      for (final row in batchResults) {
+        final symbol = row.read<String>('symbol');
+        final returnRate = row.read<double?>('return_rate');
+        if (returnRate != null && returnRate.isFinite) {
+          result[symbol] = returnRate;
+        }
+      }
+    }
+
+    appLogger.i('批量计算${n}日收益率完成，成功计算 ${result.length} 个标的');
+    return result;
   }
 
   Future<List<String>> _getRandomSymbols(

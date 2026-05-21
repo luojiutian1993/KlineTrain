@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/stock_filter_repository.dart';
 import '../data/models/stock_filter_condition_model.dart';
@@ -72,10 +73,20 @@ class StockFilterState {
 class StockFilterNotifier extends StateNotifier<StockFilterState> {
   final StockFilterRepository _repository;
 
+  // 防抖相关
+  Timer? _debounceTimer;
+  static const _debounceDelay = Duration(milliseconds: 300);
+
   StockFilterNotifier({StockFilterRepository? repository})
       : _repository = repository ?? StockFilterRepository(),
         super(const StockFilterState()) {
     _initialize();
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   void _initialize() {
@@ -91,8 +102,16 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
     );
 
     if (condition != StockFilterCondition.random) {
-      executeFilter();
+      _executeFilterWithDebounce();
     }
+  }
+
+  /// 带防抖的筛选执行
+  void _executeFilterWithDebounce() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(_debounceDelay, () {
+      executeFilter();
+    });
   }
 
   void selectConditionByLabel(String label) {
@@ -104,7 +123,7 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
     state = state.copyWith(timeRange: timeRange);
     if (state.selectedCondition != null &&
         state.selectedCondition != StockFilterCondition.random) {
-      executeFilter();
+      _executeFilterWithDebounce();
     }
   }
 
@@ -118,7 +137,7 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
     state = state.copyWith(selectedMarkets: current);
     if (state.selectedCondition != null &&
         state.selectedCondition != StockFilterCondition.random) {
-      executeFilter();
+      _executeFilterWithDebounce();
     }
   }
 
@@ -126,7 +145,7 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
     state = state.copyWith(selectedMarkets: ['XSHG', 'XSHE']);
     if (state.selectedCondition != null &&
         state.selectedCondition != StockFilterCondition.random) {
-      executeFilter();
+      _executeFilterWithDebounce();
     }
   }
 
@@ -151,19 +170,18 @@ class StockFilterNotifier extends StateNotifier<StockFilterState> {
 
     state = state.copyWith(isLoading: true, error: null);
 
-    final marketCodes = state.selectedMarkets.isNotEmpty 
-          ? state.selectedMarkets 
-          : null;
+    final marketCodes =
+        state.selectedMarkets.isNotEmpty ? state.selectedMarkets : null;
 
-      try {
-        final result = await _repository.filterStocks(
-          condition: condition,
-          date: date,
-          marketCode: marketCode,
-          startDate: startDate,
-          endDate: endDate,
-          subMarketCodes: marketCodes,
-        );
+    try {
+      final result = await _repository.filterStocks(
+        condition: condition,
+        date: date,
+        marketCode: marketCode,
+        startDate: startDate,
+        endDate: endDate,
+        subMarketCodes: marketCodes,
+      );
 
       state = state.copyWith(
         isLoading: false,

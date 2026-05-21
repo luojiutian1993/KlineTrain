@@ -11,8 +11,15 @@ import '../../shared/utils/logger.dart';
 /// 选股查询超时时间（秒）
 const _kFilterTimeoutSeconds = 60;
 
+/// 缓存过期时间（分钟）
+const _kCacheExpireMinutes = 5;
+
 class StockFilterRepository {
   final StockFilterDao _stockFilterDao;
+
+  // 内存缓存 - 存储计算结果
+  final Map<String, Map<String, double>> _returnCache = {};
+  final Map<String, int> _cacheTimestamps = {};
 
   StockFilterRepository({StockFilterDao? stockFilterDao})
       : _stockFilterDao =
@@ -255,5 +262,48 @@ class StockFilterRepository {
 
   Future<void> clearCache({DateTime? date}) async {
     appLogger.i('清除选股缓存: date=$date');
+    _returnCache.clear();
+    _cacheTimestamps.clear();
+  }
+
+  /// 生成缓存键
+  String _generateCacheKey(String type, DateTime date, DateTime? startDate,
+      DateTime? endDate, List<String>? marketCodes) {
+    return '${type}_${date.toIso8601String()}_${startDate?.toIso8601String()}_${endDate?.toIso8601String()}_${marketCodes?.join(',')}';
+  }
+
+  /// 检查缓存是否有效
+  bool _isCacheValid(String cacheKey) {
+    final timestamp = _cacheTimestamps[cacheKey];
+    if (timestamp == null) return false;
+    final age = DateTime.now().millisecondsSinceEpoch - timestamp;
+    return age < _kCacheExpireMinutes * 60 * 1000;
+  }
+
+  /// 缓存计算结果
+  void _cacheResult(String cacheKey, Map<String, double> result) {
+    _returnCache[cacheKey] = Map.from(result);
+    _cacheTimestamps[cacheKey] = DateTime.now().millisecondsSinceEpoch;
+
+    // 限制缓存数量，防止内存过大
+    if (_returnCache.length > 100) {
+      // 删除最旧的缓存
+      final oldestKey = _cacheTimestamps.entries
+          .reduce((a, b) => a.value < b.value ? a : b)
+          .key;
+      _returnCache.remove(oldestKey);
+      _cacheTimestamps.remove(oldestKey);
+      appLogger.i('缓存数量超过限制，已清理最旧的缓存');
+    }
+  }
+
+  /// 获取缓存的计算结果
+  Map<String, double>? _getCachedResult(String cacheKey) {
+    if (!_isCacheValid(cacheKey)) {
+      _returnCache.remove(cacheKey);
+      _cacheTimestamps.remove(cacheKey);
+      return null;
+    }
+    return _returnCache[cacheKey];
   }
 }

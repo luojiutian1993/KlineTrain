@@ -23,13 +23,19 @@ class BattleScreen extends ConsumerStatefulWidget {
 }
 
 class _BattleScreenState extends ConsumerState<BattleScreen> {
+  // 默认配置：深科技（SZ000021）
+  static const String _DEFAULT_SYMBOL = 'SZ000021';
+  static const String _DEFAULT_STOCK_NAME = '深科技';
+  static const String _DEFAULT_MARKET_CODE = 'XSHE';
+  static final DateTime _DEFAULT_START_DATE = DateTime(2023, 3, 31);
+
   int _selectedIndex = 1;
   String _selectedPeriod = '日K';
   String _selectedTopIndicator = '成交量';
   String _selectedBottomIndicator = 'MACD';
   int _currentDayIndex = 0;
   int _trainingDays = 150;
-  final int _historyDays = 30;
+  final int _historyDays = 100; // 从30改为100，确保指标有足够预热期
   DateTime? _trainingStartDate;
   DateTime? _lastEdgeAlertTime;
 
@@ -92,53 +98,142 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Future<void> _loadKlineData() async {
     final repository = KlineRepository();
+
+    String symbolToLoad;
+    String nameToLoad;
+    String marketCodeToLoad;
+    DateTime startDateToLoad;
+
+    // 判断是否有路由参数（从首页选股跳转）
+    final bool hasRouteParams = _trainingStartDate != null &&
+        _currentSymbol != 'SH600000' &&
+        _currentSymbolName.isNotEmpty;
+
+    if (hasRouteParams) {
+      // 有路由参数，使用传入的值（从首页选股跳转）
+      symbolToLoad = _currentSymbol;
+      nameToLoad = _currentSymbolName;
+      marketCodeToLoad = _currentMarketCode;
+      startDateToLoad = _trainingStartDate!;
+    } else {
+      // 没有路由参数，使用默认配置（直接进入实战页面）
+      // 深科技（SZ000021）+ 2023年3月31日
+      symbolToLoad = _DEFAULT_SYMBOL;
+      nameToLoad = _DEFAULT_STOCK_NAME;
+      marketCodeToLoad = _DEFAULT_MARKET_CODE;
+      startDateToLoad = _DEFAULT_START_DATE;
+    }
+
     final totalDays = _trainingDays + _historyDays;
 
-    List<KlineModel> data;
+    // 计算数据查询范围
+    final startTime = startDateToLoad.subtract(Duration(days: _historyDays));
+    final endTime = startDateToLoad.add(Duration(days: _trainingDays));
 
-    if (_trainingStartDate != null) {
-      final startTime =
-          _trainingStartDate!.subtract(Duration(days: _historyDays));
-      final endTime = _trainingStartDate!.add(Duration(days: _trainingDays));
+    // 优先从数据库加载真实数据（日期范围查询）
+    List<KlineModel> data = await repository.fetchKlineDataFromDbWithDateRange(
+      symbol: symbolToLoad,
+      period: 'day',
+      startTime: startTime,
+      endTime: endTime,
+    );
 
-      data = await repository.fetchKlineDataFromDbWithDateRange(
-        symbol: _currentSymbol,
-        period: 'day',
-        startTime: startTime,
-        endTime: endTime,
-      );
-    } else {
+    // 如果数据库没有数据，尝试从数据库查询该股票的所有数据
+    if (data.isEmpty) {
       data = await repository.fetchKlineDataFromDb(
-        symbol: _currentSymbol,
+        symbol: symbolToLoad,
         period: 'day',
-        limit: totalDays,
+        limit: totalDays + 50,
       );
     }
 
+    // 如果还是没有数据，再使用模拟数据（仅作为后备方案）
     if (data.isEmpty) {
       data = await repository.fetchKlineData(
-        symbol: _currentSymbol,
+        symbol: symbolToLoad,
         timeframe: 'day',
         limit: totalDays,
       );
     }
 
+    // 限制数据量，避免内存溢出
+    // 只保留：历史数据(_historyDays) + 训练数据(_trainingDays) + 额外10天缓冲
+    final maxDataSize = _historyDays + _trainingDays + 10;
+    if (data.length > maxDataSize) {
+      // 保留最新的数据（训练数据优先）
+      data = data.sublist(data.length - maxDataSize);
+    }
+
+    // 更新股票信息
     setState(() {
+      _currentSymbol = symbolToLoad;
+      _currentSymbolName = nameToLoad;
+      _currentMarketCode = marketCodeToLoad;
+      _trainingStartDate = startDateToLoad;
       _allKlineData = data;
-      _currentDayIndex = _historyDays;
+
+      // 找到训练开始日期对应的索引
+      // 数据结构：前_historyDays天是历史数据，之后是训练数据
+      // _currentDayIndex 应该指向训练开始的那一天（索引 >= _historyDays）
+      final startDayIndex = _findStartDayIndex(data, startDateToLoad);
+
+      // 如果找到了训练开始日期，但位置在历史数据范围内（< _historyDays），需要调整
+      // 确保 _currentDayIndex 至少为 _historyDays，这样训练进度才从1开始
+      if (startDayIndex >= 0 && startDayIndex < data.length) {
+        _currentDayIndex = startDayIndex;
+        // 如果找到的日期在历史数据范围内，调整到历史数据结束位置
+        if (_currentDayIndex < _historyDays) {
+          _currentDayIndex = _historyDays.clamp(0, data.length - 1);
+        }
+      } else {
+        // 如果没找到训练开始日期，默认从 _historyDays 开始（训练第一天）
+        _currentDayIndex = _historyDays.clamp(0, data.length - 1);
+      }
+
       _tradePoints = [];
-      final endIndex = _currentDayIndex + 1;
-      _visibleStartIndex = (endIndex - _visibleKlineCount).clamp(0, endIndex);
+      // 确保 _visibleStartIndex 正确初始化，显示训练开始那天
+      _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
+          .clamp(0, _currentDayIndex);
     });
   }
 
+  /// 根据日期找到对应的K线索引
+  int _findStartDayIndex(List<KlineModel> data, DateTime targetDate) {
+    for (int i = 0; i < data.length; i++) {
+      final klineDate = DateTime.fromMillisecondsSinceEpoch(data[i].timestamp);
+      // 检查是否是同一天
+      if (klineDate.year == targetDate.year &&
+          klineDate.month == targetDate.month &&
+          klineDate.day == targetDate.day) {
+        return i;
+      }
+    }
+    // 如果没找到精确匹配，找最近的日期
+    if (data.isNotEmpty) {
+      for (int i = 0; i < data.length; i++) {
+        final klineDate =
+            DateTime.fromMillisecondsSinceEpoch(data[i].timestamp);
+        if (klineDate.isAfter(targetDate) ||
+            klineDate.isAtSameMomentAs(targetDate)) {
+          return i;
+        }
+      }
+      return data.length - 1; // 返回最后一天
+    }
+    return -1;
+  }
+
   void _nextDay() {
-    if (_currentDayIndex < _allKlineData.length - 1) {
+    // 确保不超过训练数据范围（历史数据 + 训练天数）
+    final maxTrainingIndex = _historyDays + _trainingDays - 1;
+
+    if (_currentDayIndex < maxTrainingIndex &&
+        _currentDayIndex < _allKlineData.length - 1) {
       setState(() {
         _currentDayIndex++;
-        final endIndex = _currentDayIndex + 1;
-        final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-        _visibleStartIndex = maxStart;
+        // 滚动图表，确保当前训练天在可见范围内
+        _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
+            .clamp(0, _currentDayIndex);
         _checkConditionalOrders();
         _updateAccount();
       });
@@ -155,21 +250,21 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   void _zoomIn() {
     setState(() {
-      _zoomScale = (_zoomScale * 1.2).clamp(0.5, 3.0);
+      _zoomScale = (_zoomScale * 1.2).clamp(0.0286, 3.0);
       _updateVisibleRange();
     });
   }
 
   void _zoomOut() {
     setState(() {
-      _zoomScale = (_zoomScale / 1.2).clamp(0.5, 3.0);
+      _zoomScale = (_zoomScale / 1.2).clamp(0.0286, 3.0);
       _updateVisibleRange();
     });
   }
 
   void _updateVisibleRange() {
     final baseCount = 20;
-    _visibleKlineCount = (baseCount / _zoomScale).round().clamp(10, 40);
+    _visibleKlineCount = (baseCount / _zoomScale).round().clamp(10, 700);
   }
 
   void _slideLeft() {
@@ -418,26 +513,35 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<MacdData> get _displayMacdData {
     if (_allKlineData.isEmpty) return [];
+
+    // 计算可视范围
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final macdResult = IndicatorCalculator.calculateMACD(displayData);
-    final paddingCount = displayData.length - macdResult.macd.length;
+    // 从历史起点计算完整指标，确保训练期指标有效
+    final fullData = _allKlineData.take(endIndex).toList();
+    final macdResult = IndicatorCalculator.calculateMACD(fullData);
 
+    // 构建完整结果（包含预热期的padding和真实指标值）
+    final macdOffset = fullData.length - macdResult.macd.length;
     final result = <MacdData>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(MacdData(macd: 0, diff: 0, dea: 0));
-    }
-    for (int i = 0; i < macdResult.macd.length; i++) {
-      result.add(MacdData(
-        macd: macdResult.macd[i],
-        diff: macdResult.dif[i],
-        dea: macdResult.dea[i],
-      ));
+
+    for (int i = 0; i < fullData.length; i++) {
+      final macdIndex = i - macdOffset;
+      if (macdIndex >= 0 && macdIndex < macdResult.macd.length) {
+        result.add(MacdData(
+          macd: macdResult.macd[macdIndex],
+          diff: macdResult.dif[macdIndex],
+          dea: macdResult.dea[macdIndex],
+        ));
+      } else {
+        // 预热期：使用0值（技术指标的固有局限）
+        result.add(MacdData(macd: 0, diff: 0, dea: 0));
+      }
     }
 
+    // 返回可视范围的指标
     if (result.length > startIndex) {
       final end = startIndex + _visibleKlineCount;
       return result.sublist(startIndex, end.clamp(startIndex, result.length));
@@ -447,24 +551,31 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<KdjData> get _displayKdjData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final kdjResult = IndicatorCalculator.calculateKDJ(displayData);
-    final paddingCount = displayData.length - kdjResult.k.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final kdjResult = IndicatorCalculator.calculateKDJ(fullData);
 
+    // 构建完整结果
+    final kdjOffset = fullData.length - kdjResult.k.length;
     final result = <KdjData>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(KdjData(k: 50, d: 50, j: 50));
-    }
-    for (int i = 0; i < kdjResult.k.length; i++) {
-      result.add(KdjData(
-        k: kdjResult.k[i],
-        d: kdjResult.d[i],
-        j: kdjResult.j[i],
-      ));
+
+    for (int i = 0; i < fullData.length; i++) {
+      final kdjIndex = i - kdjOffset;
+      if (kdjIndex >= 0 && kdjIndex < kdjResult.k.length) {
+        result.add(KdjData(
+          k: kdjResult.k[kdjIndex],
+          d: kdjResult.d[kdjIndex],
+          j: kdjResult.j[kdjIndex],
+        ));
+      } else {
+        // 预热期：使用默认值50
+        result.add(KdjData(k: 50, d: 50, j: 50));
+      }
     }
 
     if (result.length > startIndex) {
@@ -476,20 +587,27 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<RsiData> get _displayRsiData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final rsiResult = IndicatorCalculator.calculateRSI(displayData);
-    final paddingCount = displayData.length - rsiResult.values.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final rsiResult = IndicatorCalculator.calculateRSI(fullData);
 
+    // 构建完整结果
+    final rsiOffset = fullData.length - rsiResult.values.length;
     final result = <RsiData>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(RsiData(rsi: 50));
-    }
-    for (int i = 0; i < rsiResult.values.length; i++) {
-      result.add(RsiData(rsi: rsiResult.values[i]));
+
+    for (int i = 0; i < fullData.length; i++) {
+      final rsiIndex = i - rsiOffset;
+      if (rsiIndex >= 0 && rsiIndex < rsiResult.values.length) {
+        result.add(RsiData(rsi: rsiResult.values[rsiIndex]));
+      } else {
+        // 预热期：使用默认值50
+        result.add(RsiData(rsi: 50));
+      }
     }
 
     if (result.length > startIndex) {
@@ -501,29 +619,36 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<BollData> get _displayBollData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final bollResult = IndicatorCalculator.calculateBoll(displayData);
-    final paddingCount = displayData.length - bollResult.mb.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final bollResult = IndicatorCalculator.calculateBoll(fullData);
 
+    // 构建完整结果
+    final bollOffset = fullData.length - bollResult.mb.length;
     final result = <BollData>[];
-    for (int i = 0; i < paddingCount; i++) {
-      final currentData = displayData[i];
-      result.add(BollData(
-        upper: currentData.close * 1.02,
-        mid: currentData.close,
-        lower: currentData.close * 0.98,
-      ));
-    }
-    for (int i = 0; i < bollResult.mb.length; i++) {
-      result.add(BollData(
-        upper: bollResult.up[i],
-        mid: bollResult.mb[i],
-        lower: bollResult.dn[i],
-      ));
+
+    for (int i = 0; i < fullData.length; i++) {
+      final bollIndex = i - bollOffset;
+      if (bollIndex >= 0 && bollIndex < bollResult.mb.length) {
+        result.add(BollData(
+          upper: bollResult.up[bollIndex],
+          mid: bollResult.mb[bollIndex],
+          lower: bollResult.dn[bollIndex],
+        ));
+      } else {
+        // 预热期：使用收盘价近似值
+        final currentData = fullData[i];
+        result.add(BollData(
+          upper: currentData.close * 1.02,
+          mid: currentData.close,
+          lower: currentData.close * 0.98,
+        ));
+      }
     }
 
     if (result.length > startIndex) {
@@ -535,20 +660,27 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<double> get _displayWrData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final wrResult = IndicatorCalculator.calculateWR(displayData);
-    final paddingCount = displayData.length - wrResult.values.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final wrResult = IndicatorCalculator.calculateWR(fullData);
 
+    // 构建完整结果
+    final wrOffset = fullData.length - wrResult.values.length;
     final result = <double>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(50.0);
-    }
-    for (int i = 0; i < wrResult.values.length; i++) {
-      result.add(wrResult.values[i]);
+
+    for (int i = 0; i < fullData.length; i++) {
+      final wrIndex = i - wrOffset;
+      if (wrIndex >= 0 && wrIndex < wrResult.values.length) {
+        result.add(wrResult.values[wrIndex]);
+      } else {
+        // 预热期：使用默认值50
+        result.add(50.0);
+      }
     }
 
     if (result.length > startIndex) {
@@ -560,20 +692,27 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<double> get _displayCciData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final cciResult = IndicatorCalculator.calculateCCI(displayData);
-    final paddingCount = displayData.length - cciResult.values.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final cciResult = IndicatorCalculator.calculateCCI(fullData);
 
+    // 构建完整结果
+    final cciOffset = fullData.length - cciResult.values.length;
     final result = <double>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(0.0);
-    }
-    for (int i = 0; i < cciResult.values.length; i++) {
-      result.add(cciResult.values[i]);
+
+    for (int i = 0; i < fullData.length; i++) {
+      final cciIndex = i - cciOffset;
+      if (cciIndex >= 0 && cciIndex < cciResult.values.length) {
+        result.add(cciResult.values[cciIndex]);
+      } else {
+        // 预热期：使用默认值0
+        result.add(0.0);
+      }
     }
 
     if (result.length > startIndex) {
@@ -585,12 +724,14 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<double> get _displayObvData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final obvResult = IndicatorCalculator.calculateOBV(displayData);
+    // 从历史起点计算完整指标（OBV无预热期，从第一天就有值）
+    final fullData = _allKlineData.take(endIndex).toList();
+    final obvResult = IndicatorCalculator.calculateOBV(fullData);
     final result = obvResult.values;
 
     if (result.length > startIndex) {
@@ -602,25 +743,33 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<DmiData> get _displayDmiData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final dmiResult = IndicatorCalculator.calculateDMI(displayData);
-    final paddingCount = displayData.length - dmiResult.plusDI.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final dmiResult = IndicatorCalculator.calculateDMI(fullData);
 
+    // 构建完整结果
+    final dmiOffset = fullData.length - dmiResult.plusDI.length;
     final result = <DmiData>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(DmiData(plusDI: 0, minusDI: 0, adx: 0));
-    }
-    for (int i = 0; i < dmiResult.plusDI.length; i++) {
-      final double adxValue = i < dmiResult.adx.length ? dmiResult.adx[i] : 0.0;
-      result.add(DmiData(
-        plusDI: dmiResult.plusDI[i],
-        minusDI: dmiResult.minusDI[i],
-        adx: adxValue,
-      ));
+
+    for (int i = 0; i < fullData.length; i++) {
+      final dmiIndex = i - dmiOffset;
+      if (dmiIndex >= 0 && dmiIndex < dmiResult.plusDI.length) {
+        final double adxValue =
+            dmiIndex < dmiResult.adx.length ? dmiResult.adx[dmiIndex] : 0.0;
+        result.add(DmiData(
+          plusDI: dmiResult.plusDI[dmiIndex],
+          minusDI: dmiResult.minusDI[dmiIndex],
+          adx: adxValue,
+        ));
+      } else {
+        // 预热期：使用默认值0
+        result.add(DmiData(plusDI: 0, minusDI: 0, adx: 0));
+      }
     }
 
     if (result.length > startIndex) {
@@ -632,21 +781,29 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<DmaData> get _displayDmaData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final dmaResult = IndicatorCalculator.calculateDMA(displayData);
-    final paddingCount = displayData.length - dmaResult.dma.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final dmaResult = IndicatorCalculator.calculateDMA(fullData);
 
+    // 构建完整结果
+    final dmaOffset = fullData.length - dmaResult.dma.length;
     final result = <DmaData>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(DmaData(dma: 0, ama: 0));
-    }
-    for (int i = 0; i < dmaResult.dma.length; i++) {
-      final double amaValue = i < dmaResult.ama.length ? dmaResult.ama[i] : 0.0;
-      result.add(DmaData(dma: dmaResult.dma[i], ama: amaValue));
+
+    for (int i = 0; i < fullData.length; i++) {
+      final dmaIndex = i - dmaOffset;
+      if (dmaIndex >= 0 && dmaIndex < dmaResult.dma.length) {
+        final double amaValue =
+            dmaIndex < dmaResult.ama.length ? dmaResult.ama[dmaIndex] : 0.0;
+        result.add(DmaData(dma: dmaResult.dma[dmaIndex], ama: amaValue));
+      } else {
+        // 预热期：使用默认值0
+        result.add(DmaData(dma: 0, ama: 0));
+      }
     }
 
     if (result.length > startIndex) {
@@ -658,20 +815,27 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   List<double> get _displayBbiData {
     if (_allKlineData.isEmpty) return [];
+
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
     final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
     final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    final displayData = _allKlineData.take(endIndex).toList();
 
-    final bbiResult = IndicatorCalculator.calculateBBI(displayData);
-    final paddingCount = displayData.length - bbiResult.values.length;
+    // 从历史起点计算完整指标
+    final fullData = _allKlineData.take(endIndex).toList();
+    final bbiResult = IndicatorCalculator.calculateBBI(fullData);
 
+    // 构建完整结果
+    final bbiOffset = fullData.length - bbiResult.values.length;
     final result = <double>[];
-    for (int i = 0; i < paddingCount; i++) {
-      result.add(0.0);
-    }
-    for (int i = 0; i < bbiResult.values.length; i++) {
-      result.add(bbiResult.values[i]);
+
+    for (int i = 0; i < fullData.length; i++) {
+      final bbiIndex = i - bbiOffset;
+      if (bbiIndex >= 0 && bbiIndex < bbiResult.values.length) {
+        result.add(bbiResult.values[bbiIndex]);
+      } else {
+        // 预热期：使用默认值0
+        result.add(0.0);
+      }
     }
 
     if (result.length > startIndex) {
@@ -1031,11 +1195,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 onPressed: _zoomOut,
                 padding: EdgeInsets.zero,
               ),
-              Text(
-                '${(_zoomScale * 100).round()}%',
-                style:
-                    const TextStyle(fontSize: 9, fontWeight: FontWeight.bold),
-              ),
               IconButton(
                 icon: const Icon(Icons.add, size: 14),
                 onPressed: _zoomIn,
@@ -1116,10 +1275,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
             icon: const Icon(Icons.remove, size: 16),
             onPressed: _zoomOut,
             padding: EdgeInsets.zero,
-          ),
-          Text(
-            '${(_zoomScale * 100).round()}%',
-            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
           ),
           IconButton(
             icon: const Icon(Icons.add, size: 16),
@@ -2896,6 +3051,13 @@ class _TradeDialogState extends State<_TradeDialog> {
     });
   }
 
+  void _showPositionSettingDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => _PositionSettingDialog(tradeType: widget.title),
+    );
+  }
+
   void _onConfirm() {
     final price = double.tryParse(_priceController.text) ?? widget.currentPrice;
     final quantity =
@@ -2965,48 +3127,93 @@ class _TradeDialogState extends State<_TradeDialog> {
             },
           ),
           const SizedBox(height: 16),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              const Text('仓位:'),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () => _setPositionRatio(1 / 3),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
+              TextButton(
+                onPressed: () => _setPositionRatio(1),
+                style: TextButton.styleFrom(
                   foregroundColor: AppTheme.accent,
                   side: const BorderSide(color: AppTheme.accent),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-                child: const Text('1/3仓'),
+                child: const Text('全仓'),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton(
+              TextButton(
                 onPressed: () => _setPositionRatio(1 / 2),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
+                style: TextButton.styleFrom(
                   foregroundColor: AppTheme.accent,
                   side: const BorderSide(color: AppTheme.accent),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
                 child: const Text('1/2仓'),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () => _setPositionRatio(1),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
+              TextButton(
+                onPressed: () => _setPositionRatio(1 / 3),
+                style: TextButton.styleFrom(
                   foregroundColor: AppTheme.accent,
                   side: const BorderSide(color: AppTheme.accent),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
-                child: const Text('全仓'),
+                child: const Text('1/3仓'),
+              ),
+              TextButton(
+                onPressed: () => _setPositionRatio(1 / 4),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.accent,
+                  side: const BorderSide(color: AppTheme.accent),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: const Text('1/4仓'),
+              ),
+              TextButton(
+                onPressed: () => _setPositionRatio(2 / 3),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.accent,
+                  side: const BorderSide(color: AppTheme.accent),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: const Text('2/3仓'),
+              ),
+              TextButton(
+                onPressed: () => _showPositionSettingDialog(),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.accent,
+                  side: const BorderSide(color: AppTheme.accent),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                child: const Text('编辑'),
               ),
             ],
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.bg,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
                 Text('${widget.title}金额:'),
@@ -3023,12 +3230,8 @@ class _TradeDialogState extends State<_TradeDialog> {
           ),
           if (widget.title == '卖出' && widget.positionCost != null)
             Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(top: 8),
-              decoration: BoxDecoration(
-                color: AppTheme.bg,
-                borderRadius: BorderRadius.circular(8),
-              ),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              margin: const EdgeInsets.only(top: 4),
               child: Row(
                 children: [
                   const Text('预计盈亏:'),
@@ -3078,6 +3281,360 @@ class _TradeDialogState extends State<_TradeDialog> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class PositionItem {
+  final String id;
+  final String label;
+  final double ratio;
+
+  PositionItem({
+    required this.id,
+    required this.label,
+    required this.ratio,
+  });
+
+  PositionItem copyWith({
+    String? id,
+    String? label,
+    double? ratio,
+  }) {
+    return PositionItem(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      ratio: ratio ?? this.ratio,
+    );
+  }
+}
+
+class _PositionSettingDialog extends StatefulWidget {
+  final String tradeType;
+
+  const _PositionSettingDialog({required this.tradeType});
+
+  @override
+  State<_PositionSettingDialog> createState() => _PositionSettingDialogState();
+}
+
+class _PositionSettingDialogState extends State<_PositionSettingDialog> {
+  bool _isBuyTab = true;
+  List<PositionItem> _buyPositions = [
+    PositionItem(id: '1', label: '全仓', ratio: 1.0),
+    PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
+    PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
+    PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
+    PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
+  ];
+  List<PositionItem> _sellPositions = [
+    PositionItem(id: '1', label: '全仓', ratio: 1.0),
+    PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
+    PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
+    PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
+    PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
+  ];
+  bool _skipConfirm = false;
+  int _dragIndex = -1;
+
+  List<PositionItem> get _currentPositions =>
+      _isBuyTab ? _buyPositions : _sellPositions;
+
+  set _currentPositions(List<PositionItem> value) {
+    if (_isBuyTab) {
+      _buyPositions = value;
+    } else {
+      _sellPositions = value;
+    }
+  }
+
+  void _removePosition(int index) {
+    if (_currentPositions.length > 1) {
+      setState(() {
+        _currentPositions = List.from(_currentPositions)..removeAt(index);
+      });
+    }
+  }
+
+  void _addPosition() {
+    if (_currentPositions.length < 12) {
+      final newRatio = 1.0 / (_currentPositions.length + 1);
+      final newLabel = '1/${_currentPositions.length + 1}仓';
+      setState(() {
+        _currentPositions = List.from(_currentPositions)
+          ..add(PositionItem(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            label: newLabel,
+            ratio: newRatio,
+          ));
+      });
+    }
+  }
+
+  void _movePosition(int fromIndex, int toIndex) {
+    setState(() {
+      final List<PositionItem> positions = List.from(_currentPositions);
+      final item = positions.removeAt(fromIndex);
+      positions.insert(toIndex, item);
+      _currentPositions = positions;
+    });
+  }
+
+  void _resetToDefault() {
+    setState(() {
+      _buyPositions = [
+        PositionItem(id: '1', label: '全仓', ratio: 1.0),
+        PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
+        PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
+        PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
+        PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
+      ];
+      _sellPositions = [
+        PositionItem(id: '1', label: '全仓', ratio: 1.0),
+        PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
+        PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
+        PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
+        PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
+      ];
+      _skipConfirm = false;
+    });
+  }
+
+  void _savePositions() {
+    Navigator.pop(context);
+  }
+
+  void _handleDragStart(int index) {
+    setState(() {
+      _dragIndex = index;
+    });
+  }
+
+  void _handleDragEnd() {
+    setState(() {
+      _dragIndex = -1;
+    });
+  }
+
+  void _handleDragCancel() {
+    setState(() {
+      _dragIndex = -1;
+    });
+  }
+
+  void _handleDragUpdate(int oldIndex, int newIndex) {
+    if (oldIndex != newIndex) {
+      _movePosition(oldIndex, newIndex);
+    }
+  }
+
+  Widget _buildPositionChip(int index) {
+    final item = _currentPositions[index];
+    return Draggable<int>(
+      data: index,
+      feedback: Material(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.accent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            item.label,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ),
+      childWhenDragging: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.accent),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text(''),
+      ),
+      onDragStarted: () => _handleDragStart(index),
+      onDragEnd: (_) => _handleDragEnd(),
+      onDraggableCanceled: (_, __) => _handleDragCancel(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: AppTheme.accent),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(item.label),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.close, size: 14),
+              onPressed: () => _removePosition(index),
+              padding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 360,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '仓位设置',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: AppTheme.border),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isBuyTab = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color:
+                              _isBuyTab ? AppTheme.accent : Colors.transparent,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(8),
+                            bottomLeft: Radius.circular(8),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '买入仓位',
+                          style: TextStyle(
+                            color: _isBuyTab ? Colors.white : AppTheme.muted,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isBuyTab = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color:
+                              !_isBuyTab ? AppTheme.accent : Colors.transparent,
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(8),
+                            bottomRight: Radius.circular(8),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '卖出仓位',
+                          style: TextStyle(
+                            color: !_isBuyTab ? Colors.white : AppTheme.muted,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '拖动按钮可以排序，最多可拥有12个仓位，默认按第1个仓位买入',
+              style: TextStyle(fontSize: 12, color: AppTheme.muted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(_currentPositions.length, (index) {
+                return DragTarget<int>(
+                  onAccept: (data) {
+                    if (data != index) {
+                      _handleDragUpdate(data, index);
+                    }
+                  },
+                  builder: (context, candidateData, rejectedData) {
+                    return _buildPositionChip(index);
+                  },
+                );
+              }),
+            ),
+            const SizedBox(height: 8),
+            if (_currentPositions.length < 12)
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppTheme.accent),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: _addPosition,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            const SizedBox(height: 20),
+            CheckboxListTile(
+              title: const Text('买入时不弹确认框'),
+              value: _skipConfirm,
+              onChanged: (value) => setState(() => _skipConfirm = value!),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _resetToDefault,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.surface,
+                      foregroundColor: AppTheme.muted,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('默认值'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _savePositions,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('保存买入仓位'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
