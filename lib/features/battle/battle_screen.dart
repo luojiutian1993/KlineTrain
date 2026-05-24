@@ -11,9 +11,11 @@ import 'package:kline_trainer/data/models/kline_model.dart'
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
+import 'package:kline_trainer/data/services/kline_data_sync_service.dart';
 import 'package:kline_trainer/providers/battle_stock_provider.dart';
 import 'package:kline_trainer/core/enums/stock_filter_condition.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:logger/logger.dart';
 
 class BattleScreen extends ConsumerStatefulWidget {
   const BattleScreen({super.key});
@@ -223,7 +225,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     return -1;
   }
 
-  void _nextDay() {
+  Future<void> _nextDay() async {
     // 确保不超过训练数据范围（历史数据 + 训练天数）
     final maxTrainingIndex = _historyDays + _trainingDays - 1;
 
@@ -238,7 +240,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _updateAccount();
       });
     } else {
-      _showTrainingCompleteDialog();
+      await _showTrainingCompleteDialog();
     }
   }
 
@@ -2299,7 +2301,13 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              '${_currentDayIndex - _historyDays + 1}/$_trainingDays',
+              // 计算训练进度，确保不会超过训练天数
+              () {
+                final day = _currentDayIndex - _historyDays + 1;
+                if (day < 1) return '1/$_trainingDays';
+                if (day > _trainingDays) return '$_trainingDays/$_trainingDays';
+                return '$day/$_trainingDays';
+              }(),
               style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
@@ -2430,7 +2438,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     return ma;
   }
 
-  void _showTrainingCompleteDialog() {
+  Future<void> _showTrainingCompleteDialog() async {
     final initialBalance = 100000.0;
     final currentData =
         _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
@@ -2446,7 +2454,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         ? ((lastData.close - firstData.open) / firstData.open * 100)
         : 0.0;
 
-    _saveTrainingToDatabase(
+    await _saveTrainingToDatabase(
         initialBalance, totalAssets, profit, profitRate, stockIncrease);
 
     showDialog(
@@ -2629,13 +2637,19 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     double profitRate,
     double stockIncrease,
   ) async {
+    final logger = Logger();
     try {
+      logger.d('开始保存训练会话到数据库');
       final dbService = DatabaseService.instance;
+      final klineSyncService = KlineDataSyncService();
 
       final firstData =
           _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
       final lastData =
           _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
+
+      logger.d('准备创建训练会话: symbol=$_currentSymbol, '
+          'klineCount=${_allKlineData.length}, tradeCount=${_tradePoints.length}');
 
       final sessionId =
           await dbService.trainingDao.createSession(TrainingSessionsCompanion(
@@ -2659,6 +2673,23 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         endTime: lastData != null ? Value(lastData.dateTime) : Value.absent(),
       ));
 
+      logger.d('训练会话创建成功: sessionId=$sessionId');
+
+      // 直接把内存中的K线数据保存到数据库（不从API获取）
+      if (_allKlineData.isNotEmpty) {
+        logger.d('开始保存K线数据: count=${_allKlineData.length}');
+        final saveSuccess = await klineSyncService.saveKlineDataToDatabase(
+          symbol: _currentSymbol,
+          marketCode: _currentSymbol.startsWith('SH') ? 'SH' : 'SZ',
+          period: 'day',
+          klineData: _allKlineData,
+        );
+        logger.d('K线数据保存结果: success=$saveSuccess');
+      } else {
+        logger.w('⚠️ _allKlineData 为空，无法保存K线数据！');
+      }
+
+      logger.d('开始保存交易记录: count=${_tradePoints.length}');
       for (final point in _tradePoints) {
         await dbService.trainingDao.addTrade(TradesCompanion(
           sessionId: Value(sessionId),
@@ -2678,8 +2709,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           triggerSource: const Value('manual'),
         ));
       }
-    } catch (e) {
-      // 保存失败不影响用户体验，只记录日志
+      logger.d('交易记录保存完成');
+    } catch (e, stackTrace) {
+      logger.e('⛔ 保存训练会话失败: $e', error: e, stackTrace: stackTrace);
     }
   }
 

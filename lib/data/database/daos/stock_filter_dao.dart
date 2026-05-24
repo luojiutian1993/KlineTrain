@@ -111,30 +111,27 @@ class StockFilterDao extends DatabaseAccessor<AppDatabase>
     appLogger.i('开始查询K线数据日期范围...');
 
     try {
-      // 先检查是否有数据
-      final countResult = await (selectOnly(klineData)
-            ..addColumns([klineData.symbol.count()])
-            ..where(klineData.period.equals('day')))
-          .getSingle();
+      // 使用 customSelect 避免 DateTime 类型转换问题
+      final minResult = await customSelect(
+        'SELECT MIN(trade_date) as min_date FROM kline_data WHERE period = ?',
+        variables: [const Variable('day')],
+      ).getSingle();
 
-      final count = countResult.read(klineData.symbol.count());
-      if (count == null || count == 0) {
+      final maxResult = await customSelect(
+        'SELECT MAX(trade_date) as max_date FROM kline_data WHERE period = ?',
+        variables: [const Variable('day')],
+      ).getSingle();
+
+      final minDateStr = minResult.read<String?>('min_date');
+      final maxDateStr = maxResult.read<String?>('max_date');
+
+      if (minDateStr == null || maxDateStr == null) {
         appLogger.w('K线数据表为空，返回默认日期范围');
         return (DateTime(2000, 1, 1), DateTime.now());
       }
 
-      final minResult = await (selectOnly(klineData)
-            ..addColumns([klineData.tradeDate.min()])
-            ..where(klineData.period.equals('day')))
-          .getSingle();
-
-      final maxResult = await (selectOnly(klineData)
-            ..addColumns([klineData.tradeDate.max()])
-            ..where(klineData.period.equals('day')))
-          .getSingle();
-
-      final minDate = minResult.read(klineData.tradeDate.min());
-      final maxDate = maxResult.read(klineData.tradeDate.max());
+      final minDate = _stringToDate(minDateStr);
+      final maxDate = _stringToDate(maxDateStr);
 
       appLogger.i('查询到的日期范围: min=$minDate, max=$maxDate');
 

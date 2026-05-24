@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import '../app_database.dart';
 import '../tables/tables.dart';
+import '../../services/kline_data_sync_service.dart';
 
 part 'training_dao.g.dart';
 
@@ -16,9 +17,21 @@ class TrainingDao extends DatabaseAccessor<AppDatabase>
     with _$TrainingDaoMixin {
   TrainingDao(super.db);
 
-  /// 创建训练会话
-  Future<int> createSession(TrainingSessionsCompanion session) {
-    return into(trainingSessions).insert(session);
+  /// 创建训练会话（自动同步K线数据）
+  Future<int> createSession(TrainingSessionsCompanion session) async {
+    final sessionId = await into(trainingSessions).insert(session);
+
+    final newSession = await getSession(sessionId);
+    if (newSession != null) {
+      try {
+        final klineService = KlineDataSyncService();
+        await klineService.syncSessionKlineData(newSession);
+      } catch (e) {
+        // 忽略同步失败，训练会话已创建
+      }
+    }
+
+    return sessionId;
   }
 
   /// 更新训练会话

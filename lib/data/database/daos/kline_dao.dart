@@ -9,44 +9,7 @@ part 'kline_dao.g.dart';
 class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
   KlineDao(super.db);
 
-  /// 日期转字符串格式 "YYYY-MM-DD"
-  String _dateToString(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
 
-  /// 字符串转日期 "YYYY-MM-DD"
-  DateTime _stringToDate(String dateStr) {
-    try {
-      final parts = dateStr.split('-');
-      if (parts.length == 3) {
-        return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-      }
-    } catch (e) {
-      // 如果解析失败，返回默认日期
-    }
-    return DateTime(2000, 1, 1);
-  }
-
-  /// 从 QueryRow 构建 KlineDataData 对象
-  KlineDataData _buildKlineDataFromRow(QueryRow row) {
-    final tradeDateStr = row.read<String>('trade_date');
-    return KlineDataData(
-      symbol: row.read<String>('symbol'),
-      marketCode: row.read<String>('market_code'),
-      period: row.read<String>('period'),
-      tradeDate: _stringToDate(tradeDateStr),
-      open: row.read<double>('open'),
-      close: row.read<double>('close'),
-      high: row.read<double>('high'),
-      low: row.read<double>('low'),
-      volume: row.read<double>('volume'),
-      amount: row.read<double>('amount'),
-      turnoverRate: row.read<double?>('turnover_rate'),
-      pe: row.read<double?>('pe'),
-      pb: row.read<double?>('pb'),
-      createdAt: DateTime.now(),
-    );
-  }
 
   /// 获取所有启用的市场
   Future<List<Market>> getMarkets() {
@@ -84,15 +47,72 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     DateTime? endDate,
     int limit = 1000,
   }) async {
-    final startDateStr = startDate != null ? _dateToString(startDate) : '1990-01-01';
-    final endDateStr = endDate != null ? _dateToString(endDate) : '9999-12-31';
+    final buffer = StringBuffer(
+      'SELECT * FROM kline_data WHERE symbol = ? AND period = ?',
+    );
+    final List<Variable> variables = [
+      Variable.withString(symbol),
+      Variable.withString(period),
+    ];
+
+    if (startDate != null) {
+      buffer.write(' AND trade_date >= ?');
+      variables.add(Variable.withString(_dateToString(startDate)));
+    }
+    if (endDate != null) {
+      buffer.write(' AND trade_date <= ?');
+      variables.add(Variable.withString(_dateToString(endDate)));
+    }
+
+    buffer.write(' ORDER BY trade_date ASC LIMIT ?');
+    variables.add(Variable.withInt(limit));
 
     final results = await customSelect(
-      'SELECT * FROM kline_data WHERE symbol = ? AND period = ? AND trade_date >= ? AND trade_date <= ? ORDER BY trade_date ASC LIMIT ?',
-      variables: [Variable(symbol), Variable(period), Variable(startDateStr), Variable(endDateStr), Variable(limit)],
+      buffer.toString(),
+      variables: variables,
+      readsFrom: {klineData},
     ).get();
-    
+
     return results.map((row) => _buildKlineDataFromRow(row)).toList();
+  }
+
+  /// 日期转字符串格式 "YYYY-MM-DD"
+  String _dateToString(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 字符串转日期 "YYYY-MM-DD"
+  DateTime _stringToDate(String dateStr) {
+    try {
+      final parts = dateStr.split('-');
+      if (parts.length >= 3) {
+        return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+      }
+    } catch (e) {
+      // 如果解析失败，返回默认日期
+    }
+    return DateTime(2000, 1, 1);
+  }
+
+  /// 从 QueryRow 构建 KlineDataData 对象
+  KlineDataData _buildKlineDataFromRow(QueryRow row) {
+    final tradeDateStr = row.readString('trade_date');
+    return KlineDataData(
+      symbol: row.readString('symbol'),
+      marketCode: row.readString('market_code'),
+      period: row.readString('period'),
+      tradeDate: _stringToDate(tradeDateStr),
+      open: row.readDouble('open'),
+      close: row.readDouble('close'),
+      high: row.readDouble('high'),
+      low: row.readDouble('low'),
+      volume: row.readDouble('volume'),
+      amount: row.readDouble('amount'),
+      turnoverRate: row.readNullable<double>('turnover_rate'),
+      pe: row.readNullable<double>('pe'),
+      pb: row.readNullable<double>('pb'),
+      createdAt: DateTime.now(),
+    );
   }
 
   /// 从日线数据聚合周线数据
@@ -297,13 +317,12 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
 
   /// 获取K线数据条数
   Future<int> countKlineData(String symbol, String period) async {
-    final countQuery = klineData.symbol.count();
-    final query = selectOnly(klineData)
-      ..addColumns([countQuery])
-      ..where(klineData.symbol.equals(symbol))
-      ..where(klineData.period.equals(period));
-    final result = await query.getSingle();
-    return result.read(countQuery) ?? 0;
+    final countResult = await customSelect(
+      'SELECT COUNT(*) as count FROM kline_data WHERE symbol = ? AND period = ?',
+      variables: [Variable.withString(symbol), Variable.withString(period)],
+    ).getSingle();
+    
+    return countResult.read<int>('count');
   }
 
   /// 获取指定时间范围内的K线数据
@@ -313,14 +332,17 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     DateTime startTime,
     DateTime endTime,
   ) async {
-    final startTimeStr = _dateToString(startTime);
-    final endTimeStr = _dateToString(endTime);
-
     final results = await customSelect(
       'SELECT * FROM kline_data WHERE symbol = ? AND period = ? AND trade_date >= ? AND trade_date <= ? ORDER BY trade_date ASC',
-      variables: [Variable(symbol), Variable(period), Variable(startTimeStr), Variable(endTimeStr)],
+      variables: [
+        Variable.withString(symbol),
+        Variable.withString(period),
+        Variable.withString(_dateToString(startTime)),
+        Variable.withString(_dateToString(endTime)),
+      ],
+      readsFrom: {klineData},
     ).get();
-    
+
     return results.map((row) => _buildKlineDataFromRow(row)).toList();
   }
 }

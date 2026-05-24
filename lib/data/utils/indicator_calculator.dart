@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:kline_trainer/data/models/kline_model.dart';
+import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
 
 class MACDResult {
   final List<double> dif;
@@ -466,5 +467,38 @@ class IndicatorCalculator {
     }
 
     return BBIResult(values: bbi);
+  }
+
+  static Map<String, dynamic> calculateAll(List<KlineModel> data) {
+    final closes = data.map((d) => d.close).toList();
+    
+    final ma5 = calculateSMA(closes, 5);
+    final ma10 = calculateSMA(closes, 10);
+    final ma20 = calculateSMA(closes, 20);
+    final ma30 = calculateSMA(closes, 30);
+
+    final volumes = data.map((d) => VolumeData(
+      volume: d.volume,
+      isUp: d.close >= d.open,
+    )).toList();
+
+    final macdResult = calculateMACD(data);
+    final macdData = <MacdData>[];
+    for (int i = 0; i < macdResult.macd.length; i++) {
+      macdData.add(MacdData(
+        macd: macdResult.macd[i],
+        diff: i < macdResult.dif.length ? macdResult.dif[i] : 0,
+        dea: i < macdResult.dea.length ? macdResult.dea[i] : 0,
+      ));
+    }
+
+    return {
+      'ma5': ma5,
+      'ma10': ma10,
+      'ma20': ma20,
+      'ma30': ma30,
+      'volumes': volumes,
+      'macd': macdData,
+    };
   }
 }

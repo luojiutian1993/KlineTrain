@@ -41,10 +41,18 @@ class KlineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _buildPriceChart(),
-      ],
+    if (klineData.isEmpty && volumes.isEmpty && macdData.isEmpty) {
+      return const SizedBox(
+        height: 280,
+        child: Center(
+          child: Text('暂无数据'),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 280,
+      child: _buildPriceChart(),
     );
   }
 
@@ -306,22 +314,20 @@ class CandleStickChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRect(
-      child: SizedBox(
-        height: 280,
-        child: Stack(
-          children: [
-            CandleStickChartPainter(
-              klineData: klineData,
-              ma5: ma5,
-              ma10: ma10,
-              ma20: ma20,
-              ma30: ma30,
-              minY: minY,
-              maxY: maxY,
-              tradePoints: tradePoints,
-            ),
-          ],
-        ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CandleStickChartPainter(
+            klineData: klineData,
+            ma5: ma5,
+            ma10: ma10,
+            ma20: ma20,
+            ma30: ma30,
+            minY: minY,
+            maxY: maxY,
+            tradePoints: tradePoints,
+          ),
+        ],
       ),
     );
   }
