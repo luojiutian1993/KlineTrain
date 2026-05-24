@@ -8,18 +8,33 @@ class FavoritesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(title: const Text('自选管理'), backgroundColor: AppTheme.surface),
+      appBar:
+          AppBar(title: const Text('自选管理'), backgroundColor: AppTheme.surface),
       body: ListView(
         children: [
           const SizedBox(height: 12),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
+            decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(18)),
             child: Column(
               children: [
-                _FavoriteItem(name: '贵州茅台', code: '600519.SH', price: 1850.00, change: 1.20),
-                _FavoriteItem(name: '比亚迪', code: '002594.SZ', price: 268.50, change: 2.30),
-                _FavoriteItem(name: '宁德时代', code: '300750.SZ', price: 188.00, change: -1.50),
+                _FavoriteItem(
+                    name: '贵州茅台',
+                    code: '600519.SH',
+                    price: 1850.00,
+                    change: 1.20),
+                _FavoriteItem(
+                    name: '比亚迪',
+                    code: '002594.SZ',
+                    price: 268.50,
+                    change: 2.30),
+                _FavoriteItem(
+                    name: '宁德时代',
+                    code: '300750.SZ',
+                    price: 188.00,
+                    change: -1.50),
               ],
             ),
           ),
@@ -54,14 +69,18 @@ class _FavoriteItem extends StatelessWidget {
         children: [
           const Icon(Icons.star, color: Colors.yellow, size: 16),
           const SizedBox(width: 8),
-          Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          Text(name,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
         ],
       ),
       subtitle: Text(code, style: TextStyle(color: AppTheme.muted)),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('¥${price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+          Text('¥${price.toStringAsFixed(2)}',
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
           Text(
             '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
             style: TextStyle(

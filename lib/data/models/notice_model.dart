@@ -32,7 +32,8 @@ class NoticeModel {
     required this.publishedAt,
   });
 
-  factory NoticeModel.fromJson(Map<String, dynamic> json) => _$NoticeModelFromJson(json);
+  factory NoticeModel.fromJson(Map<String, dynamic> json) =>
+      _$NoticeModelFromJson(json);
   Map<String, dynamic> toJson() => _$NoticeModelToJson(this);
 
   NoticeModel copyWith({

@@ -9,8 +9,6 @@ part 'kline_dao.g.dart';
 class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
   KlineDao(super.db);
 
-
-
   /// 获取所有启用的市场
   Future<List<Market>> getMarkets() {
     return (select(markets)
@@ -47,72 +45,20 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     DateTime? endDate,
     int limit = 1000,
   }) async {
-    final buffer = StringBuffer(
-      'SELECT * FROM kline_data WHERE symbol = ? AND period = ?',
-    );
-    final List<Variable> variables = [
-      Variable.withString(symbol),
-      Variable.withString(period),
-    ];
+    final query = select(klineData)
+      ..where((t) => t.symbol.equals(symbol))
+      ..where((t) => t.period.equals(period))
+      ..orderBy([(t) => OrderingTerm.asc(t.tradeDate)])
+      ..limit(limit);
 
     if (startDate != null) {
-      buffer.write(' AND trade_date >= ?');
-      variables.add(Variable.withString(_dateToString(startDate)));
+      query.where((t) => t.tradeDate.isBiggerOrEqualValue(startDate));
     }
     if (endDate != null) {
-      buffer.write(' AND trade_date <= ?');
-      variables.add(Variable.withString(_dateToString(endDate)));
+      query.where((t) => t.tradeDate.isSmallerOrEqualValue(endDate));
     }
 
-    buffer.write(' ORDER BY trade_date ASC LIMIT ?');
-    variables.add(Variable.withInt(limit));
-
-    final results = await customSelect(
-      buffer.toString(),
-      variables: variables,
-      readsFrom: {klineData},
-    ).get();
-
-    return results.map((row) => _buildKlineDataFromRow(row)).toList();
-  }
-
-  /// 日期转字符串格式 "YYYY-MM-DD"
-  String _dateToString(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  /// 字符串转日期 "YYYY-MM-DD"
-  DateTime _stringToDate(String dateStr) {
-    try {
-      final parts = dateStr.split('-');
-      if (parts.length >= 3) {
-        return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
-      }
-    } catch (e) {
-      // 如果解析失败，返回默认日期
-    }
-    return DateTime(2000, 1, 1);
-  }
-
-  /// 从 QueryRow 构建 KlineDataData 对象
-  KlineDataData _buildKlineDataFromRow(QueryRow row) {
-    final tradeDateStr = row.readString('trade_date');
-    return KlineDataData(
-      symbol: row.readString('symbol'),
-      marketCode: row.readString('market_code'),
-      period: row.readString('period'),
-      tradeDate: _stringToDate(tradeDateStr),
-      open: row.readDouble('open'),
-      close: row.readDouble('close'),
-      high: row.readDouble('high'),
-      low: row.readDouble('low'),
-      volume: row.readDouble('volume'),
-      amount: row.readDouble('amount'),
-      turnoverRate: row.readNullable<double>('turnover_rate'),
-      pe: row.readNullable<double>('pe'),
-      pb: row.readNullable<double>('pb'),
-      createdAt: DateTime.now(),
-    );
+    return query.get();
   }
 
   /// 从日线数据聚合周线数据
@@ -136,19 +82,21 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
       ''',
       variables: [Variable.withString(symbol)],
       readsFrom: {klineData},
-    ).map((row) => KlineDataData(
-          symbol: row.readString(klineData.symbol.name),
-          marketCode: row.readString(klineData.marketCode.name),
-          period: 'week',
-          tradeDate: row.readDateTime('trade_date'),
-          open: row.readDouble(klineData.open.name),
-          high: row.readDouble(klineData.high.name),
-          low: row.readDouble(klineData.low.name),
-          close: row.readDouble(klineData.close.name),
-          volume: row.readDouble(klineData.volume.name),
-          amount: row.readDouble(klineData.amount.name),
-          createdAt: DateTime.now(),
-        )).get() as Future<List<KlineDataData>>;
+    )
+        .map((row) => KlineDataData(
+              symbol: row.readString(klineData.symbol.name),
+              marketCode: row.readString(klineData.marketCode.name),
+              period: 'week',
+              tradeDate: row.readDateTime('trade_date'),
+              open: row.readDouble(klineData.open.name),
+              high: row.readDouble(klineData.high.name),
+              low: row.readDouble(klineData.low.name),
+              close: row.readDouble(klineData.close.name),
+              volume: row.readDouble(klineData.volume.name),
+              amount: row.readDouble(klineData.amount.name),
+              createdAt: DateTime.now(),
+            ))
+        .get() as Future<List<KlineDataData>>;
   }
 
   /// 从日线数据聚合月线数据
@@ -172,19 +120,21 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
       ''',
       variables: [Variable.withString(symbol)],
       readsFrom: {klineData},
-    ).map((row) => KlineDataData(
-          symbol: row.readString(klineData.symbol.name),
-          marketCode: row.readString(klineData.marketCode.name),
-          period: 'month',
-          tradeDate: row.readDateTime('trade_date'),
-          open: row.readDouble(klineData.open.name),
-          high: row.readDouble(klineData.high.name),
-          low: row.readDouble(klineData.low.name),
-          close: row.readDouble(klineData.close.name),
-          volume: row.readDouble(klineData.volume.name),
-          amount: row.readDouble(klineData.amount.name),
-          createdAt: DateTime.now(),
-        )).get() as Future<List<KlineDataData>>;
+    )
+        .map((row) => KlineDataData(
+              symbol: row.readString(klineData.symbol.name),
+              marketCode: row.readString(klineData.marketCode.name),
+              period: 'month',
+              tradeDate: row.readDateTime('trade_date'),
+              open: row.readDouble(klineData.open.name),
+              high: row.readDouble(klineData.high.name),
+              low: row.readDouble(klineData.low.name),
+              close: row.readDouble(klineData.close.name),
+              volume: row.readDouble(klineData.volume.name),
+              amount: row.readDouble(klineData.amount.name),
+              createdAt: DateTime.now(),
+            ))
+        .get() as Future<List<KlineDataData>>;
   }
 
   /// 从日线数据聚合季线数据
@@ -249,19 +199,21 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
       ''',
       variables: [Variable.withString(symbol)],
       readsFrom: {klineData},
-    ).map((row) => KlineDataData(
-          symbol: row.readString(klineData.symbol.name),
-          marketCode: row.readString(klineData.marketCode.name),
-          period: 'quarter',
-          tradeDate: row.readDateTime('trade_date'),
-          open: row.readDouble(klineData.open.name),
-          high: row.readDouble(klineData.high.name),
-          low: row.readDouble(klineData.low.name),
-          close: row.readDouble(klineData.close.name),
-          volume: row.readDouble(klineData.volume.name),
-          amount: row.readDouble(klineData.amount.name),
-          createdAt: DateTime.now(),
-        )).get() as Future<List<KlineDataData>>;
+    )
+        .map((row) => KlineDataData(
+              symbol: row.readString(klineData.symbol.name),
+              marketCode: row.readString(klineData.marketCode.name),
+              period: 'quarter',
+              tradeDate: row.readDateTime('trade_date'),
+              open: row.readDouble(klineData.open.name),
+              high: row.readDouble(klineData.high.name),
+              low: row.readDouble(klineData.low.name),
+              close: row.readDouble(klineData.close.name),
+              volume: row.readDouble(klineData.volume.name),
+              amount: row.readDouble(klineData.amount.name),
+              createdAt: DateTime.now(),
+            ))
+        .get() as Future<List<KlineDataData>>;
   }
 
   /// 从日线数据聚合年线数据
@@ -285,19 +237,21 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
       ''',
       variables: [Variable.withString(symbol)],
       readsFrom: {klineData},
-    ).map((row) => KlineDataData(
-          symbol: row.readString(klineData.symbol.name),
-          marketCode: row.readString(klineData.marketCode.name),
-          period: 'year',
-          tradeDate: row.readDateTime('trade_date'),
-          open: row.readDouble(klineData.open.name),
-          high: row.readDouble(klineData.high.name),
-          low: row.readDouble(klineData.low.name),
-          close: row.readDouble(klineData.close.name),
-          volume: row.readDouble(klineData.volume.name),
-          amount: row.readDouble(klineData.amount.name),
-          createdAt: DateTime.now(),
-        )).get() as Future<List<KlineDataData>>;
+    )
+        .map((row) => KlineDataData(
+              symbol: row.readString(klineData.symbol.name),
+              marketCode: row.readString(klineData.marketCode.name),
+              period: 'year',
+              tradeDate: row.readDateTime('trade_date'),
+              open: row.readDouble(klineData.open.name),
+              high: row.readDouble(klineData.high.name),
+              low: row.readDouble(klineData.low.name),
+              close: row.readDouble(klineData.close.name),
+              volume: row.readDouble(klineData.volume.name),
+              amount: row.readDouble(klineData.amount.name),
+              createdAt: DateTime.now(),
+            ))
+        .get() as Future<List<KlineDataData>>;
   }
 
   /// 批量插入K线数据
@@ -317,32 +271,92 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
 
   /// 获取K线数据条数
   Future<int> countKlineData(String symbol, String period) async {
-    final countResult = await customSelect(
-      'SELECT COUNT(*) as count FROM kline_data WHERE symbol = ? AND period = ?',
-      variables: [Variable.withString(symbol), Variable.withString(period)],
-    ).getSingle();
-    
-    return countResult.read<int>('count');
+    final countQuery = klineData.symbol.count();
+    final query = selectOnly(klineData)
+      ..addColumns([countQuery])
+      ..where(klineData.symbol.equals(symbol))
+      ..where(klineData.period.equals(period));
+    final result = await query.getSingle();
+    return result.read(countQuery) ?? 0;
   }
 
   /// 获取指定时间范围内的K线数据
+  /// 兼容字符串格式和DateTime格式的日期存储
   Future<List<KlineDataData>> getKlineDataRange(
     String symbol,
     String period,
     DateTime startTime,
     DateTime endTime,
   ) async {
-    final results = await customSelect(
-      'SELECT * FROM kline_data WHERE symbol = ? AND period = ? AND trade_date >= ? AND trade_date <= ? ORDER BY trade_date ASC',
+    final startTimeStr = _dateTimeToString(startTime);
+    final endTimeStr = _dateTimeToString(endTime);
+
+    return customSelect(
+      '''
+      SELECT symbol, market_code, period, trade_date, open, high, low, close, volume, amount, created_at
+      FROM kline_data
+      WHERE symbol = ? 
+        AND period = ? 
+        AND date(trade_date) >= date(?)
+        AND date(trade_date) <= date(?)
+      ORDER BY trade_date ASC
+      ''',
       variables: [
         Variable.withString(symbol),
         Variable.withString(period),
-        Variable.withString(_dateToString(startTime)),
-        Variable.withString(_dateToString(endTime)),
+        Variable.withString(startTimeStr),
+        Variable.withString(endTimeStr),
       ],
       readsFrom: {klineData},
-    ).get();
+    ).map((row) => _parseKlineDataFromRow(row)).get();
+  }
 
-    return results.map((row) => _buildKlineDataFromRow(row)).toList();
+  String _dateTimeToString(DateTime dt) {
+    return '${dt.year.toString().padLeft(4, '0')}-'
+        '${dt.month.toString().padLeft(2, '0')}-'
+        '${dt.day.toString().padLeft(2, '0')}';
+  }
+
+  DateTime _parseDateTime(dynamic value) {
+    if (value is DateTime) {
+      return value;
+    } else if (value is String) {
+      try {
+        if (value.contains('T')) {
+          return DateTime.parse(value);
+        } else if (value.contains(' ')) {
+          return DateTime.parse(value.replaceAll(' ', 'T'));
+        } else {
+          return DateTime.parse('${value}T00:00:00');
+        }
+      } catch (e) {
+        final parts = value.split(RegExp(r'[-/\s]'));
+        if (parts.length >= 3) {
+          return DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+        }
+        rethrow;
+      }
+    }
+    throw ArgumentError('Cannot parse DateTime from $value');
+  }
+
+  KlineDataData _parseKlineDataFromRow(QueryRow row) {
+    return KlineDataData(
+      symbol: row.readString('symbol'),
+      marketCode: row.readString('market_code'),
+      period: row.readString('period'),
+      tradeDate: _parseDateTime(row.read<dynamic>('trade_date')),
+      open: row.readDouble('open'),
+      high: row.readDouble('high'),
+      low: row.readDouble('low'),
+      close: row.readDouble('close'),
+      volume: row.readDouble('volume'),
+      amount: row.readDouble('amount'),
+      createdAt: _parseDateTime(row.read<dynamic>('created_at')),
+    );
   }
 }

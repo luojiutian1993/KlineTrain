@@ -1,4 +1,3 @@
-
 import '../database/app_database.dart';
 import 'kline_model.dart';
 import 'trade_point_model.dart';

@@ -65,6 +65,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   double _accountBalance = 100000.0;
   double _positionQuantity = 0.0;
   double _positionCost = 0.0;
+  double _totalProfitLoss = 0.0;
+  double _initialBalance = 100000.0;
 
   int _visibleStartIndex = 0;
   int _visibleKlineCount = 20;
@@ -398,6 +400,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         label: '卖出 ${quantity.toInt()}股',
         date: _allKlineData[_currentDayIndex].dateTime,
       ));
+
+      final sellProfit = (price - _positionCost) * quantity;
+      _totalProfitLoss += sellProfit;
 
       _accountBalance += quantity * price;
       _positionQuantity -= quantity;
@@ -853,22 +858,31 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            _buildStockInfo(),
+            _buildMarketData(),
+            _buildPeriodSelector(),
             Expanded(
-              child: Column(
-                children: [
-                  _buildStockInfo(),
-                  _buildMarketData(),
-                  _buildPeriodSelector(),
-                  Expanded(
-                    child: _buildKlineChartWithoutControls(),
-                  ),
-                  _buildControlButtons(),
-                  _buildIndicatorWithSelector(_selectedTopIndicator, true),
-                  _buildIndicatorWithSelector(_selectedBottomIndicator, false),
-                ],
+              flex: 2,
+              child: ClipRect(
+                child: _buildKlineChartWithoutControls(),
+              ),
+            ),
+            _buildControlButtons(),
+            Expanded(
+              flex: 1,
+              child: ClipRect(
+                child: _buildIndicatorWithSelector(_selectedTopIndicator, true),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: ClipRect(
+                child: _buildIndicatorWithSelector(
+                    _selectedBottomIndicator, false),
               ),
             ),
             _buildTradeButtons(),
+            _buildAssetInfo(),
           ],
         ),
       ),
@@ -1266,7 +1280,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildControlButtons() {
     return Container(
-      height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
@@ -1303,84 +1316,79 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Widget _buildIndicatorWithSelector(String indicator, bool isTop) {
-    return SizedBox(
-      height: 60,
-      child: Column(
-        children: [
-          Container(
-            height: 22,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: const BoxDecoration(
-              border: Border(
-                  bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButton<String>(
-                    value: indicator,
-                    items: _indicators.map((ind) {
-                      return DropdownMenuItem<String>(
-                        value: ind,
-                        child: Text(ind,
-                            style: const TextStyle(
-                                fontSize: 10, color: Colors.black)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          if (isTop) {
-                            _selectedTopIndicator = value;
-                          } else {
-                            _selectedBottomIndicator = value;
-                          }
-                        });
-                      }
-                    },
-                    underline: const SizedBox(),
-                    style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black),
-                    iconSize: 12,
-                  ),
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: const BoxDecoration(
+            border:
+                Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: DropdownButton<String>(
+                  value: indicator,
+                  items: _indicators.map((ind) {
+                    return DropdownMenuItem<String>(
+                      value: ind,
+                      child: Text(ind,
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.black)),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        if (isTop) {
+                          _selectedTopIndicator = value;
+                        } else {
+                          _selectedBottomIndicator = value;
+                        }
+                      });
+                    }
+                  },
+                  underline: const SizedBox(),
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black),
+                  iconSize: 12,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              child: indicator == '成交量'
-                  ? _buildVolumeChart()
-                  : indicator == 'MACD'
-                      ? _buildMacdChart()
-                      : indicator == 'KDJ'
-                          ? _buildKdjChart()
-                          : indicator == 'RSI'
-                              ? _buildRsiChart()
-                              : indicator == 'BOLL'
-                                  ? _buildBollChart()
-                                  : indicator == 'WR'
-                                      ? _buildWrChart()
-                                      : indicator == 'CCI'
-                                          ? _buildCciChart()
-                                          : indicator == 'OBV'
-                                              ? _buildObvChart()
-                                              : indicator == 'DMI'
-                                                  ? _buildDmiChart()
-                                                  : indicator == 'DMA'
-                                                      ? _buildDmaChart()
-                                                      : indicator == 'BBI'
-                                                          ? _buildBbiChart()
-                                                          : const Center(
-                                                              child:
-                                                                  Text('指标')),
-            ),
+        ),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(2),
+            child: indicator == '成交量'
+                ? _buildVolumeChart()
+                : indicator == 'MACD'
+                    ? _buildMacdChart()
+                    : indicator == 'KDJ'
+                        ? _buildKdjChart()
+                        : indicator == 'RSI'
+                            ? _buildRsiChart()
+                            : indicator == 'BOLL'
+                                ? _buildBollChart()
+                                : indicator == 'WR'
+                                    ? _buildWrChart()
+                                    : indicator == 'CCI'
+                                        ? _buildCciChart()
+                                        : indicator == 'OBV'
+                                            ? _buildObvChart()
+                                            : indicator == 'DMI'
+                                                ? _buildDmiChart()
+                                                : indicator == 'DMA'
+                                                    ? _buildDmaChart()
+                                                    : indicator == 'BBI'
+                                                        ? _buildBbiChart()
+                                                        : const Center(
+                                                            child: Text('指标')),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1403,7 +1411,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildIndicatorSelectorForSingleScreen() {
     return SizedBox(
-      height: 28,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: const BoxDecoration(
@@ -1551,7 +1558,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildSingleIndicatorChart(String indicator) {
     return SizedBox(
-      height: 50,
       child: Container(
         padding: const EdgeInsets.all(2),
         decoration: const BoxDecoration(
@@ -2221,7 +2227,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildTradeButtons() {
     return Container(
-      height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
@@ -2329,6 +2334,152 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
               ),
               child: const Text('下一步', style: TextStyle(fontSize: 10)),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssetInfo() {
+    final currentData =
+        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
+            ? _allKlineData[_currentDayIndex]
+            : null;
+
+    final currentPrice = currentData?.close ?? 0;
+    final positionValue = _positionQuantity * currentPrice;
+    final currentProfit = _positionQuantity > 0
+        ? positionValue - (_positionQuantity * _positionCost)
+        : 0.0;
+    final currentProfitRatio = _positionQuantity > 0 && _positionCost > 0
+        ? (currentProfit / (_positionQuantity * _positionCost)) * 100
+        : 0.0;
+
+    final totalAssets = _accountBalance + positionValue;
+    final availableAssets = _accountBalance;
+
+    final totalProfitLossRatio = _initialBalance > 0
+        ? ((totalAssets - _initialBalance) / _initialBalance) * 100
+        : 0.0;
+
+    return Container(
+      height: 80,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: const [
+              Expanded(
+                  child: Center(
+                      child: Text('市值',
+                          style:
+                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
+              Expanded(
+                  child: Center(
+                      child: Text('盈亏',
+                          style:
+                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
+              Expanded(
+                  child: Center(
+                      child: Text('持仓/可用',
+                          style:
+                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
+              Expanded(
+                  child: Center(
+                      child: Text('成本/现价',
+                          style:
+                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
+              Expanded(
+                  child: Center(
+                      child: Text('总资产/可用',
+                          style:
+                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
+              Expanded(
+                  child: Center(
+                      child: Text('总盈亏',
+                          style:
+                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Expanded(
+                  child: Center(
+                      child: Text('${positionValue.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text(
+                          '${currentProfit >= 0 ? '+' : ''}${currentProfit.toStringAsFixed(2)}',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: currentProfit >= 0
+                                  ? Colors.red
+                                  : Colors.green)))),
+              Expanded(
+                  child: Center(
+                      child: Text('${_positionQuantity.toInt()}',
+                          style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text('${_positionCost.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text('${totalAssets.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text(
+                          '${_totalProfitLoss >= 0 ? '+' : ''}${_totalProfitLoss.toStringAsFixed(2)}',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: _totalProfitLoss >= 0
+                                  ? Colors.red
+                                  : Colors.green)))),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Expanded(
+                  child: Center(
+                      child: Text('', style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text(
+                          '${currentProfitRatio >= 0 ? '+' : ''}${currentProfitRatio.toStringAsFixed(2)}%',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: currentProfitRatio >= 0
+                                  ? Colors.red
+                                  : Colors.green)))),
+              Expanded(
+                  child: Center(
+                      child: Text('', style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text('${currentPrice.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text('${availableAssets.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 10)))),
+              Expanded(
+                  child: Center(
+                      child: Text(
+                          '${totalProfitLossRatio >= 0 ? '+' : ''}${totalProfitLossRatio.toStringAsFixed(2)}%',
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: totalProfitLossRatio >= 0
+                                  ? Colors.red
+                                  : Colors.green)))),
+            ],
           ),
         ],
       ),

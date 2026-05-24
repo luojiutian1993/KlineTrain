@@ -1,4 +1,3 @@
-
 class TradePoint {
   final int index;
   final double price;

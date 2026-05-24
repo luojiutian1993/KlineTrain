@@ -66,12 +66,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Column(
           children: [
             const SizedBox(height: 100),
-            const Text('K线训练营', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+            const Text('K线训练营',
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text('模拟交易，实战训练', style: TextStyle(color: AppTheme.muted)),
             const SizedBox(height: 60),
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18)),
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -98,7 +100,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _showPassword ? Icons.visibility : Icons.visibility_off,
+                            _showPassword
+                                ? Icons.visibility
+                                : Icons.visibility_off,
                           ),
                           onPressed: () {
                             setState(() {
@@ -129,7 +133,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         ),
                         child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
+                            ? const CircularProgressIndicator(
+                                color: Colors.white)
                             : const Text('登录', style: TextStyle(fontSize: 16)),
                       ),
                     ),

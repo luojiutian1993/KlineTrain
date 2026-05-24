@@ -8,21 +8,28 @@ class LearningProgressScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(title: const Text('学习进度'), backgroundColor: AppTheme.surface),
+      appBar:
+          AppBar(title: const Text('学习进度'), backgroundColor: AppTheme.surface),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
+              decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(18)),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('当前进度', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-                      Text('6/20 课程', style: TextStyle(color: AppTheme.accent, fontSize: 16)),
+                      const Text('当前进度',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500)),
+                      Text('6/20 课程',
+                          style:
+                              TextStyle(color: AppTheme.accent, fontSize: 16)),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -49,7 +56,8 @@ class LearningProgressScreen extends StatelessWidget {
                     chapters: [
                       _Chapter(title: '1.1 K线概述', completed: true),
                       _Chapter(title: '1.2 单根K线解读', completed: true),
-                      _Chapter(title: '1.3 K线组合', completed: false, current: true),
+                      _Chapter(
+                          title: '1.3 K线组合', completed: false, current: true),
                       _Chapter(title: '1.4 常见K线形态', completed: false),
                     ],
                   ),
@@ -82,7 +90,8 @@ class _CourseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
       child: Column(
         children: [
           Padding(
@@ -91,7 +100,9 @@ class _CourseCard extends StatelessWidget {
               children: [
                 const Icon(Icons.book, color: AppTheme.accent),
                 const SizedBox(width: 8),
-                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w500)),
               ],
             ),
           ),
@@ -107,7 +118,8 @@ class _Chapter {
   final bool completed;
   final bool current;
 
-  const _Chapter({required this.title, required this.completed, this.current = false});
+  const _Chapter(
+      {required this.title, required this.completed, this.current = false});
 }
 
 class _ChapterItem extends StatelessWidget {
@@ -124,7 +136,9 @@ class _ChapterItem extends StatelessWidget {
               ? const Icon(Icons.play_circle, color: AppTheme.accent)
               : const Icon(Icons.circle_outlined, color: AppTheme.muted),
       title: Text(chapter.title),
-      trailing: chapter.current ? const Icon(Icons.arrow_forward_ios, color: AppTheme.accent) : null,
+      trailing: chapter.current
+          ? const Icon(Icons.arrow_forward_ios, color: AppTheme.accent)
+          : null,
       onTap: chapter.current ? () {} : null,
     );
   }

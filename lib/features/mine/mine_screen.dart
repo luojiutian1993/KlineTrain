@@ -44,7 +44,8 @@ class _MineScreenState extends ConsumerState<MineScreen> {
   void _navigateToSettings() => context.push(AppRoutes.settings);
   void _navigateToFavorites() => context.push(AppRoutes.favorites);
   void _navigateToTrainingHistory() => context.push(AppRoutes.trainingHistory);
-  void _navigateToLearningProgress() => context.push(AppRoutes.learningProgress);
+  void _navigateToLearningProgress() =>
+      context.push(AppRoutes.learningProgress);
   void _navigateToNotifications() => context.push(AppRoutes.notifications);
   void _navigateToFeedback() => context.push(AppRoutes.feedback);
   void _navigateToHelpCenter() => context.push(AppRoutes.helpCenter);
@@ -89,7 +90,9 @@ class _MineScreenState extends ConsumerState<MineScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              ref.read(userProvider.notifier).updateProfile(nickname: controller.text);
+              ref
+                  .read(userProvider.notifier)
+                  .updateProfile(nickname: controller.text);
               Navigator.pop(context);
             },
             child: const Text('保存'),
@@ -108,12 +111,15 @@ class _MineScreenState extends ConsumerState<MineScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('账户信息', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('账户信息',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _InfoRow(label: '用户账号', value: _maskPhone(user?.phone ?? '')),
             _InfoRow(label: '用户昵称', value: user?.nickname ?? '-'),
             _InfoRow(label: '会员等级', value: user?.level.label ?? '-'),
-            _InfoRow(label: '注册时间', value: user?.createdAt.toString().split(' ')[0] ?? '-'),
+            _InfoRow(
+                label: '注册时间',
+                value: user?.createdAt.toString().split(' ')[0] ?? '-'),
           ],
         ),
       ),
@@ -237,15 +243,18 @@ class _MineScreenState extends ConsumerState<MineScreen> {
                     CircleAvatar(
                       radius: 40,
                       backgroundColor: Color.fromRGBO(255, 255, 255, 0.2),
-                      child: const Icon(Icons.person, size: 40, color: Colors.white),
+                      child: const Icon(Icons.person,
+                          size: 40, color: Colors.white),
                     ),
                     Positioned(
                       right: 0,
                       bottom: 0,
                       child: Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt, size: 16, color: Color(0xFF667eea)),
+                        decoration: const BoxDecoration(
+                            color: Colors.white, shape: BoxShape.circle),
+                        child: const Icon(Icons.camera_alt,
+                            size: 16, color: Color(0xFF667eea)),
                       ),
                     ),
                   ],
@@ -261,16 +270,23 @@ class _MineScreenState extends ConsumerState<MineScreen> {
                       child: Row(
                         children: [
                           Text(
-                            user?.nickname.isEmpty != false ? '点击设置昵称' : user!.nickname,
-                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                            user?.nickname.isEmpty != false
+                                ? '点击设置昵称'
+                                : user!.nickname,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.edit, color: Colors.white70, size: 16),
+                          const Icon(Icons.edit,
+                              color: Colors.white70, size: 16),
                         ],
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(_maskPhone(user?.phone ?? ''), style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    Text(_maskPhone(user?.phone ?? ''),
+                        style: TextStyle(color: Colors.white70, fontSize: 14)),
                     const SizedBox(height: 8),
                     if (user != null) _LevelBadge(level: user.level),
                   ],
@@ -297,13 +313,19 @@ class _MineScreenState extends ConsumerState<MineScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _StatItem(icon: Icons.trending_up, label: '训练次数', value: '${user?.trainingCount ?? 0}'),
+              _StatItem(
+                  icon: Icons.trending_up,
+                  label: '训练次数',
+                  value: '${user?.trainingCount ?? 0}'),
               _StatVerticalDivider(),
               _StatItem(
                 icon: Icons.show_chart,
                 label: '总收益率',
-                value: '${(user?.totalReturnPercent ?? 0) >= 0 ? '+' : ''}${(user?.totalReturnPercent ?? 0).toStringAsFixed(1)}%',
-                color: (user?.totalReturnPercent ?? 0) >= 0 ? AppTheme.red : AppTheme.green,
+                value:
+                    '${(user?.totalReturnPercent ?? 0) >= 0 ? '+' : ''}${(user?.totalReturnPercent ?? 0).toStringAsFixed(1)}%',
+                color: (user?.totalReturnPercent ?? 0) >= 0
+                    ? AppTheme.red
+                    : AppTheme.green,
               ),
               _StatVerticalDivider(),
               _StatItem(
@@ -314,7 +336,10 @@ class _MineScreenState extends ConsumerState<MineScreen> {
                     : '0%',
               ),
               _StatVerticalDivider(),
-              _StatItem(icon: Icons.book, label: '学习进度', value: '${user?.learningProgress ?? 0}%'),
+              _StatItem(
+                  icon: Icons.book,
+                  label: '学习进度',
+                  value: '${user?.learningProgress ?? 0}%'),
             ],
           ),
         ),
@@ -330,7 +355,8 @@ class _MineScreenState extends ConsumerState<MineScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 12),
-            child: Text('功能区', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: Text('功能区',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           Card(
             elevation: 0,
@@ -340,9 +366,18 @@ class _MineScreenState extends ConsumerState<MineScreen> {
             ),
             child: Column(
               children: [
-                _MenuItem(icon: Icons.star, title: '自选管理', onTap: _navigateToFavorites),
-                _MenuItem(icon: Icons.bar_chart, title: '训练记录', onTap: _navigateToTrainingHistory),
-                _MenuItem(icon: Icons.book, title: '学习进度', onTap: _navigateToLearningProgress),
+                _MenuItem(
+                    icon: Icons.star,
+                    title: '自选管理',
+                    onTap: _navigateToFavorites),
+                _MenuItem(
+                    icon: Icons.bar_chart,
+                    title: '训练记录',
+                    onTap: _navigateToTrainingHistory),
+                _MenuItem(
+                    icon: Icons.book,
+                    title: '学习进度',
+                    onTap: _navigateToLearningProgress),
               ],
             ),
           ),
@@ -355,9 +390,19 @@ class _MineScreenState extends ConsumerState<MineScreen> {
             ),
             child: Column(
               children: [
-                _MenuItem(icon: Icons.notifications, title: '消息通知', badge: '3', onTap: _navigateToNotifications),
-                _MenuItem(icon: Icons.feedback, title: '意见反馈', onTap: _navigateToFeedback),
-                _MenuItem(icon: Icons.help, title: '帮助中心', onTap: _navigateToHelpCenter),
+                _MenuItem(
+                    icon: Icons.notifications,
+                    title: '消息通知',
+                    badge: '3',
+                    onTap: _navigateToNotifications),
+                _MenuItem(
+                    icon: Icons.feedback,
+                    title: '意见反馈',
+                    onTap: _navigateToFeedback),
+                _MenuItem(
+                    icon: Icons.help,
+                    title: '帮助中心',
+                    onTap: _navigateToHelpCenter),
                 _MenuItem(icon: Icons.info, title: '关于我们', onTap: _showAbout),
               ],
             ),
@@ -396,7 +441,8 @@ class _MineScreenState extends ConsumerState<MineScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('K线训练营', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('K线训练营',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text('版本 1.0.0'),
             const SizedBox(height: 16),
@@ -415,11 +461,16 @@ class _LevelBadge extends StatelessWidget {
 
   Color get _levelColor {
     switch (level) {
-      case MemberLevel.bronze: return const Color(0xFFCD7F32);
-      case MemberLevel.silver: return const Color(0xFFC0C0C0);
-      case MemberLevel.gold: return const Color(0xFFFFD700);
-      case MemberLevel.platinum: return const Color(0xFFE5E4E2);
-      case MemberLevel.diamond: return const Color(0xFFB9F2FF);
+      case MemberLevel.bronze:
+        return const Color(0xFFCD7F32);
+      case MemberLevel.silver:
+        return const Color(0xFFC0C0C0);
+      case MemberLevel.gold:
+        return const Color(0xFFFFD700);
+      case MemberLevel.platinum:
+        return const Color(0xFFE5E4E2);
+      case MemberLevel.diamond:
+        return const Color(0xFFB9F2FF);
     }
   }
 
@@ -442,7 +493,11 @@ class _LevelBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Color.fromRGBO(_levelColor.red, _levelColor.green, _levelColor.blue, 0.8), _levelColor]),
+        gradient: LinearGradient(colors: [
+          Color.fromRGBO(
+              _levelColor.red, _levelColor.green, _levelColor.blue, 0.8),
+          _levelColor
+        ]),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -450,7 +505,11 @@ class _LevelBadge extends StatelessWidget {
         children: [
           Icon(_levelIcon, color: Colors.white, size: 16),
           const SizedBox(width: 4),
-          Text(level.label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(level.label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -463,7 +522,11 @@ class _StatItem extends StatelessWidget {
   final String value;
   final Color? color;
 
-  const _StatItem({required this.icon, required this.label, required this.value, this.color});
+  const _StatItem(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -472,7 +535,11 @@ class _StatItem extends StatelessWidget {
       children: [
         Icon(icon, color: const Color(0xFF667eea), size: 20),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color ?? AppTheme.fg)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color ?? AppTheme.fg)),
         const SizedBox(height: 2),
         Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
       ],
@@ -495,7 +562,11 @@ class _MenuItem extends StatelessWidget {
   final String? badge;
   final VoidCallback onTap;
 
-  const _MenuItem({required this.icon, required this.title, this.badge, required this.onTap});
+  const _MenuItem(
+      {required this.icon,
+      required this.title,
+      this.badge,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -510,7 +581,9 @@ class _MenuItem extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: AppTheme.accentSoft, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                  color: AppTheme.accentSoft,
+                  borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, color: AppTheme.accent, size: 20),
             ),
             const SizedBox(width: 12),
@@ -518,11 +591,15 @@ class _MenuItem extends StatelessWidget {
             if (badge != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: AppTheme.red, borderRadius: BorderRadius.circular(10)),
-                child: Text(badge!, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                decoration: BoxDecoration(
+                    color: AppTheme.red,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Text(badge!,
+                    style: const TextStyle(color: Colors.white, fontSize: 12)),
               ),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.muted),
+            const Icon(Icons.arrow_forward_ios,
+                size: 16, color: AppTheme.muted),
           ],
         ),
       ),

@@ -43,16 +43,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _handleDeleteAccount() async {
     setState(() => _isDeleting = true);
-    
+
     try {
       final userRepository = UserRepository();
       await userRepository.deleteAccount();
-      
+
       if (mounted) {
         Navigator.pop(context);
         ref.read(authStateProvider.notifier).logout();
         context.go(AppRoutes.login);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('账户已成功删除')),
         );
@@ -72,7 +72,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(title: const Text('设置'), backgroundColor: AppTheme.surface),
+      appBar:
+          AppBar(title: const Text('设置'), backgroundColor: AppTheme.surface),
       body: ListView(
         children: [
           const SizedBox(height: 12),
@@ -125,12 +126,14 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(title, style: TextStyle(fontSize: 14, color: AppTheme.muted)),
+            child: Text(title,
+                style: TextStyle(fontSize: 14, color: AppTheme.muted)),
           ),
           ...children,
         ],
@@ -144,7 +147,8 @@ class _SwitchTile extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const _SwitchTile({required this.title, required this.value, required this.onChanged});
+  const _SwitchTile(
+      {required this.title, required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -173,9 +177,14 @@ class _ListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(title, style: TextStyle(fontSize: 16, color: isDestructive ? AppTheme.red : null)),
-      subtitle: subtitle != null ? Text(subtitle!, style: TextStyle(color: AppTheme.muted)) : null,
-      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.muted),
+      title: Text(title,
+          style: TextStyle(
+              fontSize: 16, color: isDestructive ? AppTheme.red : null)),
+      subtitle: subtitle != null
+          ? Text(subtitle!, style: TextStyle(color: AppTheme.muted))
+          : null,
+      trailing:
+          const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.muted),
       onTap: onTap,
     );
   }

@@ -8,7 +8,8 @@ class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -30,7 +31,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         backgroundColor: AppTheme.surface,
         actions: [
           TextButton(
-            onPressed: () => ref.read(notificationsProvider.notifier).markAllAsRead(),
+            onPressed: () =>
+                ref.read(notificationsProvider.notifier).markAllAsRead(),
             child: const Text('全部已读'),
           ),
         ],
@@ -40,7 +42,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           const SizedBox(height: 12),
           ...notices.map((notice) => _NotificationItem(
                 notice: notice,
-                onTap: () => ref.read(notificationsProvider.notifier).markAsRead(notice.id),
+                onTap: () => ref
+                    .read(notificationsProvider.notifier)
+                    .markAsRead(notice.id),
               )),
         ],
       ),
@@ -73,7 +77,9 @@ class _NotificationItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(18),
-        border: notice.isRead ? null : Border(left: BorderSide(color: AppTheme.accent, width: 4)),
+        border: notice.isRead
+            ? null
+            : Border(left: BorderSide(color: AppTheme.accent, width: 4)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -81,7 +87,9 @@ class _NotificationItem extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: const Color(0xFFF0F4FF), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF0F4FF),
+                  borderRadius: BorderRadius.circular(8)),
               child: Icon(_icon, color: AppTheme.accent, size: 20),
             ),
             const SizedBox(width: 12),
@@ -92,7 +100,9 @@ class _NotificationItem extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(notice.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                      Text(notice.title,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500)),
                       Text(
                         _formatDate(notice.publishedAt),
                         style: TextStyle(color: AppTheme.muted, fontSize: 12),
@@ -100,7 +110,8 @@ class _NotificationItem extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(notice.content, style: TextStyle(color: AppTheme.muted, fontSize: 14)),
+                  Text(notice.content,
+                      style: TextStyle(color: AppTheme.muted, fontSize: 14)),
                 ],
               ),
             ),

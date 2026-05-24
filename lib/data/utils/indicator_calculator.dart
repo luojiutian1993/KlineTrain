@@ -471,16 +471,18 @@ class IndicatorCalculator {
 
   static Map<String, dynamic> calculateAll(List<KlineModel> data) {
     final closes = data.map((d) => d.close).toList();
-    
+
     final ma5 = calculateSMA(closes, 5);
     final ma10 = calculateSMA(closes, 10);
     final ma20 = calculateSMA(closes, 20);
     final ma30 = calculateSMA(closes, 30);
 
-    final volumes = data.map((d) => VolumeData(
-      volume: d.volume,
-      isUp: d.close >= d.open,
-    )).toList();
+    final volumes = data
+        .map((d) => VolumeData(
+              volume: d.volume,
+              isUp: d.close >= d.open,
+            ))
+        .toList();
 
     final macdResult = calculateMACD(data);
     final macdData = <MacdData>[];

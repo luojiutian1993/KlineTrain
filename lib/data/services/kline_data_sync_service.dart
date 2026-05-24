@@ -20,7 +20,8 @@ class KlineDataSyncService {
   }) async {
     try {
       _logger.d('========== 开始保存K线数据 ==========');
-      _logger.d('参数: symbol=$symbol, period=$period, count=${klineData.length}');
+      _logger
+          .d('参数: symbol=$symbol, period=$period, count=${klineData.length}');
 
       if (klineData.isEmpty) {
         _logger.w('⚠️ K线数据为空，跳过保存');
@@ -29,28 +30,41 @@ class KlineDataSyncService {
 
       _logger.d('步骤1: 转换数据格式...');
       // 直接使用带前缀的symbol，不进行normalize
-      final companions = klineData.map((item) => KlineDataCompanion(
-        symbol: Value(symbol),
-        marketCode: Value(marketCode),
-        period: Value(period),
-        tradeDate: Value(item.dateTime),
-        open: Value(item.open),
-        high: Value(item.high),
-        low: Value(item.low),
-        close: Value(item.close),
-        volume: Value(item.volume),
-        amount: Value(item.turnover),
-      )).toList();
+      final companions = klineData
+          .map((item) => KlineDataCompanion(
+                symbol: Value(symbol),
+                marketCode: Value(marketCode),
+                period: Value(period),
+                tradeDate: Value(item.dateTime),
+                open: Value(item.open),
+                high: Value(item.high),
+                low: Value(item.low),
+                close: Value(item.close),
+                volume: Value(item.volume),
+                amount: Value(item.turnover),
+              ))
+          .toList();
       _logger.d('步骤1完成: 转换了 ${companions.length} 条数据');
 
       _logger.d('步骤2: 执行批量插入...');
       await _dbService.klineDao.batchInsertKline(companions);
       _logger.d('✅ 步骤2完成: 批量插入成功');
 
-      _logger.d('步骤3: 验证保存结果 (使用count)...');
+      _logger.d('步骤3: 验证保存结果...');
       if (klineData.length >= 1) {
-        final count = await _dbService.klineDao.countKlineData(symbol, period);
-        _logger.d('✅ 步骤3完成: 数据库中该股票共有 $count 条K线数据');
+        final firstDate = klineData.first.dateTime;
+        final lastDate = klineData.last.dateTime;
+        _logger.d(
+            '验证查询: symbol=$symbol, period=$period, date=$firstDate ~ $lastDate');
+
+        final verifyData = await _dbService.klineDao.getKlineDataRange(
+          symbol,
+          period,
+          firstDate,
+          lastDate,
+        );
+
+        _logger.d('✅ 步骤3完成: 数据库中查询到 ${verifyData.length} 条数据');
       }
 
       _logger.d('========== K线数据保存完成 ==========');
@@ -70,7 +84,8 @@ class KlineDataSyncService {
       String symbol = session.symbol;
       String period = session.period.isNotEmpty ? session.period : 'day';
 
-      _logger.d('同步训练会话K线数据: sessionId=${session.id}, symbol=$symbol, period=$period');
+      _logger.d(
+          '同步训练会话K线数据: sessionId=${session.id}, symbol=$symbol, period=$period');
 
       final existingData = await _dbService.klineDao.getKlineDataRange(
         symbol,
@@ -97,18 +112,20 @@ class KlineDataSyncService {
 
       _logger.d('API返回 ${apiData.length} 条数据，开始插入数据库...');
 
-      final companions = apiData.map((item) => KlineDataCompanion(
-        symbol: Value(symbol),
-        marketCode: Value(session.marketCode),
-        period: Value(period),
-        tradeDate: Value(item.dateTime),
-        open: Value(item.open),
-        high: Value(item.high),
-        low: Value(item.low),
-        close: Value(item.close),
-        volume: Value(item.volume),
-        amount: Value(item.turnover),
-      )).toList();
+      final companions = apiData
+          .map((item) => KlineDataCompanion(
+                symbol: Value(symbol),
+                marketCode: Value(session.marketCode),
+                period: Value(period),
+                tradeDate: Value(item.dateTime),
+                open: Value(item.open),
+                high: Value(item.high),
+                low: Value(item.low),
+                close: Value(item.close),
+                volume: Value(item.volume),
+                amount: Value(item.turnover),
+              ))
+          .toList();
 
       await _dbService.klineDao.batchInsertKline(companions);
       _logger.d('K线数据同步完成');
@@ -135,7 +152,8 @@ class KlineDataSyncService {
 
     int successCount = 0;
     for (final stock in popularSymbols) {
-      final success = await _syncStockData(stock['symbol']!, stock['marketCode']!);
+      final success =
+          await _syncStockData(stock['symbol']!, stock['marketCode']!);
       if (success) {
         successCount++;
       }
@@ -158,18 +176,20 @@ class KlineDataSyncService {
         return false;
       }
 
-      final companions = apiData.map((item) => KlineDataCompanion(
-        symbol: Value(item.symbol),
-        marketCode: Value(marketCode),
-        period: Value('day'),
-        tradeDate: Value(item.dateTime),
-        open: Value(item.open),
-        high: Value(item.high),
-        low: Value(item.low),
-        close: Value(item.close),
-        volume: Value(item.volume),
-        amount: Value(item.turnover),
-      )).toList();
+      final companions = apiData
+          .map((item) => KlineDataCompanion(
+                symbol: Value(item.symbol),
+                marketCode: Value(marketCode),
+                period: Value('day'),
+                tradeDate: Value(item.dateTime),
+                open: Value(item.open),
+                high: Value(item.high),
+                low: Value(item.low),
+                close: Value(item.close),
+                volume: Value(item.volume),
+                amount: Value(item.turnover),
+              ))
+          .toList();
 
       await _dbService.klineDao.batchInsertKline(companions);
       _logger.d('股票 $symbol K线数据同步完成: ${apiData.length} 条');
@@ -187,7 +207,8 @@ class KlineDataSyncService {
     return symbol;
   }
 
-  Future<List<KlineModel>> getKlineDataForSession(TrainingSession session) async {
+  Future<List<KlineModel>> getKlineDataForSession(
+      TrainingSession session) async {
     String symbol = _normalizeSymbol(session.symbol);
     String period = session.period.isNotEmpty ? session.period : 'day';
 
@@ -210,15 +231,17 @@ class KlineDataSyncService {
       );
     }
 
-    return klineData.map((k) => KlineModel(
-      symbol: k.symbol,
-      timestamp: k.tradeDate.millisecondsSinceEpoch,
-      open: k.open,
-      high: k.high,
-      low: k.low,
-      close: k.close,
-      volume: k.volume,
-      turnover: k.amount ?? 0,
-    )).toList();
+    return klineData
+        .map((k) => KlineModel(
+              symbol: k.symbol,
+              timestamp: k.tradeDate.millisecondsSinceEpoch,
+              open: k.open,
+              high: k.high,
+              low: k.low,
+              close: k.close,
+              volume: k.volume,
+              turnover: k.amount ?? 0,
+            ))
+        .toList();
   }
 }

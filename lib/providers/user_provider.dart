@@ -3,7 +3,8 @@ import '../data/models/user_model.dart';
 import '../data/models/notice_model.dart';
 import '../data/repositories/user_repository.dart';
 
-final userRepositoryProvider = Provider<UserRepository>((ref) => UserRepository());
+final userRepositoryProvider =
+    Provider<UserRepository>((ref) => UserRepository());
 
 class UserState {
   final UserModel? user;
@@ -66,9 +67,11 @@ class NotificationsState {
   final bool isLoading;
   final String? error;
 
-  const NotificationsState({this.notices = const [], this.isLoading = false, this.error});
+  const NotificationsState(
+      {this.notices = const [], this.isLoading = false, this.error});
 
-  NotificationsState copyWith({List<NoticeModel>? notices, bool? isLoading, String? error}) {
+  NotificationsState copyWith(
+      {List<NoticeModel>? notices, bool? isLoading, String? error}) {
     return NotificationsState(
       notices: notices ?? this.notices,
       isLoading: isLoading ?? this.isLoading,
@@ -93,18 +96,19 @@ class NotificationsNotifier extends StateNotifier<NotificationsState> {
   }
 
   void markAsRead(String noticeId) {
-    state = state.copyWith(notices: state.notices.map((n) => 
-      n.id == noticeId ? n.copyWith(isRead: true) : n
-    ).toList());
+    state = state.copyWith(
+        notices: state.notices
+            .map((n) => n.id == noticeId ? n.copyWith(isRead: true) : n)
+            .toList());
   }
 
   void markAllAsRead() {
-    state = state.copyWith(notices: state.notices.map((n) => 
-      n.copyWith(isRead: true)
-    ).toList());
+    state = state.copyWith(
+        notices: state.notices.map((n) => n.copyWith(isRead: true)).toList());
   }
 }
 
-final notificationsProvider = StateNotifierProvider<NotificationsNotifier, NotificationsState>(
+final notificationsProvider =
+    StateNotifierProvider<NotificationsNotifier, NotificationsState>(
   (ref) => NotificationsNotifier(ref.watch(userRepositoryProvider)),
 );

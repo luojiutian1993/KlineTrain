@@ -42,16 +42,12 @@ class KlineChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (klineData.isEmpty && volumes.isEmpty && macdData.isEmpty) {
-      return const SizedBox(
-        height: 280,
-        child: Center(
-          child: Text('暂无数据'),
-        ),
+      return const Center(
+        child: Text('暂无数据'),
       );
     }
 
-    return SizedBox(
-      height: 280,
+    return Expanded(
       child: _buildPriceChart(),
     );
   }
@@ -72,8 +68,7 @@ class KlineChart extends StatelessWidget {
       }
     }
 
-    return SizedBox(
-      height: 280,
+    return ClipRect(
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -147,144 +142,137 @@ class KlineChart extends StatelessWidget {
   }
 
   Widget _buildVolumeChart() {
-    if (volumes.isEmpty) {
-      return const SizedBox(height: 100);
-    }
-    final maxVolume = volumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
-    return SizedBox(
-      height: 100,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxVolume * 1.2,
-                barTouchData: BarTouchData(enabled: false),
-                titlesData: const FlTitlesData(
-                  show: false,
-                ),
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: maxVolume / 4,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.withOpacity(0.2),
-                      strokeWidth: 0.5,
-                    );
-                  },
-                ),
-                barGroups: volumes
-                    .asMap()
-                    .entries
-                    .map(
-                      (entry) => BarChartGroupData(
-                        x: entry.key,
-                        barRods: [
-                          BarChartRodData(
-                            toY: entry.value.volume,
-                            color: entry.value.isUp ? Colors.red : Colors.green,
-                            width: 4,
-                          ),
-                        ],
-                      ),
-                    )
-                    .toList(),
+    final maxVolume =
+        volumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxVolume * 1.2,
+              barTouchData: BarTouchData(enabled: false),
+              titlesData: const FlTitlesData(
+                show: false,
               ),
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: maxVolume / 4,
+                getDrawingHorizontalLine: (value) {
+                  return FlLine(
+                    color: Colors.grey.withOpacity(0.2),
+                    strokeWidth: 0.5,
+                  );
+                },
+              ),
+              barGroups: volumes
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.volume,
+                          color: entry.value.isUp ? Colors.red : Colors.green,
+                          width: 4,
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
             ),
           ),
-          Positioned(
-            top: 4,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: const Text(
-                '成交量',
-                style: TextStyle(fontSize: 10, color: Colors.grey),
-              ),
+        ),
+        Positioned(
+          top: 4,
+          left: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: const Text(
+              '成交量',
+              style: TextStyle(fontSize: 10, color: Colors.grey),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildMacdChart() {
-    if (macdData.isEmpty) {
-      return const SizedBox(height: 120);
-    }
-    double maxMacd = macdData.map((m) => m.macd).reduce((a, b) => a.abs() > b.abs() ? a : b).abs();
+    double maxMacd = macdData
+        .map((m) => m.macd)
+        .reduce((a, b) => a.abs() > b.abs() ? a : b)
+        .abs();
 
-    return SizedBox(
-      height: 120,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxMacd * 1.2,
-                minY: -maxMacd * 1.2,
-                barTouchData: BarTouchData(enabled: false),
-                titlesData: const FlTitlesData(
-                  show: false,
-                ),
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: maxMacd / 2,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey.withOpacity(0.2),
-                      strokeWidth: 0.5,
-                    );
-                  },
-                ),
-                barGroups: macdData
-                    .asMap()
-                    .entries
-                    .map(
-                      (entry) => BarChartGroupData(
-                        x: entry.key,
-                        barRods: [
-                          BarChartRodData(
-                            toY: entry.value.macd,
-                            color: entry.value.macd > 0 ? Colors.red : Colors.green,
-                            width: 3,
-                          ),
-                        ],
-                      ),
-                    )
-                    .toList(),
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              maxY: maxMacd * 1.2,
+              minY: -maxMacd * 1.2,
+              barTouchData: BarTouchData(enabled: false),
+              titlesData: const FlTitlesData(
+                show: false,
               ),
+              borderData: FlBorderData(show: false),
+              gridData: FlGridData(
+                show: true,
+                drawVerticalLine: false,
+                horizontalInterval: maxMacd / 2,
+                getDrawingHorizontalLine: (value) {
+                  return FlLine(
+                    color: Colors.grey.withOpacity(0.2),
+                    strokeWidth: 0.5,
+                  );
+                },
+              ),
+              barGroups: macdData
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => BarChartGroupData(
+                      x: entry.key,
+                      barRods: [
+                        BarChartRodData(
+                          toY: entry.value.macd,
+                          color:
+                              entry.value.macd > 0 ? Colors.red : Colors.green,
+                          width: 3,
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(),
             ),
           ),
-          Positioned(
-            top: 4,
-            left: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.8),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: const Text(
-                'MACD',
-                style: TextStyle(fontSize: 10, color: Colors.grey),
-              ),
+        ),
+        Positioned(
+          top: 4,
+          left: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.8),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: const Text(
+              'MACD',
+              style: TextStyle(fontSize: 10, color: Colors.grey),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -314,20 +302,22 @@ class CandleStickChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRect(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CandleStickChartPainter(
-            klineData: klineData,
-            ma5: ma5,
-            ma10: ma10,
-            ma20: ma20,
-            ma30: ma30,
-            minY: minY,
-            maxY: maxY,
-            tradePoints: tradePoints,
-          ),
-        ],
+      child: SizedBox(
+        height: 280,
+        child: Stack(
+          children: [
+            CandleStickChartPainter(
+              klineData: klineData,
+              ma5: ma5,
+              ma10: ma10,
+              ma20: ma20,
+              ma30: ma30,
+              minY: minY,
+              maxY: maxY,
+              tradePoints: tradePoints,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -404,10 +394,14 @@ class _CandleStickPainter extends CustomPainter {
     for (int i = 0; i < klineData.length; i++) {
       final data = klineData[i];
       final double x = i * candleWidth + candleWidth / 2;
-      final double openY = size.height - ((data.open - minY) / priceRange) * size.height;
-      final double closeY = size.height - ((data.close - minY) / priceRange) * size.height;
-      final double highY = size.height - ((data.high - minY) / priceRange) * size.height;
-      final double lowY = size.height - ((data.low - minY) / priceRange) * size.height;
+      final double openY =
+          size.height - ((data.open - minY) / priceRange) * size.height;
+      final double closeY =
+          size.height - ((data.close - minY) / priceRange) * size.height;
+      final double highY =
+          size.height - ((data.high - minY) / priceRange) * size.height;
+      final double lowY =
+          size.height - ((data.low - minY) / priceRange) * size.height;
 
       final bool isUp = data.close >= data.open;
       final paint = Paint()
@@ -446,7 +440,8 @@ class _CandleStickPainter extends CustomPainter {
     }
   }
 
-  void _drawSmoothLine(Canvas canvas, Size size, List<double> values, Color color) {
+  void _drawSmoothLine(
+      Canvas canvas, Size size, List<double> values, Color color) {
     if (klineData.isEmpty || values.isEmpty) return;
 
     final double candleWidth = size.width / klineData.length;
@@ -475,7 +470,8 @@ class _CandleStickPainter extends CustomPainter {
         startIndex = i;
       } else {
         final prevX = (i - 1) * candleWidth + candleWidth / 2;
-        final prevY = size.height - ((values[i - 1] - minY) / priceRange) * size.height;
+        final prevY =
+            size.height - ((values[i - 1] - minY) / priceRange) * size.height;
         final cpX = (prevX + x) / 2;
         path.quadraticBezierTo(prevX, prevY, cpX, (prevY + y) / 2);
       }
@@ -485,7 +481,8 @@ class _CandleStickPainter extends CustomPainter {
   }
 
   void _drawTradePoints(Canvas canvas, Size size) {
-    if (klineData.isEmpty || tradePoints == null || tradePoints!.isEmpty) return;
+    if (klineData.isEmpty || tradePoints == null || tradePoints!.isEmpty)
+      return;
 
     final double candleWidth = size.width / klineData.length;
     final double priceRange = maxY - minY;
@@ -529,7 +526,8 @@ class _CandleStickPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(x - textPainter.width / 2, point.isBuy ? y - triangleSize - 15 : y + triangleSize + 5),
+        Offset(x - textPainter.width / 2,
+            point.isBuy ? y - triangleSize - 15 : y + triangleSize + 5),
       );
     }
   }
