@@ -269,6 +269,12 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   void _updateVisibleRange() {
     final baseCount = 20;
     _visibleKlineCount = (baseCount / _zoomScale).round().clamp(10, 700);
+
+    // 确保最右边的K线（当前训练天数）始终在视图最右侧
+    // 计算新的起始索引，使当前训练天数对应的K线在最右边
+    final maxStartIndex =
+        (_currentDayIndex + 1 - _visibleKlineCount).clamp(0, _currentDayIndex);
+    _visibleStartIndex = maxStartIndex;
   }
 
   void _slideLeft() {
