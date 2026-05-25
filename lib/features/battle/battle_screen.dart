@@ -24,6 +24,11 @@ class BattleScreen extends ConsumerStatefulWidget {
   ConsumerState<BattleScreen> createState() => _BattleScreenState();
 }
 
+enum TrainingPhase {
+  opening, // 开盘阶段（第一次进入）
+  closing, // 收盘阶段（第一次点击下一步后）
+}
+
 class _BattleScreenState extends ConsumerState<BattleScreen> {
   // 默认配置：深科技（SZ000021）
   static const String _DEFAULT_SYMBOL = 'SZ000021';
@@ -40,6 +45,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   final int _historyDays = 100; // 从30改为100，确保指标有足够预热期
   DateTime? _trainingStartDate;
   DateTime? _lastEdgeAlertTime;
+  TrainingPhase _trainingPhase = TrainingPhase.opening;
 
   final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
   final List<String> _indicators = [
@@ -228,21 +234,28 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Future<void> _nextDay() async {
-    // 确保不超过训练数据范围（历史数据 + 训练天数）
     final maxTrainingIndex = _historyDays + _trainingDays - 1;
 
-    if (_currentDayIndex < maxTrainingIndex &&
-        _currentDayIndex < _allKlineData.length - 1) {
+    if (_trainingPhase == TrainingPhase.opening) {
+      // 开盘阶段 → 收盘阶段（同一天）
       setState(() {
-        _currentDayIndex++;
-        // 滚动图表，确保当前训练天在可见范围内
-        _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
-            .clamp(0, _currentDayIndex);
-        _checkConditionalOrders();
-        _updateAccount();
+        _trainingPhase = TrainingPhase.closing;
       });
     } else {
-      await _showTrainingCompleteDialog();
+      // 收盘阶段 → 下一天开盘阶段
+      if (_currentDayIndex < maxTrainingIndex &&
+          _currentDayIndex < _allKlineData.length - 1) {
+        setState(() {
+          _currentDayIndex++;
+          _trainingPhase = TrainingPhase.opening;
+          _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
+              .clamp(0, _currentDayIndex);
+          _checkConditionalOrders();
+          _updateAccount();
+        });
+      } else {
+        await _showTrainingCompleteDialog();
+      }
     }
   }
 
@@ -269,6 +282,13 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   void _updateVisibleRange() {
     final baseCount = 20;
     _visibleKlineCount = (baseCount / _zoomScale).round().clamp(10, 700);
+
+    // 确保可见范围不超过当前训练天数，不显示未训练的数据
+    // 可见K线数量不能超过当前训练天数+1（从0到_currentDayIndex）
+    final maxVisibleCount = _currentDayIndex + 1;
+    if (_visibleKlineCount > maxVisibleCount) {
+      _visibleKlineCount = maxVisibleCount;
+    }
 
     // 确保最右边的K线（当前训练天数）始终在视图最右侧
     // 计算新的起始索引，使当前训练天数对应的K线在最右边
@@ -329,7 +349,24 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   void _showBuyDialog() {
     if (_allKlineData.isEmpty) return;
 
-    final currentPrice = _allKlineData[_currentDayIndex].close;
+    final currentData = _allKlineData[_currentDayIndex];
+    double currentPrice;
+    bool priceFixed;
+    double? minPrice;
+    double? maxPrice;
+
+    if (_trainingPhase == TrainingPhase.opening) {
+      currentPrice = currentData.open;
+      priceFixed = false;
+      minPrice = currentData.low;
+      maxPrice = currentData.high;
+    } else {
+      currentPrice = currentData.close;
+      priceFixed = true;
+      minPrice = null;
+      maxPrice = null;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -338,6 +375,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         currentPrice: currentPrice,
         maxQuantity: (_accountBalance / currentPrice / 100).floor() * 100,
         accountBalance: _accountBalance,
+        priceFixed: priceFixed,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
         onConfirm: (price, quantity) {
           Navigator.pop(context);
           _executeBuy(price, quantity);
@@ -376,7 +416,24 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       return;
     }
 
-    final currentPrice = _allKlineData[_currentDayIndex].close;
+    final currentData = _allKlineData[_currentDayIndex];
+    double currentPrice;
+    bool priceFixed;
+    double? minPrice;
+    double? maxPrice;
+
+    if (_trainingPhase == TrainingPhase.opening) {
+      currentPrice = currentData.open;
+      priceFixed = false;
+      minPrice = currentData.low;
+      maxPrice = currentData.high;
+    } else {
+      currentPrice = currentData.close;
+      priceFixed = true;
+      minPrice = null;
+      maxPrice = null;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -387,6 +444,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         accountBalance: _accountBalance,
         positionQuantity: _positionQuantity,
         positionCost: _positionCost,
+        priceFixed: priceFixed,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
         onConfirm: (price, quantity) {
           Navigator.pop(context);
           _executeSell(price, quantity);
@@ -922,6 +982,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
             ? _allKlineData[_currentDayIndex]
             : null;
 
+    final prevClose = _getPrevDayClose();
+    final (displayPrice, priceLabel, change, changePercent) =
+        _calculateChangeInfo(currentData, prevClose);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: const BoxDecoration(
@@ -941,24 +1005,22 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 第一列：收盘价和涨跌
+              // 第一列：价格和涨跌
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Text(
-                        currentData != null
-                            ? currentData.close.toStringAsFixed(2)
-                            : '--',
-                        style: const TextStyle(
+                        displayPrice,
+                        style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
-                            color: Colors.red),
+                            color: change >= 0 ? Colors.red : Colors.green),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        '收',
+                        priceLabel,
                         style: TextStyle(fontSize: 10, color: AppTheme.muted),
                       ),
                     ],
@@ -967,28 +1029,23 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                   Row(
                     children: [
                       Text(
-                        currentData != null
-                            ? '${currentData.change >= 0 ? '+' : ''}${currentData.change.toStringAsFixed(2)}'
+                        change != double.infinity
+                            ? '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}'
                             : '--',
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color:
-                                currentData != null && currentData.change >= 0
-                                    ? Colors.red
-                                    : Colors.green),
+                            color: change >= 0 ? Colors.red : Colors.green),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        currentData != null
-                            ? '${currentData.change >= 0 ? '+' : ''}${currentData.changePercent.toStringAsFixed(2)}%'
+                        changePercent != double.infinity
+                            ? '${changePercent >= 0 ? '+' : ''}${changePercent.toStringAsFixed(2)}%'
                             : '--',
                         style: TextStyle(
                             fontSize: 10,
                             color:
-                                currentData != null && currentData.change >= 0
-                                    ? Colors.red
-                                    : Colors.green),
+                                changePercent >= 0 ? Colors.red : Colors.green),
                       ),
                     ],
                   ),
@@ -1000,10 +1057,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildInfoItem(
-                      '高', currentData?.high.toStringAsFixed(2) ?? '--'),
+                      '高',
+                      _trainingPhase == TrainingPhase.opening
+                          ? '--'
+                          : (currentData?.high.toStringAsFixed(2) ?? '--')),
                   const SizedBox(height: 4),
                   _buildInfoItem(
-                      '低', currentData?.low.toStringAsFixed(2) ?? '--'),
+                      '低',
+                      _trainingPhase == TrainingPhase.opening
+                          ? '--'
+                          : (currentData?.low.toStringAsFixed(2) ?? '--')),
                 ],
               ),
               const SizedBox(width: 12),
@@ -1014,7 +1077,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                   _buildInfoItem(
                       '开', currentData?.open.toStringAsFixed(2) ?? '--'),
                   const SizedBox(height: 4),
-                  _buildInfoItem('换手', '待更新'),
+                  _buildInfoItem('换手',
+                      _trainingPhase == TrainingPhase.opening ? '--' : '待更新'),
                 ],
               ),
               const SizedBox(width: 12),
@@ -1034,11 +1098,14 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 children: [
                   _buildInfoItem(
                       '量',
-                      currentData != null
-                          ? _formatVolume(currentData.volume)
-                          : '--'),
+                      _trainingPhase == TrainingPhase.opening
+                          ? '--'
+                          : (currentData != null
+                              ? _formatVolume(currentData.volume)
+                              : '--')),
                   const SizedBox(height: 4),
-                  _buildInfoItem('金额', '待更新'),
+                  _buildInfoItem('金额',
+                      _trainingPhase == TrainingPhase.opening ? '--' : '待更新'),
                 ],
               ),
             ],
@@ -1046,6 +1113,36 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         ],
       ),
     );
+  }
+
+  double _getPrevDayClose() {
+    if (_currentDayIndex > 0 && _currentDayIndex < _allKlineData.length) {
+      return _allKlineData[_currentDayIndex - 1].close;
+    }
+    return 0.0;
+  }
+
+  (String, String, double, double) _calculateChangeInfo(
+      KlineModel? currentData, double prevClose) {
+    if (currentData == null || prevClose <= 0) {
+      return ('--', '', double.infinity, double.infinity);
+    }
+
+    double basePrice;
+    String priceLabel;
+
+    if (_trainingPhase == TrainingPhase.opening) {
+      basePrice = currentData.open;
+      priceLabel = '开';
+    } else {
+      basePrice = currentData.close;
+      priceLabel = '收';
+    }
+
+    final change = basePrice - prevClose;
+    final changePercent = (change / prevClose) * 100;
+
+    return (basePrice.toStringAsFixed(2), priceLabel, change, changePercent);
   }
 
   Widget _buildInfoItem(String label, String value) {
@@ -3188,6 +3285,9 @@ class _TradeDialog extends StatefulWidget {
   final double accountBalance;
   final double? positionQuantity;
   final double? positionCost;
+  final bool priceFixed;
+  final double? minPrice;
+  final double? maxPrice;
   final Function(double price, double quantity) onConfirm;
 
   const _TradeDialog({
@@ -3197,6 +3297,9 @@ class _TradeDialog extends StatefulWidget {
     required this.accountBalance,
     this.positionQuantity,
     this.positionCost,
+    this.priceFixed = false,
+    this.minPrice,
+    this.maxPrice,
     required this.onConfirm,
   });
 
@@ -3259,6 +3362,25 @@ class _TradeDialogState extends State<_TradeDialog> {
       return;
     }
 
+    if (!widget.priceFixed) {
+      if (widget.minPrice != null && price < widget.minPrice!) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('价格不能低于最低价 ${widget.minPrice!.toStringAsFixed(2)}')),
+        );
+        return;
+      }
+      if (widget.maxPrice != null && price > widget.maxPrice!) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content:
+                  Text('价格不能高于最高价 ${widget.maxPrice!.toStringAsFixed(2)}')),
+        );
+        return;
+      }
+    }
+
     widget.onConfirm(price, quantity);
   }
 
@@ -3293,9 +3415,13 @@ class _TradeDialogState extends State<_TradeDialog> {
             decoration: InputDecoration(
               labelText: '${widget.title}价格',
               border: const OutlineInputBorder(),
-              suffixText: '当前价: ${widget.currentPrice.toStringAsFixed(2)}',
+              suffixText: widget.priceFixed
+                  ? '收盘价固定'
+                  : '当前价: ${widget.currentPrice.toStringAsFixed(2)}',
             ),
             keyboardType: TextInputType.number,
+            enabled: !widget.priceFixed,
+            readOnly: widget.priceFixed,
             onChanged: (value) {
               setState(() {});
             },
