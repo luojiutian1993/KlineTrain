@@ -481,7 +481,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ref.read(selectionProvider.notifier).setMarket(market);
                   },
                   onSubMarketsChanged: (subMarkets) {
-                    ref.read(selectionProvider.notifier).setSubMarkets(subMarkets);
+                    ref
+                        .read(selectionProvider.notifier)
+                        .setSubMarkets(subMarkets);
                   },
                 ),
                 const SizedBox(height: 16),
@@ -507,7 +509,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   builder: (context, ref, child) {
                     final filterState = ref.watch(stockFilterProvider);
                     final hasSelectedStock = filterState.hasSelectedStock;
-                    final isLoading = filterState.isLoading || _isGeneratingDate;
+                    final isLoading =
+                        filterState.isLoading || _isGeneratingDate;
 
                     return SizedBox(
                       width: double.infinity,
@@ -526,7 +529,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 }
 
                                 final stock = filterState.selectedStock;
-                                if (stock != null && _trainingStartDate != null) {
+                                if (stock != null &&
+                                    _trainingStartDate != null) {
                                   context.go(
                                     '/battle',
                                     extra: {

@@ -46,6 +46,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   DateTime? _trainingStartDate;
   DateTime? _lastEdgeAlertTime;
   TrainingPhase _trainingPhase = TrainingPhase.opening;
+  bool _isReplayMode = false;
 
   final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
   final List<String> _indicators = [
@@ -116,6 +117,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Future<void> _loadReplayMode(Map<String, dynamic> extra) async {
+    setState(() {
+      _isReplayMode = true;
+    });
     final sessionId = extra['sessionId'] as int?;
     if (sessionId == null) {
       _loadKlineData();
@@ -131,6 +135,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _currentSymbol = session.symbol;
         _currentMarketCode = session.marketCode;
         _trainingStartDate = session.startDate;
+        _currentSymbolName = _getStockName(session.symbol);
         _trainingDays =
             session.endDate.difference(session.startDate).inDays + 1;
         _initialBalance = session.initialCapital;
@@ -356,13 +361,35 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   Future<void> _nextDay() async {
     final maxTrainingIndex = _historyDays + _trainingDays - 1;
 
+    if (_isReplayMode) {
+      // 复盘模式：显示训练已结束提醒
+      if (_trainingPhase == TrainingPhase.opening) {
+        setState(() {
+          _trainingPhase = TrainingPhase.closing;
+        });
+      } else {
+        if (_currentDayIndex < maxTrainingIndex &&
+            _currentDayIndex < _allKlineData.length - 1) {
+          setState(() {
+            _currentDayIndex++;
+            _trainingPhase = TrainingPhase.opening;
+            _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
+                .clamp(0, _currentDayIndex);
+            _checkConditionalOrders();
+            _updateAccount();
+          });
+        } else {
+          _showReplayEndDialog();
+        }
+      }
+      return;
+    }
+
     if (_trainingPhase == TrainingPhase.opening) {
-      // 开盘阶段 → 收盘阶段（同一天）
       setState(() {
         _trainingPhase = TrainingPhase.closing;
       });
     } else {
-      // 收盘阶段 → 下一天开盘阶段
       if (_currentDayIndex < maxTrainingIndex &&
           _currentDayIndex < _allKlineData.length - 1) {
         setState(() {
@@ -377,6 +404,45 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         await _showTrainingCompleteDialog();
       }
     }
+  }
+
+  void _showReplayEndDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('训练已结束',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          content: const SingleChildScrollView(
+            child: Column(
+              children: [
+                SizedBox(height: 16),
+                Text('本次训练周期已结束，您可以：', style: TextStyle(fontSize: 16)),
+                SizedBox(height: 16),
+                Text('- 点击"返回"回到记录页面查看更多训练记录'),
+                Text('- 重新开始复盘或进行重训'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.go('/records');
+              },
+              child: const Text('返回记录'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('关闭'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _checkConditionalOrders() {}

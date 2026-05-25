@@ -81,7 +81,8 @@ class UserRepository {
             avatar: Value(user.avatarUrl.isNotEmpty ? user.avatarUrl : null),
             memberLevel: Value(user.level.value),
             totalProfit: Value(user.totalReturnPercent),
-            overallWinRate: Value(user.totalTrades > 0 ? user.winCount / user.totalTrades : 0.0),
+            overallWinRate: Value(
+                user.totalTrades > 0 ? user.winCount / user.totalTrades : 0.0),
             status: const Value('active'),
             lastLoginAt: Value(DateTime.now()),
             updatedAt: Value(DateTime.now()),
@@ -92,7 +93,7 @@ class UserRepository {
         // 生成密码哈希（如果提供了密码）
         String? hashedPassword;
         String? salt;
-        
+
         if (password != null && password.isNotEmpty) {
           salt = SecurityUtils.generateSalt();
           hashedPassword = SecurityUtils.hashPassword(password, salt);
@@ -102,13 +103,16 @@ class UserRepository {
         await _dbService.userDao.createUser(
           UsersCompanion(
             phone: Value(user.phone),
-            password: hashedPassword != null ? Value(hashedPassword) : const Value.absent(),
+            password: hashedPassword != null
+                ? Value(hashedPassword)
+                : const Value.absent(),
             salt: salt != null ? Value(salt) : const Value.absent(),
             nickname: Value(user.nickname.isNotEmpty ? user.nickname : null),
             avatar: Value(user.avatarUrl.isNotEmpty ? user.avatarUrl : null),
             memberLevel: Value(user.level.value),
             totalProfit: Value(user.totalReturnPercent),
-            overallWinRate: Value(user.totalTrades > 0 ? user.winCount / user.totalTrades : 0.0),
+            overallWinRate: Value(
+                user.totalTrades > 0 ? user.winCount / user.totalTrades : 0.0),
             status: const Value('active'),
             lastLoginAt: Value(DateTime.now()),
           ),
@@ -265,7 +269,7 @@ class UserRepository {
       if (user == null || user.password == null || user.salt == null) {
         return false;
       }
-      
+
       return SecurityUtils.verifyPassword(password, user.password!, user.salt!);
     } catch (e, stackTrace) {
       appLogger.e('验证密码失败', error: e, stackTrace: stackTrace);
@@ -282,9 +286,9 @@ class UserRepository {
       }
 
       final userId = activeUsers.first.id;
-      
+
       await _dbService.userDao.deleteUser(userId);
-      
+
       appLogger.i('用户账户删除成功: userId=$userId');
     } catch (e, stackTrace) {
       appLogger.e('删除用户账户失败', error: e, stackTrace: stackTrace);

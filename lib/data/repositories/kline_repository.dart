@@ -8,6 +8,7 @@ import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
+import 'package:kline_trainer/data/services/cache/cache_manager.dart';
 
 part 'kline_repository.g.dart';
 
@@ -18,6 +19,7 @@ KlineRepository klineRepository(KlineRepositoryRef ref) {
 
 class KlineRepository {
   final KlineApi _api = KlineApi();
+  final CacheManager _cacheManager = CacheManager();
   DatabaseService? _dbService;
 
   Future<DatabaseService> _getDbService() async {
@@ -154,6 +156,16 @@ class KlineRepository {
     int limit = 100,
   }) async {
     try {
+      final cacheKey = '${symbol}_${timeframe}_$limit';
+
+      final cachedData = await _cacheManager.getWithNamespace<List<KlineModel>>(
+        CacheNamespaces.kline,
+        cacheKey,
+      );
+      if (cachedData != null && cachedData.isNotEmpty) {
+        return cachedData.take(limit).toList();
+      }
+
       final dbData = await fetchKlineDataFromDb(
         symbol: symbol,
         period: timeframe,
@@ -161,11 +173,15 @@ class KlineRepository {
       );
 
       if (dbData.isNotEmpty) {
-        // 验证数据质量
         if (_validateKlineData(dbData)) {
+          await _cacheManager.setWithNamespace(
+            CacheNamespaces.kline,
+            cacheKey,
+            dbData,
+            ttl: CacheTtl.medium,
+          );
           return dbData.take(limit).toList();
         } else {
-          // 数据异常，使用模拟数据
           return _generateMockData(symbol, limit);
         }
       }
@@ -174,6 +190,12 @@ class KlineRepository {
         final aggregatedData = await _aggregateFromDailyData(symbol, timeframe);
         if (aggregatedData.isNotEmpty) {
           if (_validateKlineData(aggregatedData)) {
+            await _cacheManager.setWithNamespace(
+              CacheNamespaces.kline,
+              cacheKey,
+              aggregatedData,
+              ttl: CacheTtl.medium,
+            );
             return aggregatedData.take(limit).toList();
           } else {
             return _generateMockData(symbol, limit);
@@ -190,6 +212,12 @@ class KlineRepository {
       if (apiData.isNotEmpty) {
         if (_validateKlineData(apiData)) {
           await _saveToDatabase(apiData, timeframe);
+          await _cacheManager.setWithNamespace(
+            CacheNamespaces.kline,
+            cacheKey,
+            apiData,
+            ttl: CacheTtl.medium,
+          );
           return apiData;
         } else {
           return _generateMockData(symbol, limit);
@@ -265,7 +293,7 @@ class KlineRepository {
   List<KlineModel> _generateMockData(String symbol, int count) {
     final data = <KlineModel>[];
     final now = DateTime.now();
-    final random = Random(12345); // 固定种子确保可重现
+    final random = Random(12345);
     double basePrice = 10.0;
 
     for (int i = count - 1; i >= 0; i--) {
@@ -275,15 +303,12 @@ class KlineRepository {
       final high = close > open ? close + 0.2 : open + 0.2;
       final low = close < open ? close - 0.2 : open - 0.2;
 
-      // 生成有真实波动的成交量
-      // 基准成交量: 1000万手
-      // 周期性变化 + 随机波动
       final baseVolume = 10000000.0;
-      final periodicVariation = sin(i / 10) * 3000000.0; // 周期性波动
-      final randomVariation = (random.nextDouble() - 0.5) * 4000000.0; // 随机波动
+      final periodicVariation = sin(i / 10) * 3000000.0;
+      final randomVariation = (random.nextDouble() - 0.5) * 4000000.0;
       final volume = (baseVolume + periodicVariation + randomVariation).clamp(
-        3000000.0, // 最小值 300万
-        30000000.0, // 最大值 3000万
+        3000000.0,
+        30000000.0,
       );
 
       data.add(
@@ -295,7 +320,7 @@ class KlineRepository {
           low: double.parse(low.toStringAsFixed(2)),
           close: double.parse(close.toStringAsFixed(2)),
           volume: volume,
-          turnover: volume * close, // 成交额 = 成交量 * 收盘价
+          turnover: volume * close,
         ),
       );
 
@@ -312,11 +337,14 @@ class KlineRepository {
     final minVolume = volumes.reduce((a, b) => a < b ? a : b);
     final maxVolume = volumes.reduce((a, b) => a > b ? a : b);
 
-    // 如果最大最小成交量相差不到10%，认为数据异常
     if (maxVolume / minVolume < 1.1) {
       return false;
     }
 
     return true;
+  }
+
+  Future<void> clearCache() async {
+    await _cacheManager.clearNamespace(CacheNamespaces.kline);
   }
 }

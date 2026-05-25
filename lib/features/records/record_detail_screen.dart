@@ -147,12 +147,14 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
               Expanded(
                 child: _InfoItem(
                     label: '训练周期',
-                    value: _formatDateRange(session.startDate, session.endDate)),
+                    value:
+                        _formatDateRange(session.startDate, session.endDate)),
               ),
               Expanded(
                 child: _InfoItem(
                     label: '初始资金',
-                    value: '¥${(session.initialCapital ?? 0).toStringAsFixed(2)}'),
+                    value:
+                        '¥${(session.initialCapital ?? 0).toStringAsFixed(2)}'),
               ),
             ],
           ),
@@ -162,7 +164,8 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
               Expanded(
                 child: _InfoItem(
                     label: '最终资金',
-                    value: '¥${(session.currentCapital ?? 0).toStringAsFixed(2)}'),
+                    value:
+                        '¥${(session.currentCapital ?? 0).toStringAsFixed(2)}'),
               ),
               Expanded(
                 child: _InfoItem(
