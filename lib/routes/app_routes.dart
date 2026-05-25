@@ -64,7 +64,33 @@ class AppRoutes {
       GoRoute(
         path: battle,
         name: 'battle',
-        builder: (context, state) => const BattleScreen(),
+        builder: (context, state) {
+          print('🟢🟢🟢 [2.路由解析] 开始解析battle路由');
+          print('🟢🟢🟢 [2.路由解析] state.uri: ${state.uri}');
+          print(
+              '🟢🟢🟢 [2.路由解析] state.uri.queryParameters: ${state.uri.queryParameters}');
+
+          final symbol = state.uri.queryParameters['symbol'] ?? '';
+          final name = state.uri.queryParameters['name'] ?? '';
+          final market = state.uri.queryParameters['market'] ?? '';
+          final dateStr = state.uri.queryParameters['date'] ?? '';
+          final DateTime? trainingStartDate =
+              dateStr.isNotEmpty ? DateTime.tryParse(dateStr) : null;
+
+          print('🟢🟢🟢 [2.路由解析] 解析结果:');
+          print('🟢🟢🟢   - symbol: $symbol');
+          print('🟢🟢🟢   - name: $name');
+          print('🟢🟢🟢   - market: $market');
+          print('🟢🟢🟢   - dateStr: $dateStr');
+          print('🟢🟢🟢   - trainingStartDate: $trainingStartDate');
+
+          return BattleScreen(
+            initialSymbol: symbol,
+            initialName: name,
+            initialMarketCode: market,
+            initialTrainingStartDate: trainingStartDate,
+          );
+        },
       ),
       GoRoute(
         path: records,

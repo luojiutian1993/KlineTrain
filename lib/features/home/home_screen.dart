@@ -531,17 +531,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 final stock = filterState.selectedStock;
                                 if (stock != null &&
                                     _trainingStartDate != null) {
+                                  final dateStr = _trainingStartDate!
+                                      .toIso8601String()
+                                      .split('T')[0];
+                                  appLogger.d('🔵🔵🔵 [1.首页跳转] 准备跳转实战页面');
+                                  appLogger.d('🔵🔵🔵 [1.首页跳转] 参数详情:');
+                                  appLogger.d(
+                                      '🔵🔵🔵   - stock.symbol: ${stock.symbol}');
+                                  appLogger.d(
+                                      '🔵🔵🔵   - stock.symbolName: ${stock.symbolName}');
+                                  appLogger.d(
+                                      '🔵🔵🔵   - stock.marketCode: ${stock.marketCode}');
+                                  appLogger.d(
+                                      '🔵🔵🔵   - _trainingStartDate: $dateStr');
+                                  appLogger.d(
+                                      '🔵🔵🔵 [1.首页跳转] 跳转URL: /battle?symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr');
                                   context.go(
-                                    '/battle',
-                                    extra: {
-                                      'stockCode': stock.symbol,
-                                      'stockName': stock.symbolName,
-                                      'marketCode': stock.marketCode,
-                                      'closePrice': stock.closePrice,
-                                      'condition': _selectedCondition,
-                                      'trainingStartDate': _trainingStartDate,
-                                      'trainingDays': 150,
-                                    },
+                                    '/battle?symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr',
                                   );
                                 }
                               },

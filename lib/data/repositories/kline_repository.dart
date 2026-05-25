@@ -69,8 +69,16 @@ class KlineRepository {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
+    print('🔴🔴🔴 [5.Repository查询] fetchKlineDataFromDbWithDateRange 开始');
+    print('🔴🔴🔴 [5.Repository查询] 参数:');
+    print('🔴🔴🔴 [5.Repository查询]   - symbol: $symbol');
+    print('🔴🔴🔴 [5.Repository查询]   - period: $period');
+    print('🔴🔴🔴 [5.Repository查询]   - startTime: $startTime');
+    print('🔴🔴🔴 [5.Repository查询]   - endTime: $endTime');
     try {
       final dbService = await _getDbService();
+      print(
+          '🔴🔴🔴 [5.Repository查询] 获取到dbService，调用 klineDao.getKlineDataRange');
       final dbData = await dbService.klineDao.getKlineDataRange(
         symbol,
         period,
@@ -78,11 +86,13 @@ class KlineRepository {
         endTime,
       );
 
+      print('🔴🔴🔴 [5.Repository查询] klineDao返回数据: ${dbData.length} 条');
       if (dbData.isEmpty) {
+        print('🔴🔴🔴 [5.Repository查询] 数据为空，返回空列表');
         return [];
       }
 
-      return dbData
+      final result = dbData
           .map((item) => KlineModel(
                 symbol: item.symbol,
                 timestamp: item.tradeDate.millisecondsSinceEpoch,
@@ -94,7 +104,10 @@ class KlineRepository {
                 turnover: item.amount,
               ))
           .toList();
+      print('🔴🔴🔴 [5.Repository查询] 转换完成，返回 ${result.length} 条KlineModel');
+      return result;
     } catch (e) {
+      print('🔴🔴🔴 [5.Repository查询] 异常: $e');
       return [];
     }
   }
@@ -346,5 +359,33 @@ class KlineRepository {
 
   Future<void> clearCache() async {
     await _cacheManager.clearNamespace(CacheNamespaces.kline);
+  }
+
+  Future<String> getStockName(String symbol) async {
+    try {
+      final dbService = await _getDbService();
+      final symbolData = await dbService.marketDao.getSymbolByCode(symbol);
+      return symbolData?.name ?? symbol;
+    } catch (e) {
+      return symbol;
+    }
+  }
+
+  Future<Map<String, String>?> getStockInfo(String symbol) async {
+    try {
+      final dbService = await _getDbService();
+      final symbolData = await dbService.marketDao.getSymbolByCode(symbol);
+      if (symbolData == null) return null;
+      return {
+        'name': symbolData.name,
+        'marketCode': symbolData.marketCode,
+        'industry': symbolData.industry ?? '',
+        'sector': symbolData.sector ?? '',
+        'lastPrice': symbolData.lastPrice?.toString() ?? '',
+        'change': symbolData.change?.toString() ?? '',
+      };
+    } catch (e) {
+      return null;
+    }
   }
 }

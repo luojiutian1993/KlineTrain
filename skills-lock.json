@@ -102,6 +102,12 @@
       "sourceType": "github",
       "skillPath": "e2e-testing-automation/SKILL.md",
       "computedHash": ""
+    },
+    "database-administrator-skill": {
+      "source": "404kidwiz/claude-supercode-skills",
+      "sourceType": "github",
+      "skillPath": "database-administrator-skill/SKILL.md",
+      "computedHash": ""
     }
   }
 }

@@ -23,6 +23,9 @@ class StockConditionSelector extends ConsumerStatefulWidget {
 
 class _StockConditionSelectorState
     extends ConsumerState<StockConditionSelector> {
+  bool _isExpanded = false;
+  static const int _maxVisibleCount = 3;
+
   @override
   void initState() {
     super.initState();
@@ -186,6 +189,12 @@ class _StockConditionSelectorState
       return const SizedBox.shrink();
     }
 
+    final totalCount = result.items.length;
+    final visibleItems = _isExpanded
+        ? result.items
+        : result.items.take(_maxVisibleCount).toList();
+    final hasMore = totalCount > _maxVisibleCount;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -200,14 +209,43 @@ class _StockConditionSelectorState
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
-              '选股结果',
-              style: TextStyle(
+            Text(
+              '选股结果 ($totalCount)',
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.fg,
               ),
             ),
+            if (hasMore) ...[
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isExpanded = !_isExpanded;
+                  });
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _isExpanded ? '收起' : '更多',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.accent,
+                      ),
+                    ),
+                    Icon(
+                      _isExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: AppTheme.accent,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 8),
@@ -218,7 +256,7 @@ class _StockConditionSelectorState
           ),
           child: Column(
             children:
-                result.items.map((stock) => _buildStockItem(stock)).toList(),
+                visibleItems.map((stock) => _buildStockItem(stock)).toList(),
           ),
         ),
       ],

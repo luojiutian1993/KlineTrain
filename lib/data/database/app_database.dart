@@ -90,36 +90,49 @@ class AppDatabase extends _$AppDatabase {
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
-    final file = File(p.join(dbFolder.path, 'stock_data.db'));
+    final dbPath = p.join(dbFolder.path, 'stock_data.db');
+    final file = File(dbPath);
+
+    print('📦 数据库路径: $dbPath');
+    print('📦 数据库是否存在: ${file.existsSync()}');
 
     if (!file.existsSync()) {
-      print('数据库文件不存在，从assets复制...');
-      try {
-        final ByteData data =
-            await rootBundle.load('assets/data/stock_data/stock_data.db');
-        final List<int> bytes =
-            data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-        await file.writeAsBytes(bytes);
-        print('数据库文件复制成功: ${file.path}');
-      } catch (e) {
-        print('从assets复制数据库失败: $e');
-        if (kDebugMode) {
-          final possiblePaths = [
-            p.join(Directory.current.path, 'lib', 'data', 'database',
-                'stock_data.db'),
-            p.join(Directory.current.path, 'lib', 'data', 'database',
-                'kline_trainer.db'),
-          ];
+      print('数据库文件不存在，从本地路径复制...');
 
-          for (final path in possiblePaths) {
-            if (File(path).existsSync()) {
-              print('从本地路径复制: $path');
-              await File(path).copy(file.path);
-              break;
-            }
-          }
+      // 优先使用本地stock_data.db（包含完整的K线数据）
+      final possiblePaths = [
+        p.join(
+            Directory.current.path, 'lib', 'data', 'database', 'stock_data.db'),
+        p.join(Directory.current.path, 'lib', 'data', 'database',
+            'kline_trainer.db'),
+      ];
+
+      bool copied = false;
+      for (final path in possiblePaths) {
+        final sourceFile = File(path);
+        if (sourceFile.existsSync() && sourceFile.lengthSync() > 1000000) {
+          print('✅ 从本地路径复制: $path (${sourceFile.lengthSync()} bytes)');
+          await sourceFile.copy(file.path);
+          copied = true;
+          break;
         }
       }
+
+      if (!copied) {
+        print('⚠️ 本地数据库无效，尝试从assets复制...');
+        try {
+          final ByteData data =
+              await rootBundle.load('assets/data/stock_data/stock_data.db');
+          final List<int> bytes =
+              data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+          await file.writeAsBytes(bytes);
+          print('✅ 从assets复制成功');
+        } catch (e) {
+          print('❌ 从assets复制失败: $e');
+        }
+      }
+    } else {
+      print('✅ 数据库文件已存在，直接使用');
     }
 
     return NativeDatabase(

@@ -18,7 +18,18 @@ import 'package:drift/drift.dart' show Value;
 import 'package:logger/logger.dart';
 
 class BattleScreen extends ConsumerStatefulWidget {
-  const BattleScreen({super.key});
+  final String? initialSymbol;
+  final String? initialName;
+  final String? initialMarketCode;
+  final DateTime? initialTrainingStartDate;
+
+  const BattleScreen({
+    super.key,
+    this.initialSymbol,
+    this.initialName,
+    this.initialMarketCode,
+    this.initialTrainingStartDate,
+  });
 
   @override
   ConsumerState<BattleScreen> createState() => _BattleScreenState();
@@ -32,7 +43,6 @@ enum TrainingPhase {
 class _BattleScreenState extends ConsumerState<BattleScreen> {
   // 默认配置：深科技（SZ000021）
   static const String _DEFAULT_SYMBOL = 'SZ000021';
-  static const String _DEFAULT_STOCK_NAME = '深科技';
   static const String _DEFAULT_MARKET_CODE = 'XSHE';
   static final DateTime _DEFAULT_START_DATE = DateTime(2023, 3, 31);
 
@@ -82,28 +92,70 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _handleRouteExtra();
-    });
-    _loadKlineData();
+    _initializeData();
   }
 
-  void _handleRouteExtra() async {
-    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+  Future<void> _initializeData() async {
+    final logger = Logger();
+
+    print('🟡🟡🟡 [3.实战页面初始化] 开始');
+    print('🟡🟡🟡 [3.实战页面初始化] widget.initialSymbol: ${widget.initialSymbol}');
+    print('🟡🟡🟡 [3.实战页面初始化] widget.initialName: ${widget.initialName}');
+    print(
+        '🟡🟡🟡 [3.实战页面初始化] widget.initialMarketCode: ${widget.initialMarketCode}');
+    print(
+        '🟡🟡🟡 [3.实战页面初始化] widget.initialTrainingStartDate: ${widget.initialTrainingStartDate}');
+
+    if (widget.initialSymbol != null && widget.initialSymbol!.isNotEmpty) {
+      logger.d(
+          '📋 使用构造参数: symbol=${widget.initialSymbol}, name=${widget.initialName}, market=${widget.initialMarketCode}, date=${widget.initialTrainingStartDate}');
+      setState(() {
+        _currentSymbol = widget.initialSymbol!;
+        _currentMarketCode = widget.initialMarketCode ?? '';
+        _trainingStartDate = widget.initialTrainingStartDate;
+        _currentSymbolName = widget.initialName ?? '';
+      });
+      print('🟡🟡🟡 [3.实战页面初始化] 状态已更新，准备调用_loadKlineData');
+      print('🟡🟡🟡   - _currentSymbol: $_currentSymbol');
+      print('🟡🟡🟡   - _trainingStartDate: $_trainingStartDate');
+      await _loadKlineData();
+    } else {
+      logger.d('⚠️ widget.initialSymbol 为空，使用_handleRouteExtra');
+      await _handleRouteExtra();
+      if (mounted) {
+        _loadKlineData();
+      }
+    }
+  }
+
+  Future<void> _handleRouteExtra() async {
+    final routerState = GoRouterState.of(context);
+    final extra = routerState.extra as Map<String, dynamic>?;
+    final logger = Logger();
+    logger.d(
+        '📋 _handleRouteExtra: location=${routerState.uri}, extra=${extra?.keys}');
+    logger.d('📋 extra内容: $extra');
+
     if (extra != null) {
       final mode = extra['mode'] as String?;
 
-      setState(() {
-        _currentSymbol = extra['symbol'] as String? ??
-            extra['stockCode'] as String? ??
-            _currentSymbol;
-        _currentSymbolName = extra['stockName'] as String? ?? '';
-        _currentMarketCode = extra['marketCode'] as String? ?? '';
-        _trainingStartDate = extra['startDate'] as DateTime? ??
-            extra['trainingStartDate'] as DateTime?;
-        _initialBalance = extra['initialCapital'] as double? ?? 100000.0;
-        _accountBalance = _initialBalance;
-      });
+      final symbol = extra['symbol'] as String? ??
+          extra['stockCode'] as String? ??
+          _currentSymbol;
+      final marketCode = extra['marketCode'] as String? ?? '';
+
+      logger.d('📋 解析到的symbol=$symbol, marketCode=$marketCode');
+
+      if (mounted) {
+        setState(() {
+          _currentSymbol = symbol;
+          _currentMarketCode = marketCode;
+          _trainingStartDate = extra['startDate'] as DateTime? ??
+              extra['trainingStartDate'] as DateTime?;
+          _initialBalance = extra['initialCapital'] as double? ?? 100000.0;
+          _accountBalance = _initialBalance;
+        });
+      }
 
       if (mode == 'replay') {
         await _loadReplayMode(extra);
@@ -111,8 +163,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         await _loadRetrainMode(extra);
       } else {
         _trainingDays = extra['trainingDays'] as int? ?? 150;
-        _loadKlineData();
       }
+    } else {
+      logger.w('📋 extra为null，无法获取路由参数');
     }
   }
 
@@ -135,7 +188,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _currentSymbol = session.symbol;
         _currentMarketCode = session.marketCode;
         _trainingStartDate = session.startDate;
-        _currentSymbolName = _getStockName(session.symbol);
         _trainingDays =
             session.endDate.difference(session.startDate).inDays + 1;
         _initialBalance = session.initialCapital;
@@ -143,6 +195,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _totalProfitLoss = session.totalProfit ?? 0;
       });
 
+      await _loadStockName(session.symbol);
       await _loadKlineData();
 
       if (_allKlineData.isNotEmpty && trades.isNotEmpty) {
@@ -235,29 +288,36 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final repository = KlineRepository();
 
     String symbolToLoad;
-    String nameToLoad;
     String marketCodeToLoad;
     DateTime startDateToLoad;
 
     // 判断是否有路由参数（从首页选股跳转）
+    // 如果训练日期不为空且股票代码不是默认值，说明有路由参数
     final bool hasRouteParams = _trainingStartDate != null &&
-        _currentSymbol != 'SH600000' &&
-        _currentSymbolName.isNotEmpty;
+        _currentSymbol.isNotEmpty &&
+        _currentSymbol != _DEFAULT_SYMBOL;
 
     if (hasRouteParams) {
       // 有路由参数，使用传入的值（从首页选股跳转）
       symbolToLoad = _currentSymbol;
-      nameToLoad = _currentSymbolName;
       marketCodeToLoad = _currentMarketCode;
       startDateToLoad = _trainingStartDate!;
     } else {
       // 没有路由参数，使用默认配置（直接进入实战页面）
       // 深科技（SZ000021）+ 2023年3月31日
       symbolToLoad = _DEFAULT_SYMBOL;
-      nameToLoad = _DEFAULT_STOCK_NAME;
       marketCodeToLoad = _DEFAULT_MARKET_CODE;
       startDateToLoad = _DEFAULT_START_DATE;
     }
+
+    final logger = Logger();
+    print('🟠🟠🟠 [4.加载K线数据] 开始');
+    print('🟠🟠🟠 [4.加载K线数据] symbolToLoad: $symbolToLoad');
+    print('🟠🟠🟠 [4.加载K线数据] startDateToLoad: $startDateToLoad');
+    print('🟠🟠🟠 [4.加载K线数据] hasRouteParams: $hasRouteParams');
+
+    logger.d(
+        '📊 _loadKlineData: symbolToLoad=$symbolToLoad, startDateToLoad=$startDateToLoad, hasRouteParams=$hasRouteParams');
 
     final totalDays = _trainingDays + _historyDays;
 
@@ -265,13 +325,36 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final startTime = startDateToLoad.subtract(Duration(days: _historyDays));
     final endTime = startDateToLoad.add(Duration(days: _trainingDays));
 
+    print('🟠🟠🟠 [4.加载K线数据] 计算的查询范围:');
+    print(
+        '🟠🟠🟠 [4.加载K线数据]   - startTime: $startTime (往前_historyDays=${_historyDays}天)');
+    print(
+        '🟠🟠🟠 [4.加载K线数据]   - endTime: $endTime (往后_trainingDays=${_trainingDays}天)');
+    print('🟠🟠🟠 [4.加载K线数据]   - totalDays: $totalDays');
+
     // 优先从数据库加载真实数据（日期范围查询）
+    print('🟠🟠🟠 [4.加载K线数据] 调用 repository.fetchKlineDataFromDbWithDateRange');
     List<KlineModel> data = await repository.fetchKlineDataFromDbWithDateRange(
       symbol: symbolToLoad,
       period: 'day',
       startTime: startTime,
       endTime: endTime,
     );
+
+    print('🟠🟠🟠 [4.加载K线数据] 查询结果: ${data.length} 条');
+    logger.d('📊 日期范围查询结果: ${data.length} 条');
+
+    if (data.isNotEmpty) {
+      final firstItem = data.first;
+      final lastItem = data.last;
+      final firstDate =
+          DateTime.fromMillisecondsSinceEpoch(firstItem.timestamp);
+      final lastDate = DateTime.fromMillisecondsSinceEpoch(lastItem.timestamp);
+      logger.d(
+          '📊 第一条数据: date=$firstDate, open=${firstItem.open}, close=${firstItem.close}');
+      logger.d(
+          '📊 最后一条数据: date=$lastDate, open=${lastItem.open}, close=${lastItem.close}');
+    }
 
     // 如果数据库没有数据，尝试从数据库查询该股票的所有数据
     if (data.isEmpty) {
@@ -299,13 +382,22 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       data = data.sublist(data.length - maxDataSize);
     }
 
+    print('🟢🟢🟢 [7.数据反显] 更新UI');
+    print('🟢🟢🟢 [7.数据反显] 数据量: ${data.length} 条');
+    print('🟢🟢🟢 [7.数据反显] symbolToLoad: $symbolToLoad');
+    print('🟢🟢🟢 [7.数据反显] marketCodeToLoad: $marketCodeToLoad');
+    print('🟢🟢🟢 [7.数据反显] startDateToLoad: $startDateToLoad');
+
     // 更新股票信息
     setState(() {
       _currentSymbol = symbolToLoad;
-      _currentSymbolName = nameToLoad;
       _currentMarketCode = marketCodeToLoad;
       _trainingStartDate = startDateToLoad;
       _allKlineData = data;
+      print('🟢🟢🟢 [7.数据反显] setState 已调用');
+
+      // 从数据库获取股票名称
+      _loadStockName(symbolToLoad);
 
       // 找到训练开始日期对应的索引
       // 数据结构：前_historyDays天是历史数据，之后是训练数据
@@ -330,6 +422,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
           .clamp(0, _currentDayIndex);
     });
+  }
+
+  Future<void> _loadStockName(String symbol) async {
+    final repository = KlineRepository();
+    final stockName = await repository.getStockName(symbol);
+    if (mounted) {
+      setState(() {
+        _currentSymbolName = stockName;
+      });
+    }
   }
 
   /// 根据日期找到对应的K线索引
@@ -1189,7 +1291,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         children: [
           Row(
             children: [
-              Text(_getStockName(_currentSymbol),
+              Text(
+                  _currentSymbolName.isNotEmpty
+                      ? _currentSymbolName
+                      : _currentSymbol,
                   style: const TextStyle(
                       fontSize: 12, fontWeight: FontWeight.bold)),
             ],
@@ -2953,7 +3058,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('${_getStockName(_currentSymbol)} $_currentSymbol'),
+                    Text('$_currentSymbolName $_currentSymbol'),
                     const SizedBox(width: 16),
                     TextButton(
                       onPressed: () => _restartTraining(),
@@ -3072,7 +3177,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         ? ((lastData.close - firstData.open) / firstData.open * 100)
         : 0.0;
     return Text(
-      '${_getStockName(_currentSymbol)} 区间涨幅: ${stockIncrease >= 0 ? '+' : ''}${stockIncrease.toStringAsFixed(2)}%',
+      '$_currentSymbolName 区间涨幅: ${stockIncrease >= 0 ? '+' : ''}${stockIncrease.toStringAsFixed(2)}%',
       style: const TextStyle(fontSize: 14),
     );
   }
@@ -3186,18 +3291,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     final sellCount = _tradePoints.where((p) => !p.isBuy).length;
     if (sellCount == 0) return 0.0;
     return (_calculateWinCount() / sellCount) * 100;
-  }
-
-  String _getStockName(String symbol) {
-    final names = {
-      'SH600000': '浦发银行',
-      'SH600036': '招商银行',
-      'SH600519': '贵州茅台',
-      'SH601318': '中国平安',
-      'SZ300750': '宁德时代',
-      'SZ002594': '比亚迪',
-    };
-    return names[symbol] ?? symbol;
   }
 }
 

@@ -34,6 +34,35 @@ class TrainingDao extends DatabaseAccessor<AppDatabase>
     return sessionId;
   }
 
+  /// 删除训练会话及其关联数据
+  Future<void> deleteSession(int sessionId) async {
+    await transaction(() async {
+      await (delete(operationLogs)..where((t) => t.sessionId.equals(sessionId))).go();
+      await (delete(conditionalOrders)..where((t) => t.sessionId.equals(sessionId))).go();
+      await (delete(positions)..where((t) => t.sessionId.equals(sessionId))).go();
+      await (delete(trades)..where((t) => t.sessionId.equals(sessionId))).go();
+      await (delete(trainingSessions)..where((t) => t.id.equals(sessionId))).go();
+    });
+  }
+
+  /// 批量删除训练会话（保留前 N 条）
+  Future<int> deleteSessionsKeepFirstN(int userId, int keepCount) async {
+    final sessions = await getUserSessions(userId, limit: 10000);
+    if (sessions.length <= keepCount) {
+      return 0;
+    }
+    
+    final toDelete = sessions.skip(keepCount).toList();
+    int deletedCount = 0;
+    
+    for (final session in toDelete) {
+      await deleteSession(session.id);
+      deletedCount++;
+    }
+    
+    return deletedCount;
+  }
+
   /// 更新训练会话
   Future<int> updateSession(int sessionId, TrainingSessionsCompanion session) {
     return (update(trainingSessions)..where((t) => t.id.equals(sessionId)))

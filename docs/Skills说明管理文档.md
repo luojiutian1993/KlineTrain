@@ -1,6 +1,6 @@
 # K线训练营App - Skills 说明管理文档
 
-> **文档版本**: v1.4  
+> **文档版本**: v1.5  
 > **最后更新**: 2026-05-20  
 > **维护者**: 开发团队  
 > **描述**: 本项目所有 skills 能力说明文档，用于快速查询和管理各技能的功能、用途和调用方式。
@@ -723,6 +723,7 @@ docs/
 | v1.2 | 2026-05-14 | 添加10个新技能：brainstorming、ui-ux-pro-max、systematic-debugging、writing-plans、find-skills、using-superpowers、karpathy-guidelines、webapp-testing、agent-browser、pua；新增框架工具、编码准则、自动化测试、治理调试分类 | DevOps Engineer |
 | v1.3 | 2026-05-20 | 在 skills-lock.json 中添加5个 feature 开发类技能的本地配置：feature-requirements-clarification、feature-tech-design、feature-task-planning、feature-implementation、feature-evolution | DevOps Engineer |
 | v1.4 | 2026-05-20 | 添加 e2e-testing-automation 技能，用于端到端测试自动化 | DevOps Engineer |
+| v1.5 | 2026-05-20 | 添加 database-administrator 技能，用于数据库管理 | DevOps Engineer |
 
 ---
 

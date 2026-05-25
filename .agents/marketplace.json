@@ -120,6 +120,15 @@
         "./skills/knowledge-work-plugins-main/engineering/skills/tech-debt",
         "./skills/knowledge-work-plugins-main/engineering/skills/testing-strategy"
       ]
+    },
+    {
+      "name": "database-skills",
+      "description": "Database administration and optimization skills",
+      "source": "404kidwiz/claude-supercode-skills",
+      "strict": false,
+      "skills": [
+        "./skills/database-administrator-skill"
+      ]
     }
   ]
 }

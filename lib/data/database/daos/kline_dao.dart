@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import '../app_database.dart';
 import '../tables/tables.dart';
+import 'package:logger/logger.dart';
 
 part 'kline_dao.g.dart';
 
@@ -280,46 +281,149 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     return result.read(countQuery) ?? 0;
   }
 
+  /// 标准化symbol格式：移除市场前缀(SH/SZ)或后缀(.XSHE/.XSHG)
+  String _normalizeSymbolForQuery(String symbol) {
+    String normalized = symbol;
+
+    // 移除市场前缀 (SH, SZ, XSHE, XSHG)
+    if (normalized.startsWith('SH') && normalized.length > 2) {
+      normalized = normalized.substring(2);
+    } else if (normalized.startsWith('SZ') && normalized.length > 2) {
+      normalized = normalized.substring(2);
+    }
+    // 移除市场后缀 (.XSHE, .XSHG)
+    else if (normalized.contains('.')) {
+      normalized = normalized.split('.')[0];
+    }
+
+    return normalized;
+  }
+
+  /// DateTime转Unix时间戳（秒）
+  int _dateTimeToTimestamp(DateTime dt) {
+    return dt.millisecondsSinceEpoch ~/ 1000;
+  }
+
   /// 获取指定时间范围内的K线数据
-  /// 兼容字符串格式和DateTime格式的日期存储
+  /// 使用原始SQL直接过滤日期，手动解析DateTime避免Drift二次解析问题
   Future<List<KlineDataData>> getKlineDataRange(
     String symbol,
     String period,
     DateTime startTime,
     DateTime endTime,
   ) async {
-    final startTimeStr = _dateTimeToString(startTime);
-    final endTimeStr = _dateTimeToString(endTime);
+    print('🟣🟣🟣 [6.DAO查询] getKlineDataRange 开始');
 
-    return customSelect(
+    final String normalizedSymbol = _normalizeSymbolForQuery(symbol);
+    final String startDateStr = _dateTimeToString(startTime);
+    final String endDateStr = _dateTimeToString(endTime);
+
+    print('🟣🟣🟣 [6.DAO查询] 参数详情:');
+    print('🟣🟣🟣   - 原始symbol: $symbol');
+    print('🟣🟣🟣   - 标准化symbol: $normalizedSymbol');
+    print('🟣🟣🟣   - period: $period');
+    print('🟣🟣🟣   - startDate: $startDateStr');
+    print('🟣🟣🟣   - endDate: $endDateStr');
+
+    final query = customSelect(
       '''
-      SELECT symbol, market_code, period, trade_date, open, high, low, close, volume, amount, created_at
+      SELECT 
+        symbol,
+        market_code,
+        period,
+        trade_date,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        amount,
+        created_at
       FROM kline_data
-      WHERE symbol = ? 
-        AND period = ? 
-        AND date(trade_date) >= date(?)
-        AND date(trade_date) <= date(?)
+      WHERE (symbol = ? OR symbol = ?)
+        AND period = ?
+        AND trade_date >= ?
+        AND trade_date <= ?
       ORDER BY trade_date ASC
       ''',
       variables: [
         Variable.withString(symbol),
+        Variable.withString(normalizedSymbol),
         Variable.withString(period),
-        Variable.withString(startTimeStr),
-        Variable.withString(endTimeStr),
+        Variable.withString('$startDateStr 00:00:00'),
+        Variable.withString('$endDateStr 23:59:59'),
       ],
       readsFrom: {klineData},
-    ).map((row) => _parseKlineDataFromRow(row)).get();
+    );
+
+    print('🟣🟣🟣 [6.DAO查询] 执行SQL查询...');
+    final results = await query.get();
+
+    final dataList = results.map((row) {
+      final rowData = row.data;
+      final tradeDateStr = rowData['trade_date']?.toString() ?? '';
+      final createdAtStr = rowData['created_at']?.toString() ?? '';
+
+      return KlineDataData(
+        symbol: rowData['symbol']?.toString() ?? '',
+        marketCode: rowData['market_code']?.toString() ?? '',
+        period: rowData['period']?.toString() ?? '',
+        tradeDate: _parseDateTimeFromString(tradeDateStr),
+        open: (rowData['open'] as num?)?.toDouble() ?? 0.0,
+        high: (rowData['high'] as num?)?.toDouble() ?? 0.0,
+        low: (rowData['low'] as num?)?.toDouble() ?? 0.0,
+        close: (rowData['close'] as num?)?.toDouble() ?? 0.0,
+        volume: (rowData['volume'] as num?)?.toDouble() ?? 0.0,
+        amount: (rowData['amount'] as num?)?.toDouble() ?? 0.0,
+        createdAt: _parseDateTimeFromString(createdAtStr),
+      );
+    }).toList();
+
+    print('🟣🟣🟣 [6.DAO查询] 查询结果: ${dataList.length} 条');
+    return dataList;
+  }
+
+  /// 从字符串解析DateTime，使用多种格式兼容
+  DateTime _parseDateTimeFromString(String value) {
+    if (value == null || value.isEmpty) {
+      return DateTime.now();
+    }
+
+    try {
+      if (value.contains('T')) {
+        return DateTime.parse(value);
+      } else if (value.contains(' ')) {
+        return DateTime.parse(value.replaceAll(' ', 'T'));
+      } else {
+        return DateTime.parse('${value}T00:00:00');
+      }
+    } catch (e) {
+      final parts = value.split(RegExp(r'[-/]'));
+      if (parts.length >= 3) {
+        final year = int.tryParse(parts[0].trim());
+        final month = int.tryParse(parts[1].trim());
+        final day = int.tryParse(parts[2].trim());
+        if (year != null && month != null && day != null) {
+          return DateTime(year, month, day);
+        }
+      }
+    }
+    return DateTime.now();
   }
 
   String _dateTimeToString(DateTime dt) {
-    return '${dt.year.toString().padLeft(4, '0')}-'
-        '${dt.month.toString().padLeft(2, '0')}-'
-        '${dt.day.toString().padLeft(2, '0')}';
+    final String year = dt.year.toString();
+    final String month = dt.month.toString().padLeft(2, '0');
+    final String day = dt.day.toString().padLeft(2, '0');
+    return year + '-' + month + '-' + day;
   }
 
   DateTime _parseDateTime(dynamic value) {
     if (value is DateTime) {
       return value;
+    } else if (value is int) {
+      // Unix时间戳（秒）
+      return DateTime.fromMillisecondsSinceEpoch(value * 1000);
     } else if (value is String) {
       try {
         if (value.contains('T')) {
@@ -330,18 +434,20 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
           return DateTime.parse('${value}T00:00:00');
         }
       } catch (e) {
-        final parts = value.split(RegExp(r'[-/\s]'));
+        final parts = value.split(RegExp(r'[-/]'));
         if (parts.length >= 3) {
-          return DateTime(
-            int.parse(parts[0]),
-            int.parse(parts[1]),
-            int.parse(parts[2]),
-          );
+          final year = int.tryParse(parts[0].trim());
+          final month = int.tryParse(parts[1].trim());
+          final day = int.tryParse(parts[2].trim());
+          if (year != null && month != null && day != null) {
+            return DateTime(year, month, day);
+          }
         }
         rethrow;
       }
     }
-    throw ArgumentError('Cannot parse DateTime from $value');
+    throw ArgumentError(
+        'Cannot parse DateTime from $value (type: ${value.runtimeType})');
   }
 
   KlineDataData _parseKlineDataFromRow(QueryRow row) {
