@@ -36,6 +36,9 @@ class _MineScreenState extends ConsumerState<MineScreen> {
         context.go(AppRoutes.battle);
         break;
       case 2:
+        context.go(AppRoutes.records);
+        break;
+      case 3:
         context.go(AppRoutes.mine);
         break;
     }
@@ -189,6 +192,10 @@ class _MineScreenState extends ConsumerState<MineScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
             label: '实战',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: '记录',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
@@ -370,10 +377,6 @@ class _MineScreenState extends ConsumerState<MineScreen> {
                     icon: Icons.star,
                     title: '自选管理',
                     onTap: _navigateToFavorites),
-                _MenuItem(
-                    icon: Icons.bar_chart,
-                    title: '训练记录',
-                    onTap: _navigateToTrainingHistory),
                 _MenuItem(
                     icon: Icons.book,
                     title: '学习进度',

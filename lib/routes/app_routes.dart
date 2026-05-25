@@ -16,6 +16,8 @@ import 'package:kline_trainer/features/mine/notifications/notifications_screen.d
 import 'package:kline_trainer/features/mine/feedback/feedback_screen.dart';
 import 'package:kline_trainer/features/mine/help_center/help_center_screen.dart';
 import 'package:kline_trainer/features/mine/learning_progress/learning_progress_screen.dart';
+import 'package:kline_trainer/features/records/records_screen.dart';
+import 'package:kline_trainer/features/records/record_detail_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -34,6 +36,7 @@ class AppRoutes {
   static const feedback = '/mine/feedback';
   static const helpCenter = '/mine/help-center';
   static const tradeDetail = '/trade-detail';
+  static const records = '/records';
 
   static final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -62,6 +65,21 @@ class AppRoutes {
         path: battle,
         name: 'battle',
         builder: (context, state) => const BattleScreen(),
+      ),
+      GoRoute(
+        path: records,
+        name: 'records',
+        builder: (context, state) => const RecordsScreen(),
+        routes: [
+          GoRoute(
+            path: ':id/detail',
+            name: 'record-detail',
+            builder: (context, state) {
+              final id = int.parse(state.pathParameters['id']!);
+              return RecordDetailScreen(sessionId: id);
+            },
+          ),
+        ],
       ),
       GoRoute(
         path: mine,

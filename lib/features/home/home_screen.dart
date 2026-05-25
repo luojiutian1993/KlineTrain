@@ -70,6 +70,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         context.go('/battle');
         break;
       case 2:
+        context.go('/records');
+        break;
+      case 3:
         context.go('/mine');
         break;
     }
@@ -167,6 +170,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
             label: '实战',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: '记录',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

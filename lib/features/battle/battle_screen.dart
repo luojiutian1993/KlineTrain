@@ -87,18 +87,138 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     _loadKlineData();
   }
 
-  void _handleRouteExtra() {
+  void _handleRouteExtra() async {
     final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
     if (extra != null) {
+      final mode = extra['mode'] as String?;
+
       setState(() {
-        _currentSymbol = extra['stockCode'] as String? ?? _currentSymbol;
+        _currentSymbol = extra['symbol'] as String? ??
+            extra['stockCode'] as String? ??
+            _currentSymbol;
         _currentSymbolName = extra['stockName'] as String? ?? '';
         _currentMarketCode = extra['marketCode'] as String? ?? '';
-        _trainingStartDate = extra['trainingStartDate'] as DateTime?;
-        _trainingDays = extra['trainingDays'] as int? ?? 150;
+        _trainingStartDate = extra['startDate'] as DateTime? ??
+            extra['trainingStartDate'] as DateTime?;
+        _initialBalance = extra['initialCapital'] as double? ?? 100000.0;
+        _accountBalance = _initialBalance;
       });
+
+      if (mode == 'replay') {
+        await _loadReplayMode(extra);
+      } else if (mode == 'retrain') {
+        await _loadRetrainMode(extra);
+      } else {
+        _trainingDays = extra['trainingDays'] as int? ?? 150;
+        _loadKlineData();
+      }
+    }
+  }
+
+  Future<void> _loadReplayMode(Map<String, dynamic> extra) async {
+    final sessionId = extra['sessionId'] as int?;
+    if (sessionId == null) {
+      _loadKlineData();
+      return;
+    }
+
+    final dbService = DatabaseService.instance;
+    final session = await dbService.trainingDao.getSession(sessionId);
+    final trades = await dbService.trainingDao.getSessionTrades(sessionId);
+
+    if (session != null) {
+      setState(() {
+        _currentSymbol = session.symbol;
+        _currentMarketCode = session.marketCode;
+        _trainingStartDate = session.startDate;
+        _trainingDays =
+            session.endDate.difference(session.startDate).inDays + 1;
+        _initialBalance = session.initialCapital;
+        _accountBalance = session.currentCapital;
+        _totalProfitLoss = session.totalProfit ?? 0;
+      });
+
+      await _loadKlineData();
+
+      if (_allKlineData.isNotEmpty && trades.isNotEmpty) {
+        final tradePoints = <TradePoint>[];
+        double positionQuantity = 0;
+        double positionCost = 0;
+
+        for (final trade in trades) {
+          final tradeDate = DateTime.parse(trade.tradeDate ?? '');
+          for (int i = 0; i < _allKlineData.length; i++) {
+            final klineDate =
+                DateTime.fromMillisecondsSinceEpoch(_allKlineData[i].timestamp);
+            if (klineDate.year == tradeDate.year &&
+                klineDate.month == tradeDate.month &&
+                klineDate.day == tradeDate.day) {
+              if (trade.type == 'buy') {
+                positionQuantity += trade.quantity ?? 0;
+                final totalCost = (trade.price ?? 0) * (trade.quantity ?? 0);
+                positionCost = ((positionCost *
+                            (positionQuantity - (trade.quantity ?? 0)) +
+                        totalCost) /
+                    positionQuantity);
+                tradePoints.add(TradePoint(
+                  index: i,
+                  price: trade.price ?? 0,
+                  isBuy: true,
+                  label: '买入 ${trade.quantity}股',
+                  date: _allKlineData[i].dateTime,
+                ));
+              } else {
+                positionQuantity -= trade.quantity ?? 0;
+                tradePoints.add(TradePoint(
+                  index: i,
+                  price: trade.price ?? 0,
+                  isBuy: false,
+                  label: '卖出 ${trade.quantity}股',
+                  date: _allKlineData[i].dateTime,
+                ));
+              }
+              break;
+            }
+          }
+        }
+
+        setState(() {
+          _tradePoints = tradePoints;
+          _positionQuantity = positionQuantity;
+          _positionCost = positionCost;
+          _currentDayIndex = _allKlineData.length - 1;
+          _trainingPhase = TrainingPhase.closing;
+          _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
+              .clamp(0, _currentDayIndex);
+        });
+      }
+    } else {
       _loadKlineData();
     }
+  }
+
+  Future<void> _loadRetrainMode(Map<String, dynamic> extra) async {
+    final sessionId = extra['sessionId'] as int?;
+    if (sessionId != null) {
+      final dbService = DatabaseService.instance;
+      final session = await dbService.trainingDao.getSession(sessionId);
+      if (session != null) {
+        setState(() {
+          _currentSymbol = session.symbol;
+          _currentMarketCode = session.marketCode;
+          _trainingStartDate = session.startDate;
+          _trainingDays =
+              session.endDate.difference(session.startDate).inDays + 1;
+          _initialBalance = session.initialCapital;
+          _accountBalance = session.initialCapital;
+          _totalProfitLoss = 0;
+          _positionQuantity = 0;
+          _positionCost = 0;
+          _tradePoints = [];
+        });
+      }
+    }
+    _loadKlineData();
   }
 
   @override
@@ -528,6 +648,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         context.go('/battle');
         break;
       case 2:
+        context.go('/records');
+        break;
+      case 3:
         context.go('/mine');
         break;
     }
@@ -962,6 +1085,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart),
             label: '实战',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: '记录',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
