@@ -34,6 +34,11 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
     _currentIndex = widget.initialIndex;
     print(
         '🟡 [MainTabPage] initState, initialIndex=$_currentIndex, battleParams=${widget.battleParams}');
+    if (widget.battleParams != null && _currentIndex != 1) {
+      print('🟡 [MainTabPage] battleParams存在但index不是1，强制切换到1');
+      _currentIndex = 1;
+    }
+    print('🟡 [MainTabPage] 最终_currentIndex=$_currentIndex');
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAuth();
     });
@@ -60,20 +65,49 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
   }
 
   @override
+  void didUpdateWidget(MainTabPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('🟡 [MainTabPage] didUpdateWidget');
+    print('🟡   - oldWidget.battleParams: ${oldWidget.battleParams?.symbol}');
+    print('🟡   - widget.battleParams: ${widget.battleParams?.symbol}');
+    if (widget.battleParams != null) {
+      final shouldSwitchToBattle =
+          widget.battleParams?.symbol != oldWidget.battleParams?.symbol ||
+              widget.battleParams?.trainingStartDate !=
+                  oldWidget.battleParams?.trainingStartDate;
+      if (shouldSwitchToBattle && _currentIndex != 1) {
+        print('🟡 [MainTabPage] battleParams变化且当前不是1，强制切换到1');
+        setState(() {
+          _currentIndex = 1;
+        });
+      }
+    }
+  }
+
+  Widget _buildBattlePage() {
+    if (widget.battleParams != null) {
+      return BattleScreen(
+        key: ValueKey(
+            'battle_${widget.battleParams!.symbol}_${widget.battleParams!.trainingStartDate?.millisecondsSinceEpoch ?? 0}'),
+        initialSymbol: widget.battleParams?.symbol,
+        initialName: widget.battleParams?.name,
+        initialMarketCode: widget.battleParams?.market,
+        initialTrainingStartDate: widget.battleParams?.trainingStartDate,
+        isReplayMode: widget.battleParams?.isReplayMode ?? false,
+        replaySessionId: widget.battleParams?.sessionId,
+      );
+    }
+    return const BattleScreen();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: [
           const HomeScreen(),
-          BattleScreen(
-            initialSymbol: widget.battleParams?.symbol,
-            initialName: widget.battleParams?.name,
-            initialMarketCode: widget.battleParams?.market,
-            initialTrainingStartDate: widget.battleParams?.trainingStartDate,
-            isReplayMode: widget.battleParams?.isReplayMode ?? false,
-            replaySessionId: widget.battleParams?.sessionId,
-          ),
+          _buildBattlePage(),
           const RecordsScreen(),
           const MineScreen(),
         ],

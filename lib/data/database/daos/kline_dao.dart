@@ -312,6 +312,45 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     return result;
   }
 
+  /// 直接从 kline_data 表查询有足够数据的股票列表
+  /// 用于随机选股功能 - 不依赖 symbols 表
+  ///
+  /// [minDays]: 最少需要的日线数据天数（默认210天：150天训练 + 60天预热）
+  ///
+  /// 返回: 包含 symbol（纯数字格式）和 market_code 的列表
+  /// → AC-006, AC-007
+  Future<List<Map<String, String>>> getSymbolsWithMinKlineData({
+    int minDays = 210,
+  }) async {
+    print('🟣🟣🟣 [getSymbolsWithMinKlineData] 开始查询, minDays=$minDays');
+
+    final query = customSelect(
+      '''
+      SELECT DISTINCT symbol, market_code
+      FROM kline_data
+      WHERE period = 'day'
+      GROUP BY symbol, market_code
+      HAVING COUNT(*) >= ?
+      ORDER BY symbol
+      ''',
+      variables: [Variable.withInt(minDays)],
+      readsFrom: {klineData},
+    );
+
+    final results = await query.get();
+    print('🟣🟣🟣 [getSymbolsWithMinKlineData] 查询结果: ${results.length} 条');
+
+    final stockList = results.map((row) {
+      final data = row.data;
+      return {
+        'symbol': data['symbol']?.toString() ?? '',
+        'marketCode': data['market_code']?.toString() ?? '',
+      };
+    }).toList();
+
+    return stockList;
+  }
+
   String _extractMarketPrefix(String symbol) {
     if (symbol.startsWith('SH') && symbol.length > 2) {
       return 'SH';

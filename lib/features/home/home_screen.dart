@@ -500,9 +500,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       '🔵🔵🔵   - _trainingStartDate: $dateStr');
                                   appLogger.d(
                                       '🔵🔵🔵 [1.首页跳转] 跳转URL: /main?tab=1&symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr');
+
+                                  appLogger.d('🔵🔵🔵 [1.首页跳转] 开始跳转...');
                                   context.go(
                                     '/main?tab=1&symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr',
                                   );
+                                  appLogger
+                                      .d('🔵🔵🔵 [1.首页跳转] context.go() 执行完成');
                                 }
                               },
                         style: ElevatedButton.styleFrom(

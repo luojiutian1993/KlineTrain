@@ -717,8 +717,8 @@ class PostTrainingFeedback {
 ### A. 相关文档
 
 - [技术指标规格大全](../plans/技术指标规格大全.md)
-- [选股条件算法实现计划](../docs/superpowers/plans/选股条件算法实现计划.md)
-- [K线实战增强实现计划](../docs/superpowers/plans/K线实战增强实现计划.md)
+- [选股条件算法实现计划](../docs/features/选股模块/选股条件算法实现计划.md)
+- [K线实战增强实现计划](../docs/features/选股模块/K线实战增强实现计划.md)
 
 ### B. 技术栈
 

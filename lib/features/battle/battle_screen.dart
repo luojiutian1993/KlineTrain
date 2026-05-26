@@ -65,6 +65,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
   DateTime? _lastEdgeAlertTime;
   TrainingPhase _trainingPhase = TrainingPhase.opening;
   bool _isReplayMode = false;
+  bool _hasAvailableData = true;
+  String _errorMessage = '';
 
   final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
   final List<String> _indicators = [
@@ -162,52 +164,50 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
 
     try {
       logger.d('📋 随机选股：查询有完整数据的股票');
-      final stocksWithData =
-          await dbService.klineDao.getSymbolsWithCompleteKlineData(
+
+      // 使用新的直接从 kline_data 表查询的方法
+      final stockMaps = await dbService.klineDao.getSymbolsWithMinKlineData(
         minDays: 210,
-        marketCodes: ['SH', 'SZ'],
       );
 
-      logger.d('📋 随机选股：找到 ${stocksWithData.length} 只符合条件的股票');
+      logger.d('📋 随机选股：找到 ${stockMaps.length} 只符合条件的股票');
 
-      if (stocksWithData.isNotEmpty) {
-        final randomIndex = Random().nextInt(stocksWithData.length);
-        final selectedStock = stocksWithData[randomIndex];
+      if (stockMaps.isNotEmpty) {
+        final randomIndex = Random().nextInt(stockMaps.length);
+        final selectedStock = stockMaps[randomIndex];
+        final symbol = selectedStock['symbol'] ?? '';
+        final marketCode = selectedStock['marketCode'] ?? '';
 
-        logger.d('📋 随机选股：选中 ${selectedStock.symbol} - ${selectedStock.name}');
+        logger.d('📋 随机选股：选中 $symbol - $marketCode');
 
         setState(() {
-          _currentSymbol = selectedStock.symbol;
-          _currentMarketCode = selectedStock.marketCode ?? '';
-          _currentSymbolName = selectedStock.name ?? selectedStock.symbol;
+          _currentSymbol = symbol;
+          _currentMarketCode = marketCode;
+          _currentSymbolName = symbol;
           _trainingStartDate = _DEFAULT_START_DATE;
           _trainingDays = 150;
           _initialBalance = 100000.0;
           _accountBalance = _initialBalance;
+          _hasAvailableData = true;
+          _errorMessage = '';
         });
       } else {
-        logger.w('📋 随机选股：无符合条件股票，使用保底股票');
-        await _useFallbackStock();
+        logger.w('📋 随机选股：无符合条件股票，显示空状态');
+        setState(() {
+          _hasAvailableData = false;
+          _errorMessage = '暂无可训练股票';
+        });
       }
 
       await _loadKlineData();
     } catch (e) {
       logger.e('📋 随机选股失败: $e');
-      await _useFallbackStock();
+      setState(() {
+        _hasAvailableData = false;
+        _errorMessage = '数据加载失败';
+      });
       await _loadKlineData();
     }
-  }
-
-  Future<void> _useFallbackStock() async {
-    setState(() {
-      _currentSymbol = _DEFAULT_SYMBOL;
-      _currentMarketCode = _DEFAULT_MARKET_CODE;
-      _currentSymbolName = '深科技';
-      _trainingStartDate = _DEFAULT_START_DATE;
-      _trainingDays = 150;
-      _initialBalance = 100000.0;
-      _accountBalance = _initialBalance;
-    });
   }
 
   Future<void> _handleRouteExtra() async {
@@ -1402,6 +1402,41 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (!_hasAvailableData) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _errorMessage.isNotEmpty ? _errorMessage : '暂无可训练股票',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '请确保K线数据已加载',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[400],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Column(
