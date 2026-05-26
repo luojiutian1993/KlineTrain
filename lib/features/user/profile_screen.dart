@@ -37,7 +37,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoggedIn = ref.watch(authStateProvider);
+    final isLoggedIn = ref.watch(authNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(

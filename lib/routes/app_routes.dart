@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:kline_trainer/features/main/main_tab_page.dart';
 import 'package:kline_trainer/features/home/home_screen.dart';
 import 'package:kline_trainer/features/home/trade_detail_screen.dart';
 import 'package:kline_trainer/features/battle/battle_screen.dart';
@@ -21,8 +22,27 @@ import 'package:kline_trainer/features/records/record_detail_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+class BattleScreenParams {
+  final String symbol;
+  final String name;
+  final String market;
+  final DateTime? trainingStartDate;
+  final bool isReplayMode;
+  final int? sessionId;
+
+  BattleScreenParams({
+    required this.symbol,
+    required this.name,
+    required this.market,
+    this.trainingStartDate,
+    this.isReplayMode = false,
+    this.sessionId,
+  });
+}
+
 class AppRoutes {
   static const home = '/';
+  static const main = '/main';
   static const battle = '/battle';
   static const mine = '/mine';
   static const training = '/training';
@@ -45,7 +65,45 @@ class AppRoutes {
       GoRoute(
         path: home,
         name: 'home',
-        builder: (context, state) => const HomeScreen(),
+        builder: (context, state) => const MainTabPage(),
+      ),
+      GoRoute(
+        path: main,
+        name: 'main',
+        builder: (context, state) {
+          final tabIndex =
+              int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
+          final symbol = state.uri.queryParameters['symbol'] ?? '';
+          final name = state.uri.queryParameters['name'] ?? '';
+          final market = state.uri.queryParameters['market'] ?? '';
+          final dateStr = state.uri.queryParameters['date'] ?? '';
+          final DateTime? trainingStartDate =
+              dateStr.isNotEmpty ? DateTime.tryParse(dateStr) : null;
+          final mode = state.uri.queryParameters['mode'] ?? '';
+          final sessionIdStr = state.uri.queryParameters['sessionId'] ?? '';
+          final int? sessionId =
+              sessionIdStr.isNotEmpty ? int.tryParse(sessionIdStr) : null;
+          final bool isReplayMode = mode == 'replay';
+
+          print(
+              '🟢 [路由 /main] tab=$tabIndex, mode=$mode, sessionId=$sessionId, symbol=$symbol');
+
+          if (tabIndex == 1 && symbol.isNotEmpty) {
+            print('🟢 [路由 /main] 创建MainTabPage with battleParams');
+            return MainTabPage(
+              initialIndex: tabIndex,
+              battleParams: BattleScreenParams(
+                symbol: symbol,
+                name: name,
+                market: market,
+                trainingStartDate: trainingStartDate,
+                isReplayMode: isReplayMode,
+                sessionId: sessionId,
+              ),
+            );
+          }
+          return MainTabPage(initialIndex: tabIndex);
+        },
       ),
       GoRoute(
         path: '/trade-detail',

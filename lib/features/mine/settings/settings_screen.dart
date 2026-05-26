@@ -50,7 +50,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ref.read(authStateProvider.notifier).logout();
+        ref.read(authNotifierProvider.notifier).logout();
         context.go(AppRoutes.login);
 
         ScaffoldMessenger.of(context).showSnackBar(

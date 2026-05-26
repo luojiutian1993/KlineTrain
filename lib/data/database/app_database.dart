@@ -96,8 +96,13 @@ LazyDatabase _openConnection() {
     print('📦 数据库路径: $dbPath');
     print('📦 数据库是否存在: ${file.existsSync()}');
 
-    if (!file.existsSync()) {
-      print('数据库文件不存在，从本地路径复制...');
+    if (!file.existsSync() || file.lengthSync() == 0) {
+      if (file.existsSync() && file.lengthSync() == 0) {
+        print('⚠️ 数据库文件为空，删除并重新复制...');
+        await file.delete();
+      } else {
+        print('数据库文件不存在，从本地路径复制...');
+      }
 
       // 优先使用本地stock_data.db（包含完整的K线数据）
       final possiblePaths = [

@@ -39,12 +39,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      await ref.read(authStateProvider.notifier).login(
+      await ref.read(authNotifierProvider.notifier).login(
             _usernameController.text,
             _passwordController.text,
           );
       if (mounted) {
-        context.go(AppRoutes.mine);
+        context.go(AppRoutes.home);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

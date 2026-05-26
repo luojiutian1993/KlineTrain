@@ -281,6 +281,53 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     return result.read(countQuery) ?? 0;
   }
 
+  /// 获取有完整K线数据的股票列表
+  /// 用于随机选股功能
+  ///
+  /// [minDays]: 最少需要的日线数据天数（默认210天：150天训练 + 60天预热）
+  /// [marketCodes]: 市场代码列表（如['SH', 'SZ']）
+  ///
+  /// → AC-002, AC-011
+  Future<List<Symbol>> getSymbolsWithCompleteKlineData({
+    int minDays = 210,
+    List<String>? marketCodes,
+  }) async {
+    final allSymbols = await getSymbols();
+
+    final result = <Symbol>[];
+    for (final symbol in allSymbols) {
+      if (marketCodes != null && marketCodes.isNotEmpty) {
+        final symbolPrefix = _extractMarketPrefix(symbol.symbol);
+        if (!_matchesMarketCode(symbolPrefix, marketCodes)) {
+          continue;
+        }
+      }
+
+      final count = await countKlineData(symbol.symbol, 'day');
+      if (count >= minDays) {
+        result.add(symbol);
+      }
+    }
+
+    return result;
+  }
+
+  String _extractMarketPrefix(String symbol) {
+    if (symbol.startsWith('SH') && symbol.length > 2) {
+      return 'SH';
+    } else if (symbol.startsWith('SZ') && symbol.length > 2) {
+      return 'SZ';
+    }
+    return '';
+  }
+
+  bool _matchesMarketCode(String prefix, List<String> marketCodes) {
+    for (final code in marketCodes) {
+      if (prefix == code) return true;
+    }
+    return false;
+  }
+
   /// 标准化symbol格式：移除市场前缀(SH/SZ)或后缀(.XSHE/.XSHG)
   String _normalizeSymbolForQuery(String symbol) {
     String normalized = symbol;
@@ -353,7 +400,6 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
         Variable.withString('$startDateStr 00:00:00'),
         Variable.withString('$endDateStr 23:59:59'),
       ],
-      readsFrom: {klineData},
     );
 
     print('🟣🟣🟣 [6.DAO查询] 执行SQL查询...');

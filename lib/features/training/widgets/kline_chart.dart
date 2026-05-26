@@ -47,9 +47,7 @@ class KlineChart extends StatelessWidget {
       );
     }
 
-    return Expanded(
-      child: _buildPriceChart(),
-    );
+    return _buildPriceChart();
   }
 
   Widget _buildPriceChart() {

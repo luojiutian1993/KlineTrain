@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
@@ -77,7 +78,13 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
         backgroundColor: AppTheme.surface,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/main?tab=2');
+            }
+          },
         ),
       ),
       body: _isLoading

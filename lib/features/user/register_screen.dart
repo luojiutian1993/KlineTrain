@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/routes/app_routes.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/providers/auth_provider.dart';
+import 'package:kline_trainer/shared/utils/logger.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -25,10 +26,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       return;
     }
     setState(() => _verifyCodeCooldown = 60);
-    await ref.read(authStateProvider.notifier).login('test', 'test');
+    // TODO: 调用真实的短信验证码接口
+    // await smsService.sendVerifyCode(_phoneController.text);
     Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
-      setState(() => _verifyCodeCooldown = (_verifyCodeCooldown ?? 0) - 1);
+      if (mounted) {
+        setState(() => _verifyCodeCooldown = (_verifyCodeCooldown ?? 0) - 1);
+      }
       return (_verifyCodeCooldown ?? 0) > 0;
     });
   }
@@ -49,23 +53,31 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _isLoading = true);
     
-    final success = await ref.read(authStateProvider.notifier).register(
-      _phoneController.text, 
-      _passwordController.text, 
-      ''
-    );
-    
-    setState(() => _isLoading = false);
-    
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('注册成功！'), backgroundColor: Colors.green)
+    try {
+      final success = await ref.read(authNotifierProvider.notifier).register(
+        _phoneController.text, 
+        _passwordController.text, 
+        ''
       );
-      Future.delayed(const Duration(seconds: 1), () => context.go(AppRoutes.mine));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('注册失败，请重试'), backgroundColor: Colors.red)
-      );
+      
+      setState(() => _isLoading = false);
+      
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('注册成功！'), backgroundColor: Colors.green)
+          );
+          Future.delayed(const Duration(seconds: 1), () => context.go(AppRoutes.home));
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      appLogger.e('[RegisterScreen] 注册异常: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red)
+        );
+      }
     }
   }
 

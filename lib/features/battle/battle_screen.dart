@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,7 @@ import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
 import 'package:kline_trainer/data/services/kline_data_sync_service.dart';
 import 'package:kline_trainer/providers/battle_stock_provider.dart';
+import 'package:kline_trainer/providers/auth_provider.dart';
 import 'package:kline_trainer/core/enums/stock_filter_condition.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:logger/logger.dart';
@@ -22,6 +24,8 @@ class BattleScreen extends ConsumerStatefulWidget {
   final String? initialName;
   final String? initialMarketCode;
   final DateTime? initialTrainingStartDate;
+  final bool isReplayMode;
+  final int? replaySessionId;
 
   const BattleScreen({
     super.key,
@@ -29,6 +33,8 @@ class BattleScreen extends ConsumerStatefulWidget {
     this.initialName,
     this.initialMarketCode,
     this.initialTrainingStartDate,
+    this.isReplayMode = false,
+    this.replaySessionId,
   });
 
   @override
@@ -40,13 +46,15 @@ enum TrainingPhase {
   closing, // 收盘阶段（第一次点击下一步后）
 }
 
-class _BattleScreenState extends ConsumerState<BattleScreen> {
-  // 默认配置：深科技（SZ000021）
+class _BattleScreenState extends ConsumerState<BattleScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   static const String _DEFAULT_SYMBOL = 'SZ000021';
   static const String _DEFAULT_MARKET_CODE = 'XSHE';
   static final DateTime _DEFAULT_START_DATE = DateTime(2023, 3, 31);
 
-  int _selectedIndex = 1;
   String _selectedPeriod = '日K';
   String _selectedTopIndicator = '成交量';
   String _selectedBottomIndicator = 'MACD';
@@ -92,7 +100,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeData();
+    });
   }
 
   Future<void> _initializeData() async {
@@ -114,18 +124,90 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         _currentMarketCode = widget.initialMarketCode ?? '';
         _trainingStartDate = widget.initialTrainingStartDate;
         _currentSymbolName = widget.initialName ?? '';
+        _isReplayMode = widget.isReplayMode;
       });
       print('🟡🟡🟡 [3.实战页面初始化] 状态已更新，准备调用_loadKlineData');
       print('🟡🟡🟡   - _currentSymbol: $_currentSymbol');
       print('🟡🟡🟡   - _trainingStartDate: $_trainingStartDate');
-      await _loadKlineData();
+      print('🟡🟡🟡   - _isReplayMode: $_isReplayMode');
+
+      if (_isReplayMode) {
+        print('🟡🟡🟡 [3.实战页面初始化] 复盘模式，加载历史数据');
+        await _loadReplayModeFromWidget();
+      } else {
+        await _loadKlineData();
+      }
     } else {
-      logger.d('⚠️ widget.initialSymbol 为空，使用_handleRouteExtra');
-      await _handleRouteExtra();
-      if (mounted) {
-        _loadKlineData();
+      final routerState = GoRouterState.of(context);
+      final extra = routerState.extra as Map<String, dynamic>?;
+
+      if (extra != null && extra['symbol'] != null) {
+        logger
+            .d('⚠️ widget.initialSymbol 为空，但extra有symbol，使用_handleRouteExtra');
+        await _handleRouteExtra();
+
+        if (mounted) {
+          _loadKlineData();
+        }
+      } else {
+        logger.d('📋 无任何路由参数，执行随机选股初始化');
+        await _initializeRandomStock();
       }
     }
+  }
+
+  Future<void> _initializeRandomStock() async {
+    final logger = Logger();
+    final dbService = DatabaseService.instance;
+
+    try {
+      logger.d('📋 随机选股：查询有完整数据的股票');
+      final stocksWithData =
+          await dbService.klineDao.getSymbolsWithCompleteKlineData(
+        minDays: 210,
+        marketCodes: ['SH', 'SZ'],
+      );
+
+      logger.d('📋 随机选股：找到 ${stocksWithData.length} 只符合条件的股票');
+
+      if (stocksWithData.isNotEmpty) {
+        final randomIndex = Random().nextInt(stocksWithData.length);
+        final selectedStock = stocksWithData[randomIndex];
+
+        logger.d('📋 随机选股：选中 ${selectedStock.symbol} - ${selectedStock.name}');
+
+        setState(() {
+          _currentSymbol = selectedStock.symbol;
+          _currentMarketCode = selectedStock.marketCode ?? '';
+          _currentSymbolName = selectedStock.name ?? selectedStock.symbol;
+          _trainingStartDate = _DEFAULT_START_DATE;
+          _trainingDays = 150;
+          _initialBalance = 100000.0;
+          _accountBalance = _initialBalance;
+        });
+      } else {
+        logger.w('📋 随机选股：无符合条件股票，使用保底股票');
+        await _useFallbackStock();
+      }
+
+      await _loadKlineData();
+    } catch (e) {
+      logger.e('📋 随机选股失败: $e');
+      await _useFallbackStock();
+      await _loadKlineData();
+    }
+  }
+
+  Future<void> _useFallbackStock() async {
+    setState(() {
+      _currentSymbol = _DEFAULT_SYMBOL;
+      _currentMarketCode = _DEFAULT_MARKET_CODE;
+      _currentSymbolName = '深科技';
+      _trainingStartDate = _DEFAULT_START_DATE;
+      _trainingDays = 150;
+      _initialBalance = 100000.0;
+      _accountBalance = _initialBalance;
+    });
   }
 
   Future<void> _handleRouteExtra() async {
@@ -279,6 +361,126 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     _loadKlineData();
   }
 
+  Future<void> _loadReplayModeFromWidget() async {
+    final logger = Logger();
+    logger.d('🔄 [_loadReplayMode] 开始加载复盘数据');
+    logger.d('🔄 widget.replaySessionId = ${widget.replaySessionId}');
+
+    if (widget.replaySessionId == null) {
+      logger.e('🔄 [_loadReplayMode] sessionId 为空，无法加载复盘数据');
+      await _loadKlineData();
+      return;
+    }
+
+    final dbService = DatabaseService.instance;
+
+    try {
+      logger.d('🔄 [_loadReplayMode] 步骤1: 获取训练会话');
+      final session =
+          await dbService.trainingDao.getSession(widget.replaySessionId!);
+
+      if (session == null) {
+        logger.e('🔄 [_loadReplayMode] 未找到训练记录: ${widget.replaySessionId}');
+        await _loadKlineData();
+        return;
+      }
+
+      logger.d('🔄 [_loadReplayMode] 找到训练记录: ${session.symbol}, '
+          '起始: ${session.startDate}, 结束: ${session.endDate}');
+
+      setState(() {
+        _currentSymbol = session.symbol;
+        _currentMarketCode = session.marketCode;
+        _currentSymbolName = session.symbol;
+        _trainingStartDate = session.startDate;
+        _trainingDays = session.endDate.difference(session.startDate).inDays;
+        _initialBalance = session.initialCapital;
+        _accountBalance = session.currentCapital;
+        _totalProfitLoss = session.totalProfit;
+        _isReplayMode = true;
+        _trainingPhase = TrainingPhase.closing;
+      });
+
+      logger.d('🔄 [_loadReplayMode] 步骤2: 加载K线数据');
+      await _loadKlineData();
+
+      logger.d(
+          '🔄 [_loadReplayMode] 步骤3: 设置显示位置, _allKlineData.length=${_allKlineData.length}');
+
+      if (mounted) {
+        setState(() {
+          _currentDayIndex = _allKlineData.length - 1;
+          _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
+              .clamp(0, _currentDayIndex);
+        });
+        logger.d('🔄 [_loadReplayMode] 锁定到最后一天: $_currentDayIndex');
+      }
+
+      logger.d('🔄 [_loadReplayMode] 步骤4: 加载交易记录');
+      final trades =
+          await dbService.trainingDao.getSessionTrades(widget.replaySessionId!);
+      logger.d('🔄 [_loadReplayMode] 加载到 ${trades.length} 笔交易记录');
+
+      logger.d('🔄 [_loadReplayMode] 步骤5: 构建买卖点');
+      _buildTradePoints(trades);
+      logger.d(
+          '🔄 [_loadReplayMode] 完成, _tradePoints.length=${_tradePoints.length}');
+    } catch (e, stackTrace) {
+      logger.e('🔄 [_loadReplayMode] 加载失败: $e',
+          error: e, stackTrace: stackTrace);
+      await _loadKlineData();
+    }
+  }
+
+  void _buildTradePoints(List<Trade> trades) {
+    _tradePoints = [];
+
+    for (final trade in trades) {
+      DateTime tradeDate;
+      try {
+        tradeDate = DateTime.parse(trade.tradeDate);
+      } catch (e) {
+        continue;
+      }
+
+      final tradeIndex = _allKlineData.indexWhere((k) {
+        final kDate = k.dateTime;
+        return kDate.year == tradeDate.year &&
+            kDate.month == tradeDate.month &&
+            kDate.day == tradeDate.day;
+      });
+
+      if (tradeIndex >= 0) {
+        _tradePoints.add(TradePoint(
+          index: tradeIndex,
+          price: trade.price,
+          isBuy: trade.type == 'buy',
+          label: trade.type == 'buy'
+              ? '买入 ${trade.quantity}股'
+              : '卖出 ${trade.quantity}股',
+          date: tradeDate,
+        ));
+      }
+    }
+    print('🔄 [_buildTradePoints] 构建了 ${_tradePoints.length} 个买卖点');
+  }
+
+  void _showReplayDisabledDialog(String action) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('无法$action'),
+        content: Text('复盘模式无法进行$action操作。\n请返回训练页面进行真实交易。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     super.dispose();
@@ -380,6 +582,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     if (data.length > maxDataSize) {
       // 保留最新的数据（训练数据优先）
       data = data.sublist(data.length - maxDataSize);
+    }
+
+    print('🟠🟠🟠 [4.加载K线数据] 数据处理后: ${data.length} 条');
+    print('🟠🟠🟠 [4.加载K线数据] 历史天数: $_historyDays, 训练天数: $_trainingDays');
+    print('🟠🟠🟠 [4.加载K线数据] 预期最大索引: ${_historyDays + _trainingDays - 1}');
+
+    // 验证数据是否足够
+    final expectedSize = _historyDays + _trainingDays;
+    if (data.length < expectedSize) {
+      print('🟠🟠🟠 [4.加载K线数据] ⚠️ 数据不足! 期望: $expectedSize, 实际: ${data.length}');
     }
 
     print('🟢🟢🟢 [7.数据反显] 更新UI');
@@ -803,27 +1015,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     );
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        context.go('/');
-        break;
-      case 1:
-        context.go('/battle');
-        break;
-      case 2:
-        context.go('/records');
-        break;
-      case 3:
-        context.go('/mine');
-        break;
-    }
-  }
-
   List<KlineData> get _displayKlineData {
     if (_allKlineData.isEmpty) return [];
     final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
@@ -1242,31 +1433,6 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
             _buildAssetInfo(),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '首页',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: '实战',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: '记录',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: AppTheme.accent,
-        unselectedItemColor: AppTheme.muted,
-        onTap: _onItemTapped,
       ),
     );
   }
@@ -2671,32 +2837,38 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: _showBuyDialog,
+              onPressed: _isReplayMode
+                  ? () => _showReplayDisabledDialog('买入')
+                  : _showBuyDialog,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: _isReplayMode ? Colors.grey : Colors.red,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 6),
               ),
-              child: const Text('买入', style: TextStyle(fontSize: 10)),
+              child: Text(_isReplayMode ? '已结束' : '买入',
+                  style: const TextStyle(fontSize: 10)),
             ),
           ),
           const SizedBox(width: 4),
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: _showSellDialog,
+              onPressed: _isReplayMode
+                  ? () => _showReplayDisabledDialog('卖出')
+                  : _showSellDialog,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: _isReplayMode ? Colors.grey : Colors.green,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 6),
               ),
-              child: const Text('卖出', style: TextStyle(fontSize: 10)),
+              child: Text(_isReplayMode ? '已结束' : '卖出',
+                  style: const TextStyle(fontSize: 10)),
             ),
           ),
           const SizedBox(width: 4),
@@ -2707,13 +2879,15 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              // 计算训练进度，确保不会超过训练天数
-              () {
-                final day = _currentDayIndex - _historyDays + 1;
-                if (day < 1) return '1/$_trainingDays';
-                if (day > _trainingDays) return '$_trainingDays/$_trainingDays';
-                return '$day/$_trainingDays';
-              }(),
+              _isReplayMode
+                  ? '$_trainingDays/$_trainingDays'
+                  : () {
+                      final day = _currentDayIndex - _historyDays + 1;
+                      if (day < 1) return '1/$_trainingDays';
+                      if (day > _trainingDays)
+                        return '$_trainingDays/$_trainingDays';
+                      return '$day/$_trainingDays';
+                    }(),
               style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
@@ -2724,16 +2898,18 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: _nextDay,
+              onPressed:
+                  _isReplayMode ? () => _showReplayEndDialog() : _nextDay,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accent,
+                backgroundColor: _isReplayMode ? Colors.grey : AppTheme.accent,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(4),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 6),
               ),
-              child: const Text('下一步', style: TextStyle(fontSize: 10)),
+              child: Text(_isReplayMode ? '已结束' : '下一步',
+                  style: const TextStyle(fontSize: 10)),
             ),
           ),
         ],
@@ -3195,6 +3371,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       final dbService = DatabaseService.instance;
       final klineSyncService = KlineDataSyncService();
 
+      final currentUser = ref.read(currentUserNotifierProvider);
+      final userId =
+          currentUser != null ? int.tryParse(currentUser.userId) ?? 1 : 1;
+
       final firstData =
           _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
       final lastData =
@@ -3205,7 +3385,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
       final sessionId =
           await dbService.trainingDao.createSession(TrainingSessionsCompanion(
-        userId: const Value(1),
+        userId: Value(userId),
         symbol: Value(_currentSymbol),
         marketCode: Value(_currentSymbol.startsWith('SH') ? 'SH' : 'SZ'),
         period: Value('day'),

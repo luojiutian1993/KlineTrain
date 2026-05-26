@@ -6,6 +6,7 @@ import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/providers/user_provider.dart';
 import 'package:kline_trainer/providers/auth_provider.dart';
 import 'package:kline_trainer/data/models/user_model.dart';
+import 'package:kline_trainer/shared/utils/logger.dart';
 
 class MineScreen extends ConsumerStatefulWidget {
   const MineScreen({super.key});
@@ -14,34 +15,15 @@ class MineScreen extends ConsumerStatefulWidget {
   ConsumerState<MineScreen> createState() => _MineScreenState();
 }
 
-class _MineScreenState extends ConsumerState<MineScreen> {
-  int _selectedIndex = 2;
+class _MineScreenState extends ConsumerState<MineScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
 
   String _getCurrentDate() {
     DateTime now = DateTime.now();
     List<String> weekdays = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
     return '${weekdays[now.weekday - 1]} · ${now.month}月${now.day}日';
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        context.go(AppRoutes.home);
-        break;
-      case 1:
-        context.go(AppRoutes.battle);
-        break;
-      case 2:
-        context.go(AppRoutes.records);
-        break;
-      case 3:
-        context.go(AppRoutes.mine);
-        break;
-    }
   }
 
   void _navigateToSettings() => context.push(AppRoutes.settings);
@@ -148,7 +130,7 @@ class _MineScreenState extends ConsumerState<MineScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ref.read(authStateProvider.notifier).logout();
+              ref.read(authNotifierProvider.notifier).logout();
               context.go(AppRoutes.login);
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.red),
@@ -161,8 +143,15 @@ class _MineScreenState extends ConsumerState<MineScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userState = ref.watch(userProvider);
-    final user = userState.user;
+    super.build(context);
+    final currentUser = ref.watch(currentUserNotifierProvider);
+
+    if (currentUser != null) {
+      appLogger.d(
+          '[MineScreen] build: 显示用户 phone=${currentUser.phone}, nickname=${currentUser.nickname}');
+    } else {
+      appLogger.d('[MineScreen] build: currentUser 为 null');
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -170,9 +159,9 @@ class _MineScreenState extends ConsumerState<MineScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              _buildUserInfoCard(user),
+              _buildUserInfoCard(currentUser),
               const SizedBox(height: 20),
-              _buildStatsCard(user),
+              _buildStatsCard(currentUser),
               const SizedBox(height: 20),
               _buildMenuList(),
               const SizedBox(height: 24),
@@ -181,31 +170,6 @@ class _MineScreenState extends ConsumerState<MineScreen> {
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '首页',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: '实战',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: '记录',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: AppTheme.accent,
-        unselectedItemColor: AppTheme.muted,
-        onTap: _onItemTapped,
       ),
     );
   }

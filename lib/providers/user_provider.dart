@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/models/user_model.dart';
 import '../data/models/notice_model.dart';
 import '../data/repositories/user_repository.dart';
+import '../shared/utils/logger.dart';
+import 'auth_provider.dart';
 
 final userRepositoryProvider =
     Provider<UserRepository>((ref) => UserRepository());
@@ -24,19 +26,24 @@ class UserState {
 
 class UserNotifier extends StateNotifier<UserState> {
   final UserRepository _repository;
+  final Ref _ref;
 
-  UserNotifier(this._repository) : super(const UserState()) {
-    _loadUser();
+  UserNotifier(this._repository, this._ref) : super(const UserState()) {
+    _syncWithCurrentUser();
   }
 
-  Future<void> _loadUser() async {
-    state = state.copyWith(isLoading: true);
-    try {
-      final user = await _repository.getCurrentUser();
-      state = state.copyWith(user: user, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
+  void _syncWithCurrentUser() {
+    final currentUser = _ref.read(currentUserNotifierProvider);
+    appLogger
+        .d('[UserNotifier] _syncWithCurrentUser: phone=${currentUser?.phone}');
+    if (currentUser != null) {
+      state = state.copyWith(user: currentUser);
     }
+  }
+
+  void syncUser(UserModel? user) {
+    appLogger.d('[UserNotifier] syncUser: phone=${user?.phone}');
+    state = state.copyWith(user: user);
   }
 
   Future<void> refreshProfile() async {
@@ -51,7 +58,15 @@ class UserNotifier extends StateNotifier<UserState> {
   Future<void> updateProfile({String? nickname, String? avatarUrl}) async {
     try {
       await _repository.updateProfile(nickname: nickname, avatarUrl: avatarUrl);
-      await refreshProfile();
+      final currentUser = _ref.read(currentUserNotifierProvider);
+      if (currentUser != null) {
+        final updatedUser = currentUser.copyWith(
+          nickname: nickname ?? currentUser.nickname,
+          avatarUrl: avatarUrl ?? currentUser.avatarUrl,
+        );
+        state = state.copyWith(user: updatedUser);
+        _ref.read(currentUserNotifierProvider.notifier).setUser(updatedUser);
+      }
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
@@ -59,7 +74,15 @@ class UserNotifier extends StateNotifier<UserState> {
 }
 
 final userProvider = StateNotifierProvider<UserNotifier, UserState>(
-  (ref) => UserNotifier(ref.watch(userRepositoryProvider)),
+  (ref) {
+    final notifier = UserNotifier(ref.watch(userRepositoryProvider), ref);
+    ref.listen<UserModel?>(currentUserNotifierProvider, (previous, next) {
+      appLogger.d(
+          '[userProvider] listen: previous=${previous?.phone}, next=${next?.phone}');
+      notifier.syncUser(next);
+    });
+    return notifier;
+  },
 );
 
 class NotificationsState {

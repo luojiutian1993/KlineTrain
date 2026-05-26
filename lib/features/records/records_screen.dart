@@ -12,7 +12,11 @@ class RecordsScreen extends ConsumerStatefulWidget {
   ConsumerState<RecordsScreen> createState() => _RecordsScreenState();
 }
 
-class _RecordsScreenState extends ConsumerState<RecordsScreen> {
+class _RecordsScreenState extends ConsumerState<RecordsScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   List<TrainingSession> _sessions = [];
   bool _isLoading = true;
 
@@ -56,35 +60,31 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
   }
 
   void _handleDetail(int sessionId) {
-    context.push('/records/$sessionId/detail');
+    print('🔵 [_handleDetail] 跳转到详情: sessionId=$sessionId');
+    context.pushReplacement('/records/$sessionId/detail');
   }
 
   void _handleReplay(TrainingSession session) {
-    context.go('/battle', extra: {
-      'mode': 'replay',
-      'sessionId': session.id,
-      'symbol': session.symbol,
-      'marketCode': session.marketCode,
-      'startDate': session.startDate,
-      'endDate': session.endDate,
-      'initialCapital': session.initialCapital,
-    });
+    final startDateStr = session.startDate?.toIso8601String() ?? '';
+    final url = '/main?tab=1&mode=replay&sessionId=${session.id}'
+        '&symbol=${session.symbol}&market=${session.marketCode}'
+        '&date=$startDateStr';
+    print('🔵 [_handleReplay] 跳转URL: $url');
+    context.go(url);
   }
 
   void _handleRetrain(TrainingSession session) {
-    context.go('/battle', extra: {
-      'mode': 'retrain',
-      'sessionId': session.id,
-      'symbol': session.symbol,
-      'marketCode': session.marketCode,
-      'startDate': session.startDate,
-      'endDate': session.endDate,
-      'initialCapital': session.initialCapital,
-    });
+    final startDateStr = session.startDate?.toIso8601String() ?? '';
+    context.go(
+      '/main?tab=1&mode=retrain&sessionId=${session.id}'
+      '&symbol=${session.symbol}&market=${session.marketCode}'
+      '&date=$startDateStr',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
@@ -108,50 +108,6 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
                     );
                   },
                 ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
-    );
-  }
-
-  Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      items: const <BottomNavigationBarItem>[
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: '首页',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.bar_chart),
-          label: '实战',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.history),
-          label: '记录',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: '我的',
-        ),
-      ],
-      currentIndex: 2,
-      selectedItemColor: AppTheme.accent,
-      unselectedItemColor: AppTheme.muted,
-      onTap: (index) {
-        switch (index) {
-          case 0:
-            context.go('/');
-            break;
-          case 1:
-            context.go('/battle');
-            break;
-          case 2:
-            context.go('/records');
-            break;
-          case 3:
-            context.go('/mine');
-            break;
-        }
-      },
     );
   }
 }

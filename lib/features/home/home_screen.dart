@@ -57,27 +57,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return '${weekdays[now.weekday - 1]} · ${now.month}月${now.day}日';
   }
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        context.go('/');
-        break;
-      case 1:
-        context.go('/battle');
-        break;
-      case 2:
-        context.go('/records');
-        break;
-      case 3:
-        context.go('/mine');
-        break;
-    }
-  }
-
   String _formatCurrency(double value) {
     return '¥${value.toStringAsFixed(2)}';
   }
@@ -159,31 +138,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             _buildRecentTrades(),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: '首页',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: '实战',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: '记录',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: AppTheme.accent,
-        unselectedItemColor: AppTheme.muted,
-        onTap: _onItemTapped,
       ),
     );
   }
@@ -545,9 +499,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   appLogger.d(
                                       '🔵🔵🔵   - _trainingStartDate: $dateStr');
                                   appLogger.d(
-                                      '🔵🔵🔵 [1.首页跳转] 跳转URL: /battle?symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr');
+                                      '🔵🔵🔵 [1.首页跳转] 跳转URL: /main?tab=1&symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr');
                                   context.go(
-                                    '/battle?symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr',
+                                    '/main?tab=1&symbol=${stock.symbol}&name=${Uri.encodeComponent(stock.symbolName)}&market=${stock.marketCode}&date=$dateStr',
                                   );
                                 }
                               },
