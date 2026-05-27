@@ -890,15 +890,25 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
     if (quantity <= 0) return;
 
     setState(() {
-      _positionQuantity = quantity;
-      _positionCost = price;
+      if (_positionQuantity > 0) {
+        final totalOldCost = _positionCost * _positionQuantity;
+        final totalNewCost = price * quantity;
+        final totalQuantity = _positionQuantity + quantity;
+        _positionCost = totalQuantity > 0
+            ? (totalOldCost + totalNewCost) / totalQuantity
+            : price;
+        _positionQuantity = totalQuantity;
+      } else {
+        _positionQuantity = quantity;
+        _positionCost = price;
+      }
       _accountBalance -= quantity * price;
 
       _tradePoints.add(TradePoint(
         index: _currentDayIndex,
         price: price,
         isBuy: true,
-        label: '买入 ${quantity.toInt()}股',
+        label: 'B',
         date: _allKlineData[_currentDayIndex].dateTime,
       ));
     });
@@ -963,7 +973,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
         index: _currentDayIndex,
         price: price,
         isBuy: false,
-        label: '卖出 ${quantity.toInt()}股',
+        label: 'S',
         date: _allKlineData[_currentDayIndex].dateTime,
       ));
 
@@ -1846,6 +1856,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
                       volumes: _displayVolumes,
                       macdData: _displayMacdData,
                       tradePoints: _visibleTradePoints,
+                      currentOpenPrice:
+                          displayData.isNotEmpty ? displayData.last.open : null,
+                      positionCost:
+                          _positionQuantity > 0 ? _positionCost : null,
                     )
                   : const Center(child: Text('加载中...')),
             ),
@@ -1874,6 +1888,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
                 volumes: _displayVolumes,
                 macdData: _displayMacdData,
                 tradePoints: _visibleTradePoints,
+                currentOpenPrice:
+                    displayData.isNotEmpty ? displayData.last.open : null,
+                positionCost: _positionQuantity > 0 ? _positionCost : null,
               )
             : const Center(child: Text('加载中...')),
       ),

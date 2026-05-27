@@ -26,6 +26,8 @@ class KlineChart extends StatelessWidget {
   final List<VolumeData> volumes;
   final List<MacdData> macdData;
   final List<TradePoint>? tradePoints;
+  final double? currentOpenPrice;
+  final double? positionCost;
 
   const KlineChart({
     super.key,
@@ -37,6 +39,8 @@ class KlineChart extends StatelessWidget {
     required this.volumes,
     required this.macdData,
     this.tradePoints,
+    this.currentOpenPrice,
+    this.positionCost,
   });
 
   @override
@@ -80,6 +84,8 @@ class KlineChart extends StatelessWidget {
               minY: minPrice * 0.98,
               maxY: maxPrice * 1.02,
               tradePoints: tradePoints,
+              currentOpenPrice: currentOpenPrice,
+              positionCost: positionCost,
             ),
           ),
           Positioned(
@@ -284,6 +290,8 @@ class CandleStickChart extends StatelessWidget {
   final double minY;
   final double maxY;
   final List<TradePoint>? tradePoints;
+  final double? currentOpenPrice;
+  final double? positionCost;
 
   const CandleStickChart({
     super.key,
@@ -295,6 +303,8 @@ class CandleStickChart extends StatelessWidget {
     required this.minY,
     required this.maxY,
     this.tradePoints,
+    this.currentOpenPrice,
+    this.positionCost,
   });
 
   @override
@@ -313,6 +323,8 @@ class CandleStickChart extends StatelessWidget {
               minY: minY,
               maxY: maxY,
               tradePoints: tradePoints,
+              currentOpenPrice: currentOpenPrice,
+              positionCost: positionCost,
             ),
           ],
         ),
@@ -330,6 +342,8 @@ class CandleStickChartPainter extends StatelessWidget {
   final double minY;
   final double maxY;
   final List<TradePoint>? tradePoints;
+  final double? currentOpenPrice;
+  final double? positionCost;
 
   const CandleStickChartPainter({
     super.key,
@@ -341,6 +355,8 @@ class CandleStickChartPainter extends StatelessWidget {
     required this.minY,
     required this.maxY,
     this.tradePoints,
+    this.currentOpenPrice,
+    this.positionCost,
   });
 
   @override
@@ -356,6 +372,8 @@ class CandleStickChartPainter extends StatelessWidget {
         minY: minY,
         maxY: maxY,
         tradePoints: tradePoints,
+        currentOpenPrice: currentOpenPrice,
+        positionCost: positionCost,
       ),
     );
   }
@@ -370,6 +388,8 @@ class _CandleStickPainter extends CustomPainter {
   final double minY;
   final double maxY;
   final List<TradePoint>? tradePoints;
+  final double? currentOpenPrice;
+  final double? positionCost;
 
   _CandleStickPainter({
     required this.klineData,
@@ -380,6 +400,8 @@ class _CandleStickPainter extends CustomPainter {
     required this.minY,
     required this.maxY,
     this.tradePoints,
+    this.currentOpenPrice,
+    this.positionCost,
   });
 
   @override
@@ -433,6 +455,16 @@ class _CandleStickPainter extends CustomPainter {
     if (ma20 != null) _drawSmoothLine(canvas, size, ma20!, Colors.orange);
     if (ma30 != null) _drawSmoothLine(canvas, size, ma30!, Colors.blue);
 
+    if (currentOpenPrice != null) {
+      _drawHorizontalDashedLine(
+          canvas, size, currentOpenPrice!, const Color(0xFF3B82F6));
+    }
+
+    if (positionCost != null && positionCost! > 0) {
+      _drawHorizontalDashedLine(
+          canvas, size, positionCost!, const Color(0xFFEF4444));
+    }
+
     if (tradePoints != null && tradePoints!.isNotEmpty) {
       _drawTradePoints(canvas, size);
     }
@@ -484,37 +516,63 @@ class _CandleStickPainter extends CustomPainter {
 
     final double candleWidth = size.width / klineData.length;
     final double priceRange = maxY - minY;
+    const double fixedDashedLength = 30.0;
+    const double dashedDashWidth = 3.0;
+    const double dashedDashSpace = 2.0;
 
     for (var point in tradePoints!) {
       if (point.index >= klineData.length) continue;
 
       final x = point.index * candleWidth + candleWidth / 2;
-      final y = size.height - ((point.price - minY) / priceRange) * size.height;
+      final kline = klineData[point.index];
 
-      final paint = Paint()
-        ..color = point.isBuy ? Colors.red : Colors.green
-        ..style = PaintingStyle.fill
-        ..isAntiAlias = true;
-
-      final path = Path();
-      const triangleSize = 8.0;
+      double startY;
       if (point.isBuy) {
-        path.moveTo(x, y - triangleSize);
-        path.lineTo(x - triangleSize, y);
-        path.lineTo(x + triangleSize, y);
+        startY = size.height - ((kline.high - minY) / priceRange) * size.height;
       } else {
-        path.moveTo(x, y + triangleSize);
-        path.lineTo(x - triangleSize, y);
-        path.lineTo(x + triangleSize, y);
+        startY = size.height - ((kline.low - minY) / priceRange) * size.height;
       }
-      path.close();
-      canvas.drawPath(path, paint);
 
+      final dashedPaint = Paint()
+        ..color = const Color(0xFF3B82F6)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
+
+      double currentY = startY;
+      double labelY = startY;
+      if (point.isBuy) {
+        double drawnLength = 0;
+        while (drawnLength < fixedDashedLength && currentY > 0) {
+          canvas.drawLine(
+            Offset(x, currentY),
+            Offset(x, (currentY - dashedDashWidth).clamp(0, size.height)),
+            dashedPaint,
+          );
+          currentY -= dashedDashWidth + dashedDashSpace;
+          drawnLength += dashedDashWidth + dashedDashSpace;
+        }
+        labelY = currentY;
+      } else {
+        double drawnLength = 0;
+        while (drawnLength < fixedDashedLength && currentY < size.height) {
+          canvas.drawLine(
+            Offset(x, currentY),
+            Offset(x, (currentY + dashedDashWidth).clamp(0, size.height)),
+            dashedPaint,
+          );
+          currentY += dashedDashWidth + dashedDashSpace;
+          drawnLength += dashedDashWidth + dashedDashSpace;
+        }
+        labelY = currentY;
+      }
+
+      final label = point.isBuy ? 'B' : 'S';
       final textPainter = TextPainter(
         text: TextSpan(
-          text: point.label,
+          text: label,
           style: TextStyle(
-            color: point.isBuy ? Colors.red : Colors.green,
+            color:
+                point.isBuy ? const Color(0xFFEF4444) : const Color(0xFF34C759),
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -522,11 +580,58 @@ class _CandleStickPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
+
+      final labelBgWidth = textPainter.width + 6;
+      final labelBgHeight = textPainter.height + 4;
+      final labelBgX = x - labelBgWidth / 2;
+      final labelBgY = point.isBuy ? labelY - labelBgHeight : labelY;
+
+      final bgPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      final bgBorderPaint = Paint()
+        ..color =
+            point.isBuy ? const Color(0xFFEF4444) : const Color(0xFF34C759)
+        ..strokeWidth = 1.0
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawRect(
+        Rect.fromLTWH(labelBgX, labelBgY, labelBgWidth, labelBgHeight),
+        bgPaint,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(labelBgX, labelBgY, labelBgWidth, labelBgHeight),
+        bgBorderPaint,
+      );
+
       textPainter.paint(
         canvas,
-        Offset(x - textPainter.width / 2,
-            point.isBuy ? y - triangleSize - 15 : y + triangleSize + 5),
+        Offset(x - textPainter.width / 2, labelBgY + 2),
       );
+    }
+  }
+
+  void _drawHorizontalDashedLine(
+      Canvas canvas, Size size, double price, Color color) {
+    final priceRange = maxY - minY;
+    final y = size.height - ((price - minY) / priceRange) * size.height;
+
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    const dashWidth = 5.0;
+    const dashSpace = 3.0;
+    double startX = 0;
+
+    while (startX < size.width) {
+      canvas.drawLine(
+        Offset(startX, y),
+        Offset(startX + dashWidth, y),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
     }
   }
 
