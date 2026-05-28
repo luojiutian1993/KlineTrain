@@ -482,6 +482,23 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
   }
 
   @override
+  void didUpdateWidget(BattleScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('🔄 [BattleScreen] didUpdateWidget 被调用');
+    print('🔄   - oldWidget.initialSymbol: ${oldWidget.initialSymbol}');
+    print('🔄   - widget.initialSymbol: ${widget.initialSymbol}');
+    print('🔄   - oldWidget.replaySessionId: ${oldWidget.replaySessionId}');
+    print('🔄   - widget.replaySessionId: ${widget.replaySessionId}');
+    print('🔄   - oldWidget.isReplayMode: ${oldWidget.isReplayMode}');
+    print('🔄   - widget.isReplayMode: ${widget.isReplayMode}');
+
+    print('🔄 [BattleScreen] 强制重新初始化数据');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeData();
+    });
+  }
+
+  @override
   void dispose() {
     super.dispose();
   }

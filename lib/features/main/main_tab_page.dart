@@ -74,7 +74,9 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
       final shouldSwitchToBattle =
           widget.battleParams?.symbol != oldWidget.battleParams?.symbol ||
               widget.battleParams?.trainingStartDate !=
-                  oldWidget.battleParams?.trainingStartDate;
+                  oldWidget.battleParams?.trainingStartDate ||
+              widget.battleParams?.sessionId != oldWidget.battleParams?.sessionId ||
+              widget.battleParams?.isReplayMode != oldWidget.battleParams?.isReplayMode;
       if (shouldSwitchToBattle && _currentIndex != 1) {
         print('🟡 [MainTabPage] battleParams变化且当前不是1，强制切换到1');
         setState(() {
@@ -88,7 +90,7 @@ class _MainTabPageState extends ConsumerState<MainTabPage> {
     if (widget.battleParams != null) {
       return BattleScreen(
         key: ValueKey(
-            'battle_${widget.battleParams!.symbol}_${widget.battleParams!.trainingStartDate?.millisecondsSinceEpoch ?? 0}'),
+            'battle_${widget.battleParams!.symbol}_${widget.battleParams!.trainingStartDate?.millisecondsSinceEpoch ?? 0}_${widget.battleParams!.sessionId ?? 0}_${widget.battleParams!.isReplayMode ? 'replay' : 'normal'}'),
         initialSymbol: widget.battleParams?.symbol,
         initialName: widget.battleParams?.name,
         initialMarketCode: widget.battleParams?.market,

@@ -66,9 +66,10 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen>
 
   void _handleReplay(TrainingSession session) {
     final startDateStr = session.startDate?.toIso8601String() ?? '';
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final url = '/main?tab=1&mode=replay&sessionId=${session.id}'
         '&symbol=${session.symbol}&market=${session.marketCode}'
-        '&date=$startDateStr';
+        '&date=$startDateStr&_t=$timestamp';
     print('🔵 [_handleReplay] 跳转URL: $url');
     context.go(url);
   }

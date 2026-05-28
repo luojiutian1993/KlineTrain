@@ -90,16 +90,19 @@ class AppRoutes {
 
           if (tabIndex == 1 && symbol.isNotEmpty) {
             print('🟢 [路由 /main] 创建MainTabPage with battleParams');
+            final battleParams = BattleScreenParams(
+              symbol: symbol,
+              name: name,
+              market: market,
+              trainingStartDate: trainingStartDate,
+              isReplayMode: isReplayMode,
+              sessionId: sessionId,
+            );
             return MainTabPage(
+              key: ValueKey(
+                  'main_${symbol}_${sessionId ?? 0}_${isReplayMode ? 'replay' : 'normal'}_${DateTime.now().millisecondsSinceEpoch}'),
               initialIndex: tabIndex,
-              battleParams: BattleScreenParams(
-                symbol: symbol,
-                name: name,
-                market: market,
-                trainingStartDate: trainingStartDate,
-                isReplayMode: isReplayMode,
-                sessionId: sessionId,
-              ),
+              battleParams: battleParams,
             );
           }
           return MainTabPage(initialIndex: tabIndex);
