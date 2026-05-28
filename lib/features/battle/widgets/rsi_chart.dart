@@ -31,9 +31,11 @@ class RsiChart extends StatelessWidget {
         ),
         lineBarsData: [
           LineChartBarData(
-            spots: data.asMap().entries.map((e) => 
-              FlSpot(e.key.toDouble(), e.value.rsi)
-            ).toList(),
+            spots: data
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.rsi))
+                .toList(),
             isCurved: true,
             color: Colors.blue,
             dotData: const FlDotData(show: false),

@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
-import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
+import 'package:kline_trainer/features/training/widgets/kline_chart.dart'
+    show KlineData, VolumeData, MacdData, KlineChart;
 import 'package:kline_trainer/data/repositories/kline_repository.dart';
 import 'package:kline_trainer/data/models/kline_model.dart'
     show KlineModel, KdjData, RsiData, BollData, DmiData, DmaData;
+import 'package:kline_trainer/data/models/trade_point_model.dart'
+    show TradePoint;
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
@@ -18,6 +21,8 @@ import 'package:kline_trainer/providers/auth_provider.dart';
 import 'package:kline_trainer/core/enums/stock_filter_condition.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:logger/logger.dart';
+import 'package:kline_trainer/shared/notifiers/training_notifier.dart';
+import 'package:kline_trainer/routes/app_routes.dart';
 
 class BattleScreen extends ConsumerStatefulWidget {
   final String? initialSymbol;
@@ -304,8 +309,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
                   index: i,
                   price: trade.price ?? 0,
                   isBuy: true,
-                  label: '买入 ${trade.quantity}股',
+                  label: 'B',
                   date: _allKlineData[i].dateTime,
+                  tradeId: trade.id,
+                  quantity: trade.quantity ?? 0,
                 ));
               } else {
                 positionQuantity -= trade.quantity ?? 0;
@@ -313,8 +320,10 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
                   index: i,
                   price: trade.price ?? 0,
                   isBuy: false,
-                  label: '卖出 ${trade.quantity}股',
+                  label: 'S',
                   date: _allKlineData[i].dateTime,
+                  tradeId: trade.id,
+                  quantity: trade.quantity ?? 0,
                 ));
               }
               break;
@@ -453,12 +462,12 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
       if (tradeIndex >= 0) {
         _tradePoints.add(TradePoint(
           index: tradeIndex,
-          price: trade.price,
+          price: trade.price ?? 0,
           isBuy: trade.type == 'buy',
-          label: trade.type == 'buy'
-              ? '买入 ${trade.quantity}股'
-              : '卖出 ${trade.quantity}股',
+          label: trade.type == 'buy' ? 'B' : 'S',
           date: tradeDate,
+          tradeId: trade.id,
+          quantity: trade.quantity ?? 0,
         ));
       }
     }
@@ -927,6 +936,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
         isBuy: true,
         label: 'B',
         date: _allKlineData[_currentDayIndex].dateTime,
+        tradeId: 0,
+        quantity: quantity.toInt(),
       ));
     });
 
@@ -992,6 +1003,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
         isBuy: false,
         label: 'S',
         date: _allKlineData[_currentDayIndex].dateTime,
+        tradeId: 0,
+        quantity: quantity.toInt(),
       ));
 
       final sellProfit = (price - _positionCost) * quantity;
@@ -1077,6 +1090,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
               isBuy: point.isBuy,
               label: point.label,
               date: point.date,
+              tradeId: point.tradeId,
+              quantity: point.quantity,
             ))
         .toList();
   }
@@ -3327,8 +3342,11 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
           ),
           actions: [
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
+                await Future.delayed(const Duration(milliseconds: 300));
+                context.pushReplacement(
+                    '${AppRoutes.trainingHistory}?refresh=${DateTime.now().millisecondsSinceEpoch}');
               },
               child: const Text('复盘'),
             ),
@@ -3492,6 +3510,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
 
       logger.d('开始保存交易记录: count=${_tradePoints.length}');
       for (final point in _tradePoints) {
+        final tradeQuantity = point.quantity;
         await dbService.trainingDao.addTrade(TradesCompanion(
           sessionId: Value(sessionId),
           userId: const Value(1),
@@ -3499,18 +3518,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
           marketCode: Value(_currentSymbol.startsWith('SH') ? 'SH' : 'SZ'),
           type: Value(point.isBuy ? 'buy' : 'sell'),
           price: Value(point.price),
-          quantity: Value(point.label.contains('股')
-              ? int.parse(point.label.replaceAll(RegExp(r'[^0-9]'), ''))
-              : 0),
-          amount: Value(point.price *
-              (point.label.contains('股')
-                  ? int.parse(point.label.replaceAll(RegExp(r'[^0-9]'), ''))
-                  : 0)),
+          quantity: Value(tradeQuantity),
+          amount: Value(point.price * tradeQuantity),
           tradeDate: Value(point.date.toIso8601String()),
           triggerSource: const Value('manual'),
         ));
       }
       logger.d('交易记录保存完成');
+      logger.d('发送训练保存通知...');
+      TrainingNotifier.instance.notifyTrainingSaved();
+      logger.d('训练保存通知已发送');
     } catch (e, stackTrace) {
       logger.e('⛔ 保存训练会话失败: $e', error: e, stackTrace: stackTrace);
     }
@@ -3524,7 +3541,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
     for (final point in _tradePoints) {
       if (point.isBuy) {
         cost = point.price;
-        position = double.parse(point.label.replaceAll(RegExp(r'[^0-9.]'), ''));
+        position = point.quantity.toDouble();
       } else {
         if (position > 0 && point.price > cost) {
           winCount++;

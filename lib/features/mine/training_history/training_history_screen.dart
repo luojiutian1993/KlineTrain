@@ -5,9 +5,12 @@ import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
 import 'package:kline_trainer/routes/app_routes.dart';
+import 'package:kline_trainer/shared/notifiers/training_notifier.dart';
 
 class TrainingHistoryScreen extends ConsumerStatefulWidget {
-  const TrainingHistoryScreen({super.key});
+  final String? refreshKey;
+
+  const TrainingHistoryScreen({super.key, this.refreshKey});
 
   @override
   ConsumerState<TrainingHistoryScreen> createState() =>
@@ -21,15 +24,26 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
   @override
   void initState() {
     super.initState();
+    print(
+        '🐛 [TrainingHistoryScreen] initState - refreshKey: ${widget.refreshKey}');
     _loadTrainingSessions();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> _loadTrainingSessions() async {
+    print('🐛 [TrainingHistoryScreen] 开始加载训练数据...');
     setState(() => _isLoading = true);
     try {
       final dbService = DatabaseService.instance;
       _sessions = await dbService.trainingDao.getUserSessions(1);
+      print('🐛 [TrainingHistoryScreen] 加载到 ${_sessions.length} 条训练记录');
+      TrainingNotifier.instance.clearPendingUpdate();
     } catch (e) {
+      print('🐛 [TrainingHistoryScreen] 加载失败: $e');
       debugPrint('Failed to load training sessions: $e');
     }
     setState(() => _isLoading = false);

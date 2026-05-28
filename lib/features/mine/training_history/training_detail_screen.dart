@@ -9,6 +9,9 @@ import 'package:kline_trainer/data/models/training_review_data.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/models/trade_point_model.dart';
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
+import 'package:logger/logger.dart';
+
+final Logger _logger = Logger();
 
 class TrainingDetailScreen extends ConsumerStatefulWidget {
   final int sessionId;
@@ -226,7 +229,7 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
     return allData.sublist(startIndex, endIndex);
   }
 
-  List<kline_chart.TradePoint> _getDisplayTradePoints(
+  List<TradePoint> _getDisplayTradePoints(
       List<TradePoint> allPoints, List<kline_chart.KlineData> allKlineData) {
     if (allPoints.isEmpty || allKlineData.isEmpty) return [];
 
@@ -237,12 +240,14 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
         .where((point) =>
             point.index >= startIndex &&
             point.index < startIndex + _visibleKlineCount)
-        .map((point) => kline_chart.TradePoint(
+        .map((point) => TradePoint(
               index: point.index - startIndex,
               price: point.price,
               isBuy: point.isBuy,
               label: point.label,
               date: point.date,
+              tradeId: point.tradeId,
+              quantity: point.quantity,
             ))
         .toList();
   }
@@ -409,7 +414,7 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
   Widget _buildKlineChart(
       List<kline_chart.KlineData> klineData,
       Map<String, dynamic> indicators,
-      List<kline_chart.TradePoint> tradePoints) {
+      List<TradePoint> tradePoints) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       padding: const EdgeInsets.all(12),

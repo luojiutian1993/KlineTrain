@@ -11,7 +11,8 @@ class BollChart extends StatelessWidget {
   Widget build(BuildContext context) {
     if (data.isEmpty) return const SizedBox.expand();
 
-    final prices = data.map((e) => [e.upper, e.mid, e.lower]).expand((x) => x).toList();
+    final prices =
+        data.map((e) => [e.upper, e.mid, e.lower]).expand((x) => x).toList();
     final minPrice = prices.reduce((a, b) => a < b ? a : b);
     final maxPrice = prices.reduce((a, b) => a > b ? a : b);
     final safeMin = minPrice - (maxPrice - minPrice) * 0.1;
@@ -37,27 +38,33 @@ class BollChart extends StatelessWidget {
         ),
         lineBarsData: [
           LineChartBarData(
-            spots: data.asMap().entries.map((e) => 
-              FlSpot(e.key.toDouble(), e.value.upper)
-            ).toList(),
+            spots: data
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.upper))
+                .toList(),
             isCurved: true,
             color: Colors.orange,
             dotData: const FlDotData(show: false),
             barWidth: 1,
           ),
           LineChartBarData(
-            spots: data.asMap().entries.map((e) => 
-              FlSpot(e.key.toDouble(), e.value.mid)
-            ).toList(),
+            spots: data
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.mid))
+                .toList(),
             isCurved: true,
             color: Colors.purple,
             dotData: const FlDotData(show: false),
             barWidth: 1,
           ),
           LineChartBarData(
-            spots: data.asMap().entries.map((e) => 
-              FlSpot(e.key.toDouble(), e.value.lower)
-            ).toList(),
+            spots: data
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.lower))
+                .toList(),
             isCurved: true,
             color: Colors.green,
             dotData: const FlDotData(show: false),

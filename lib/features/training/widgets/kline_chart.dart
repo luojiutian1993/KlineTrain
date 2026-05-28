@@ -1,21 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-
-class TradePoint {
-  final int index;
-  final double price;
-  final bool isBuy;
-  final String label;
-  final DateTime date;
-
-  TradePoint({
-    required this.index,
-    required this.price,
-    required this.isBuy,
-    required this.label,
-    required this.date,
-  });
-}
+import 'package:kline_trainer/data/models/trade_point_model.dart'
+    show TradePoint;
 
 class KlineChart extends StatelessWidget {
   final List<KlineData> klineData;

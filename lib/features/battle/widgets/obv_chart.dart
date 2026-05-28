@@ -36,9 +36,11 @@ class ObvChart extends StatelessWidget {
         ),
         lineBarsData: [
           LineChartBarData(
-            spots: data.asMap().entries.map((e) => 
-              FlSpot(e.key.toDouble(), e.value)
-            ).toList(),
+            spots: data
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value))
+                .toList(),
             isCurved: true,
             color: Colors.green,
             dotData: const FlDotData(show: false),

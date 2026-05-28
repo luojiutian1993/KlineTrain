@@ -74,10 +74,12 @@ class TradingCalculator {
       final cost = quantity * currentPrice;
       final newTotalQuantity = currentPositionQuantity + quantity;
       final newPositionCost = currentPositionQuantity > 0
-          ? (currentPositionCost * currentPositionQuantity + cost) / newTotalQuantity
+          ? (currentPositionCost * currentPositionQuantity + cost) /
+              newTotalQuantity
           : currentPrice;
 
-      _logger.d('买入计算: 余额=$accountBalance, 价格=$currentPrice, 比例=$positionRatio');
+      _logger
+          .d('买入计算: 余额=$accountBalance, 价格=$currentPrice, 比例=$positionRatio');
       _logger.d('买入结果: 数量=$quantity, 成本=$cost, 新持仓成本=$newPositionCost');
 
       return TradingResult(
@@ -149,9 +151,11 @@ class TradingCalculator {
 
       final revenue = quantity * currentPrice;
       final newPositionQuantity = currentPositionQuantity - quantity;
-      final newPositionCost = newPositionQuantity > 0 ? currentPositionCost : 0.0;
+      final newPositionCost =
+          newPositionQuantity > 0 ? currentPositionCost : 0.0;
 
-      _logger.d('卖出计算: 持仓=$currentPositionQuantity, 价格=$currentPrice, 比例=$positionRatio');
+      _logger.d(
+          '卖出计算: 持仓=$currentPositionQuantity, 价格=$currentPrice, 比例=$positionRatio');
       _logger.d('卖出结果: 数量=$quantity, 收入=$revenue, 剩余持仓=$newPositionQuantity');
 
       return TradingResult(

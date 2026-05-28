@@ -12,38 +12,38 @@ typedef StateChangeListener = void Function(TrainingState state);
 class TrainingManager {
   final Logger _logger = Logger();
   final KlineRepository _repository = KlineRepository();
-  
+
   TrainingState _state = const TrainingState();
   StateChangeListener? _listener;
-  
+
   TrainingState get state => _state;
-  
+
   void addListener(StateChangeListener listener) {
     _listener = listener;
   }
-  
+
   void removeListener() {
     _listener = null;
   }
-  
+
   void _notifyListener() {
     _listener?.call(_state);
   }
-  
+
   void _updateState(TrainingState Function(TrainingState) updater) {
     _state = updater(_state);
     _notifyListener();
   }
-  
+
   Future<void> initializeRandomStock() async {
     _logger.d('初始化随机选股');
-    
+
     try {
       _updateState((s) => s.copyWith(isLoading: true, errorMessage: null));
-      
+
       final dbService = DatabaseService.instance;
       final symbols = await dbService.klineDao.getSymbols();
-      
+
       final stockMaps = <Map<String, String>>[];
       for (final symbol in symbols) {
         final klineData = await dbService.klineDao.getKlineData(
@@ -58,90 +58,92 @@ class TrainingManager {
           });
         }
       }
-      
+
       _logger.d('找到 ${stockMaps.length} 只符合条件的股票');
-      
+
       if (stockMaps.isNotEmpty) {
         final randomIndex = Random().nextInt(stockMaps.length);
         final selectedStock = stockMaps[randomIndex];
-        
+
         _updateState((s) => s.copyWith(
-          currentSymbol: selectedStock['symbol'] ?? '',
-          currentMarketCode: selectedStock['marketCode'] ?? '',
-          currentSymbolName: selectedStock['symbol'] ?? '',
-          trainingStartDate: DateTime(2025, 1, 1),
-          hasAvailableData: true,
-          errorMessage: null,
-        ));
-        
+              currentSymbol: selectedStock['symbol'] ?? '',
+              currentMarketCode: selectedStock['marketCode'] ?? '',
+              currentSymbolName: selectedStock['symbol'] ?? '',
+              trainingStartDate: DateTime(2025, 1, 1),
+              hasAvailableData: true,
+              errorMessage: null,
+            ));
+
         await loadKlineData();
       } else {
         _updateState((s) => s.copyWith(
-          hasAvailableData: false,
-          errorMessage: '暂无可训练股票',
-          isLoading: false,
-        ));
+              hasAvailableData: false,
+              errorMessage: '暂无可训练股票',
+              isLoading: false,
+            ));
       }
     } catch (e) {
       _logger.e('随机选股失败: $e');
       _updateState((s) => s.copyWith(
-        hasAvailableData: false,
-        errorMessage: '数据加载失败',
-        isLoading: false,
-      ));
+            hasAvailableData: false,
+            errorMessage: '数据加载失败',
+            isLoading: false,
+          ));
     }
   }
-  
+
   Future<void> loadKlineData() async {
     _logger.d('加载K线数据: ${_state.currentSymbol}');
-    
+
     if (_state.currentSymbol.isEmpty) {
       _logger.w('股票代码为空，跳过加载');
       return;
     }
-    
+
     try {
       _updateState((s) => s.copyWith(isLoading: true));
-      
+
       final startDate = _state.trainingStartDate ?? DateTime(2023, 3, 31);
       final startTime = startDate.subtract(Duration(days: _state.historyDays));
       final endTime = startDate.add(Duration(days: _state.trainingDays));
-      
-      List<KlineModel> data = await _repository.fetchKlineDataFromDbWithDateRange(
+
+      List<KlineModel> data =
+          await _repository.fetchKlineDataFromDbWithDateRange(
         symbol: _state.currentSymbol,
         period: 'day',
         startTime: startTime,
         endTime: endTime,
       );
-      
+
       if (data.isEmpty) {
-        data = _generateMockData(_state.currentSymbol, _state.trainingDays + _state.historyDays);
+        data = _generateMockData(
+            _state.currentSymbol, _state.trainingDays + _state.historyDays);
         _logger.w('数据库无数据，使用模拟数据');
       }
-      
+
       _updateState((s) => s.copyWith(
-        allKlineData: data,
-        currentDayIndex: s.historyDays,
-        visibleStartIndex: max(0, s.historyDays - s.visibleKlineCount + 1),
-        phase: TrainingPhase.opening,
-        isLoading: false,
-        hasAvailableData: true,
-      ));
+            allKlineData: data,
+            currentDayIndex: s.historyDays,
+            visibleStartIndex: max(0, s.historyDays - s.visibleKlineCount + 1),
+            phase: TrainingPhase.opening,
+            isLoading: false,
+            hasAvailableData: true,
+          ));
     } catch (e) {
       _logger.e('加载K线数据失败: $e');
       _updateState((s) => s.copyWith(
-        errorMessage: '加载K线数据失败: $e',
-        isLoading: false,
-      ));
+            errorMessage: '加载K线数据失败: $e',
+            isLoading: false,
+          ));
     }
   }
-  
+
   void goToNextDay() {
     if (_state.currentDayIndex >= _state.allKlineData.length - 1) {
       _logger.w('已经是最后一天');
       return;
     }
-    
+
     _updateState((s) {
       final newIndex = s.currentDayIndex + 1;
       return s.copyWith(
@@ -151,13 +153,13 @@ class TrainingManager {
       );
     });
   }
-  
+
   void goToPreviousDay() {
     if (_state.currentDayIndex <= _state.historyDays) {
       _logger.w('已经是训练第一天');
       return;
     }
-    
+
     _updateState((s) {
       final newIndex = s.currentDayIndex - 1;
       return s.copyWith(
@@ -167,26 +169,26 @@ class TrainingManager {
       );
     });
   }
-  
+
   void setPhase(TrainingPhase phase) {
     _updateState((s) => s.copyWith(phase: phase));
   }
-  
+
   void updateIndicatorSelection({String? top, String? bottom}) {
     _updateState((s) => s.copyWith(
-      selectedTopIndicator: top ?? s.selectedTopIndicator,
-      selectedBottomIndicator: bottom ?? s.selectedBottomIndicator,
-    ));
+          selectedTopIndicator: top ?? s.selectedTopIndicator,
+          selectedBottomIndicator: bottom ?? s.selectedBottomIndicator,
+        ));
   }
-  
+
   void updatePeriod(String period) {
     _updateState((s) => s.copyWith(selectedPeriod: period));
   }
-  
+
   void reset() {
     _updateState((_) => const TrainingState());
   }
-  
+
   List<KlineModel> _generateMockData(String symbol, int count) {
     final data = <KlineModel>[];
     final now = DateTime.now();

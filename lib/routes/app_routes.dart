@@ -186,7 +186,13 @@ class AppRoutes {
           GoRoute(
             path: 'training-history',
             name: 'training-history',
-            builder: (context, state) => const TrainingHistoryScreen(),
+            builder: (context, state) {
+              final refreshKey = state.uri.queryParameters['refresh'];
+              return TrainingHistoryScreen(
+                key: refreshKey != null ? ValueKey('training-history-$refreshKey') : null,
+                refreshKey: refreshKey,
+              );
+            },
             routes: [
               GoRoute(
                 path: ':id',

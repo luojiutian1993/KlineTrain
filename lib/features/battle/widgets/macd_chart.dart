@@ -12,7 +12,8 @@ class MacdChart extends StatelessWidget {
     if (data.isEmpty) return const SizedBox.expand();
 
     final values = data.expand((m) => [m.macd, m.diff, m.dea]).toList();
-    double maxValue = values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
+    double maxValue =
+        values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
     final safeMax = maxValue > 0 ? maxValue : 1.0;
 
     return Stack(
@@ -70,18 +71,22 @@ class MacdChart extends StatelessWidget {
         gridData: const FlGridData(show: false),
         lineBarsData: [
           LineChartBarData(
-            spots: data.asMap().entries.map((e) => 
-              FlSpot(e.key.toDouble(), e.value.diff)
-            ).toList(),
+            spots: data
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.diff))
+                .toList(),
             isCurved: true,
             color: Colors.blue,
             dotData: const FlDotData(show: false),
             barWidth: 1,
           ),
           LineChartBarData(
-            spots: data.asMap().entries.map((e) => 
-              FlSpot(e.key.toDouble(), e.value.dea)
-            ).toList(),
+            spots: data
+                .asMap()
+                .entries
+                .map((e) => FlSpot(e.key.toDouble(), e.value.dea))
+                .toList(),
             isCurved: true,
             color: Colors.orange,
             dotData: const FlDotData(show: false),

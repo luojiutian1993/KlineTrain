@@ -4,9 +4,8 @@ import '../data/models/training_review_data.dart';
 
 final trainingReviewProvider =
     FutureProvider.family<TrainingReviewData?, int>((ref, sessionId) async {
-  final repository = TrainingReviewRepository();
   try {
-    return await repository.getReviewData(sessionId);
+    return await TrainingReviewRepository.instance.getReviewData(sessionId);
   } catch (e) {
     return null;
   }

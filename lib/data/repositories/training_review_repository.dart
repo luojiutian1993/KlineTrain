@@ -7,10 +7,22 @@ import '../services/kline_data_sync_service.dart';
 import 'package:logger/logger.dart';
 
 class TrainingReviewRepository {
+  static final TrainingReviewRepository instance = TrainingReviewRepository._();
+  
   final DatabaseService _dbService = DatabaseService.instance;
   final Logger _logger = Logger();
+  
+  final Map<int, TrainingReviewData> _cache = {};
 
-  Future<TrainingReviewData> getReviewData(int sessionId) async {
+  TrainingReviewRepository._();
+
+  Future<TrainingReviewData> getReviewData(int sessionId, {bool forceRefresh = false}) async {
+    _logger.d('获取复盘数据: sessionId=$sessionId, forceRefresh=$forceRefresh, 缓存存在=${_cache.containsKey(sessionId)}');
+    if (!forceRefresh && _cache.containsKey(sessionId)) {
+      _logger.d('✅ 使用缓存数据: sessionId=$sessionId');
+      return _cache[sessionId]!;
+    }
+    _logger.d('🔄 从数据库加载数据: sessionId=$sessionId');
     final session = await _dbService.trainingDao.getSession(sessionId);
     if (session == null) {
       throw Exception('训练会话不存在');
@@ -51,12 +63,15 @@ class TrainingReviewRepository {
     _logger.d(
         '训练复盘数据获取完成: klineCount=${klineData.length}, tradeCount=${trades.length}, tradePointCount=${tradePoints.length}');
 
-    return TrainingReviewData(
+    final result = TrainingReviewData(
       session: session,
       klineData: klineData,
       tradePoints: tradePoints,
       trades: trades,
     );
+    
+    _cache[sessionId] = result;
+    return result;
   }
 
   Future<List<KlineModel>> _getSessionKlineData(TrainingSession session) async {
