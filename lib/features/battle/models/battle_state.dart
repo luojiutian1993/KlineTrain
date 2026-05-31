@@ -28,10 +28,29 @@ class BattleState {
   final List<KlineModel> allKlineData;
   final List<TradePoint> tradePoints;
 
+  // 预计算的指标数据（与 allKlineData 一一对应）
+  final List<VolumeData> precomputedVolumes;
+  final List<MacdData> precomputedMacd;
+  final List<KdjData> precomputedKdj;
+  final List<double> precomputedRsi;
+  final List<BollData> precomputedBoll;
+  final List<DmiData> precomputedDmi;
+  final List<double> precomputedCci;
+  final List<double> precomputedWr;
+  final List<double> precomputedObv;
+  final List<DmaData> precomputedDma;
+  final List<double> precomputedBbi;
+  final List<double> precomputedMa5;
+  final List<double> precomputedMa10;
+  final List<double> precomputedMa30;
+
   final int currentDayIndex;
   final int visibleStartIndex;
   final int visibleKlineCount;
   final double zoomScale;
+  final DateTime? lastLeftBoundaryTime;
+  final DateTime? lastRightBoundaryTime;
+  final DateTime? lastZoomBoundaryTime;
 
   final String selectedPeriod;
   final String selectedTopIndicator;
@@ -58,10 +77,27 @@ class BattleState {
     this.totalProfitLoss = 0.0,
     this.allKlineData = const [],
     this.tradePoints = const [],
+    this.precomputedVolumes = const [],
+    this.precomputedMacd = const [],
+    this.precomputedKdj = const [],
+    this.precomputedRsi = const [],
+    this.precomputedBoll = const [],
+    this.precomputedDmi = const [],
+    this.precomputedCci = const [],
+    this.precomputedWr = const [],
+    this.precomputedObv = const [],
+    this.precomputedDma = const [],
+    this.precomputedBbi = const [],
+    this.precomputedMa5 = const [],
+    this.precomputedMa10 = const [],
+    this.precomputedMa30 = const [],
     this.currentDayIndex = 0,
     this.visibleStartIndex = 0,
     this.visibleKlineCount = 20,
     this.zoomScale = 1.0,
+    this.lastLeftBoundaryTime,
+    this.lastRightBoundaryTime,
+    this.lastZoomBoundaryTime,
     this.selectedPeriod = '日K',
     this.selectedTopIndicator = '成交量',
     this.selectedBottomIndicator = 'MACD',
@@ -87,10 +123,27 @@ class BattleState {
     double? totalProfitLoss,
     List<KlineModel>? allKlineData,
     List<TradePoint>? tradePoints,
+    List<VolumeData>? precomputedVolumes,
+    List<MacdData>? precomputedMacd,
+    List<KdjData>? precomputedKdj,
+    List<double>? precomputedRsi,
+    List<BollData>? precomputedBoll,
+    List<DmiData>? precomputedDmi,
+    List<double>? precomputedCci,
+    List<double>? precomputedWr,
+    List<double>? precomputedObv,
+    List<DmaData>? precomputedDma,
+    List<double>? precomputedBbi,
+    List<double>? precomputedMa5,
+    List<double>? precomputedMa10,
+    List<double>? precomputedMa30,
     int? currentDayIndex,
     int? visibleStartIndex,
     int? visibleKlineCount,
     double? zoomScale,
+    DateTime? lastLeftBoundaryTime,
+    DateTime? lastRightBoundaryTime,
+    DateTime? lastZoomBoundaryTime,
     String? selectedPeriod,
     String? selectedTopIndicator,
     String? selectedBottomIndicator,
@@ -115,10 +168,28 @@ class BattleState {
       totalProfitLoss: totalProfitLoss ?? this.totalProfitLoss,
       allKlineData: allKlineData ?? this.allKlineData,
       tradePoints: tradePoints ?? this.tradePoints,
+      precomputedVolumes: precomputedVolumes ?? this.precomputedVolumes,
+      precomputedMacd: precomputedMacd ?? this.precomputedMacd,
+      precomputedKdj: precomputedKdj ?? this.precomputedKdj,
+      precomputedRsi: precomputedRsi ?? this.precomputedRsi,
+      precomputedBoll: precomputedBoll ?? this.precomputedBoll,
+      precomputedDmi: precomputedDmi ?? this.precomputedDmi,
+      precomputedCci: precomputedCci ?? this.precomputedCci,
+      precomputedWr: precomputedWr ?? this.precomputedWr,
+      precomputedObv: precomputedObv ?? this.precomputedObv,
+      precomputedDma: precomputedDma ?? this.precomputedDma,
+      precomputedBbi: precomputedBbi ?? this.precomputedBbi,
+      precomputedMa5: precomputedMa5 ?? this.precomputedMa5,
+      precomputedMa10: precomputedMa10 ?? this.precomputedMa10,
+      precomputedMa30: precomputedMa30 ?? this.precomputedMa30,
       currentDayIndex: currentDayIndex ?? this.currentDayIndex,
       visibleStartIndex: visibleStartIndex ?? this.visibleStartIndex,
       visibleKlineCount: visibleKlineCount ?? this.visibleKlineCount,
       zoomScale: zoomScale ?? this.zoomScale,
+      lastLeftBoundaryTime: lastLeftBoundaryTime ?? this.lastLeftBoundaryTime,
+      lastRightBoundaryTime:
+          lastRightBoundaryTime ?? this.lastRightBoundaryTime,
+      lastZoomBoundaryTime: lastZoomBoundaryTime ?? this.lastZoomBoundaryTime,
       selectedPeriod: selectedPeriod ?? this.selectedPeriod,
       selectedTopIndicator: selectedTopIndicator ?? this.selectedTopIndicator,
       selectedBottomIndicator:

@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:kline_trainer/data/models/kline_model.dart';
-import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
 
 class MACDResult {
   final List<double> dif;
@@ -90,34 +89,37 @@ class BBIResult {
 class IndicatorCalculator {
   static List<double> calculateEMA(List<double> closes, int period) {
     final k = 2 / (period + 1);
-    final ema = <double>[];
+    final ema = List<double>.filled(closes.length, 0.0);
 
-    if (closes.length < period) return ema;
+    if (closes.isEmpty) return ema;
 
     double sum = 0;
-    for (int i = 0; i < period; i++) {
+    for (int i = 0; i < closes.length; i++) {
       sum += closes[i];
-    }
-    ema.add(sum / period);
-
-    for (int i = period; i < closes.length; i++) {
-      ema.add(closes[i] * k + ema.last * (1 - k));
+      if (i < period) {
+        ema[i] = sum / (i + 1);
+      } else {
+        ema[i] = closes[i] * k + ema[i - 1] * (1 - k);
+      }
     }
 
     return ema;
   }
 
   static List<double> calculateSMA(List<double> values, int period) {
-    final sma = <double>[];
+    final sma = List<double>.filled(values.length, 0.0);
 
-    if (values.length < period) return sma;
+    if (values.isEmpty) return sma;
 
-    for (int i = period - 1; i < values.length; i++) {
-      double sum = 0;
-      for (int j = 0; j < period; j++) {
-        sum += values[i - j];
+    double sum = 0;
+    for (int i = 0; i < values.length; i++) {
+      sum += values[i];
+      if (i < period) {
+        sma[i] = sum / (i + 1);
+      } else {
+        sum -= values[i - period];
+        sma[i] = sum / period;
       }
-      sma.add(sum / period);
     }
 
     return sma;
@@ -134,17 +136,41 @@ class IndicatorCalculator {
     final emaFast = calculateEMA(closes, fastPeriod);
     final emaSlow = calculateEMA(closes, slowPeriod);
 
-    final minLength = min(emaFast.length, emaSlow.length);
-    final dif = <double>[];
-    for (int i = 0; i < minLength; i++) {
-      dif.add(emaFast[i] - emaSlow[i]);
+    final dif = List<double>.filled(data.length, 0.0);
+    for (int i = 0; i < data.length; i++) {
+      if (emaFast[i] != 0.0 && emaSlow[i] != 0.0) {
+        dif[i] = emaFast[i] - emaSlow[i];
+      }
     }
 
-    final dea = calculateEMA(dif, signalPeriod);
+    final dea = List<double>.filled(data.length, 0.0);
+    final k = 2 / (signalPeriod + 1);
 
-    final macd = <double>[];
-    for (int i = 0; i < dea.length; i++) {
-      macd.add(2 * (dif[i] - dea[i]));
+    // 找到第一个非零dif作为起始点
+    int startIndex = 0;
+    while (startIndex < dif.length && dif[startIndex] == 0.0) {
+      startIndex++;
+    }
+
+    if (startIndex + signalPeriod - 1 < dif.length) {
+      // 计算初始DEA
+      double sum = 0;
+      for (int i = startIndex; i < startIndex + signalPeriod; i++) {
+        sum += dif[i];
+      }
+      dea[startIndex + signalPeriod - 1] = sum / signalPeriod;
+
+      // 继续计算后续DEA
+      for (int i = startIndex + signalPeriod; i < dif.length; i++) {
+        dea[i] = dif[i] * k + dea[i - 1] * (1 - k);
+      }
+    }
+
+    final macd = List<double>.filled(data.length, 0.0);
+    for (int i = 0; i < data.length; i++) {
+      if (dea[i] != 0.0) {
+        macd[i] = 2 * (dif[i] - dea[i]);
+      }
     }
 
     return MACDResult(dif: dif, dea: dea, macd: macd);
@@ -156,9 +182,9 @@ class IndicatorCalculator {
     double stdDev = 2.0,
   }) {
     final closes = data.map((d) => d.close).toList();
-    final mb = <double>[];
-    final up = <double>[];
-    final dn = <double>[];
+    final mb = List<double>.filled(data.length, 0.0);
+    final up = List<double>.filled(data.length, 0.0);
+    final dn = List<double>.filled(data.length, 0.0);
 
     if (closes.length < period) {
       return BollResult(mb: mb, up: up, dn: dn);
@@ -170,7 +196,7 @@ class IndicatorCalculator {
         sum += closes[j];
       }
       final ma = sum / period;
-      mb.add(ma);
+      mb[i] = ma;
 
       double variance = 0;
       for (int j = i - period + 1; j <= i; j++) {
@@ -178,8 +204,8 @@ class IndicatorCalculator {
       }
       final md = sqrt(variance / period);
 
-      up.add(ma + stdDev * md);
-      dn.add(ma - stdDev * md);
+      up[i] = ma + stdDev * md;
+      dn[i] = ma - stdDev * md;
     }
 
     return BollResult(mb: mb, up: up, dn: dn);
@@ -191,9 +217,9 @@ class IndicatorCalculator {
     int kPeriod = 3,
     int dPeriod = 3,
   }) {
-    final k = <double>[];
-    final d = <double>[];
-    final j = <double>[];
+    final k = List<double>.filled(data.length, 50.0);
+    final d = List<double>.filled(data.length, 50.0);
+    final j = List<double>.filled(data.length, 50.0);
 
     if (data.length < rsvPeriod) {
       return KDJResult(k: k, d: d, j: j);
@@ -218,9 +244,9 @@ class IndicatorCalculator {
       final currentD = 2 / 3 * prevD + 1 / 3 * currentK;
       final currentJ = 3 * currentK - 2 * currentD;
 
-      k.add(currentK);
-      d.add(currentD);
-      j.add(currentJ);
+      k[i] = currentK;
+      d[i] = currentD;
+      j[i] = currentJ;
 
       prevK = currentK;
       prevD = currentD;
@@ -230,7 +256,7 @@ class IndicatorCalculator {
   }
 
   static RSIResult calculateRSI(List<KlineModel> data, {int period = 14}) {
-    final rsi = <double>[];
+    final rsi = List<double>.filled(data.length, 50.0);
     final changes = <double>[];
 
     for (int i = 1; i < data.length; i++) {
@@ -257,10 +283,10 @@ class IndicatorCalculator {
       final avgLoss = lossSum / period;
 
       if (avgLoss == 0) {
-        rsi.add(100);
+        rsi[i + 1] = 100;
       } else {
         final rs = avgGain / avgLoss;
-        rsi.add(100 - 100 / (1 + rs));
+        rsi[i + 1] = 100 - 100 / (1 + rs);
       }
     }
 
@@ -268,7 +294,7 @@ class IndicatorCalculator {
   }
 
   static WRResult calculateWR(List<KlineModel> data, {int period = 14}) {
-    final wr = <double>[];
+    final wr = List<double>.filled(data.length, -50.0);
 
     if (data.length < period) {
       return WRResult(values: wr);
@@ -285,9 +311,9 @@ class IndicatorCalculator {
 
       final range = highestHigh - lowestLow;
       if (range == 0) {
-        wr.add(0);
+        wr[i] = 0;
       } else {
-        wr.add((highestHigh - data[i].close) / range * 100);
+        wr[i] = (highestHigh - data[i].close) / range * 100;
       }
     }
 
@@ -295,7 +321,7 @@ class IndicatorCalculator {
   }
 
   static CCIResult calculateCCI(List<KlineModel> data, {int period = 14}) {
-    final cci = <double>[];
+    final cci = List<double>.filled(data.length, 0.0);
 
     if (data.length < period) {
       return CCIResult(values: cci);
@@ -318,9 +344,9 @@ class IndicatorCalculator {
 
       final tp = (data[i].high + data[i].low + data[i].close) / 3;
       if (meanDev == 0) {
-        cci.add(0);
+        cci[i] = 0;
       } else {
-        cci.add((tp - smaTp) / (0.015 * meanDev));
+        cci[i] = (tp - smaTp) / (0.015 * meanDev);
       }
     }
 
@@ -349,9 +375,9 @@ class IndicatorCalculator {
   }
 
   static DMIResult calculateDMI(List<KlineModel> data, {int period = 14}) {
-    final plusDI = <double>[];
-    final minusDI = <double>[];
-    final adxList = <double>[];
+    final plusDI = List<double>.filled(data.length, 0.0);
+    final minusDI = List<double>.filled(data.length, 0.0);
+    final adxList = List<double>.filled(data.length, 0.0);
 
     if (data.length < period + 1) {
       return DMIResult(plusDI: plusDI, minusDI: minusDI, adx: adxList);
@@ -406,16 +432,16 @@ class IndicatorCalculator {
 
     for (int i = period - 1; i < smoothedTR.length; i++) {
       if (smoothedTR[i] == 0) {
-        plusDI.add(0);
-        minusDI.add(0);
+        plusDI[i + 1] = 0;
+        minusDI[i + 1] = 0;
       } else {
-        plusDI.add(smoothedPlusDM[i] / smoothedTR[i] * 100);
-        minusDI.add(smoothedMinusDM[i] / smoothedTR[i] * 100);
+        plusDI[i + 1] = smoothedPlusDM[i] / smoothedTR[i] * 100;
+        minusDI[i + 1] = smoothedMinusDM[i] / smoothedTR[i] * 100;
       }
     }
 
     final List<double> dxList = [];
-    for (int i = 0; i < plusDI.length; i++) {
+    for (int i = 0; i < data.length; i++) {
       final sum = plusDI[i] + minusDI[i];
       if (sum == 0) {
         dxList.add(0);
@@ -424,12 +450,12 @@ class IndicatorCalculator {
       }
     }
 
-    for (int i = period - 1; i < dxList.length; i++) {
+    for (int i = period; i < dxList.length; i++) {
       double sumDx = 0;
       for (int j = i - period + 1; j <= i; j++) {
         sumDx += dxList[j];
       }
-      adxList.add(sumDx / period);
+      adxList[i] = sumDx / period;
     }
 
     return DMIResult(plusDI: plusDI, minusDI: minusDI, adx: adxList);
@@ -441,10 +467,11 @@ class IndicatorCalculator {
     final shortMA = calculateSMA(closes, shortPeriod);
     final longMA = calculateSMA(closes, longPeriod);
 
-    final dma = <double>[];
-    final minLength = min(shortMA.length, longMA.length);
-    for (int i = 0; i < minLength; i++) {
-      dma.add(shortMA[i] - longMA[i]);
+    final dma = List<double>.filled(data.length, 0.0);
+    for (int i = 0; i < data.length; i++) {
+      if (shortMA[i] != 0.0 && longMA[i] != 0.0) {
+        dma[i] = shortMA[i] - longMA[i];
+      }
     }
 
     final ama = calculateSMA(dma, signalPeriod);
@@ -459,11 +486,11 @@ class IndicatorCalculator {
     final ma12 = calculateSMA(closes, 12);
     final ma20 = calculateSMA(closes, 20);
 
-    final bbi = <double>[];
-    final minLength =
-        min(min(ma3.length, ma6.length), min(ma12.length, ma20.length));
-    for (int i = 0; i < minLength; i++) {
-      bbi.add((ma3[i] + ma6[i] + ma12[i] + ma20[i]) / 4);
+    final bbi = List<double>.filled(data.length, 0.0);
+    for (int i = 0; i < data.length; i++) {
+      if (ma3[i] != 0.0 && ma6[i] != 0.0 && ma12[i] != 0.0 && ma20[i] != 0.0) {
+        bbi[i] = (ma3[i] + ma6[i] + ma12[i] + ma20[i]) / 4;
+      }
     }
 
     return BBIResult(values: bbi);

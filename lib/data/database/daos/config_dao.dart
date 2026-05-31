@@ -151,6 +151,25 @@ class ConfigDao extends DatabaseAccessor<AppDatabase> with _$ConfigDaoMixin {
         value: const Value('true'),
         description: const Value('是否启用通知'),
       ),
+      // 三层数据加载配置
+      SystemConfigsCompanion(
+        key: const Value('training.days'),
+        value: const Value('150'),
+        description: const Value('训练周期天数'),
+        category: const Value('training'),
+      ),
+      SystemConfigsCompanion(
+        key: const Value('training.preload_days'),
+        value: const Value('100'),
+        description: const Value('预加载数据天数'),
+        category: const Value('training'),
+      ),
+      SystemConfigsCompanion(
+        key: const Value('training.indicator_preload_days'),
+        value: const Value('33'),
+        description: const Value('指标前置数据天数'),
+        category: const Value('training'),
+      ),
     ];
 
     await batch((batch) {

@@ -12,6 +12,12 @@ class BattleConfig {
   static const double defaultInitialBalance = 100000.0;
   static const int defaultVisibleKlineCount = 20;
 
+  static const int minVisibleKlineCount = 10;
+  static const int maxVisibleKlineCount = 700;
+  static const int boundaryDebounceSeconds = 3;
+  static const int slideStepCount = 5;
+  static const double zoomFactor = 1.2;
+
   static const String defaultPeriod = '日K';
   static const String defaultTopIndicator = '成交量';
   static const String defaultBottomIndicator = 'MACD';

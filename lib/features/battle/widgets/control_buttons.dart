@@ -11,37 +11,82 @@ class ControlButtons extends ConsumerWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildControlButton(
+          context: context,
           icon: Icons.chevron_left,
           label: '左滑',
           onPressed: () {
-            ref.read(battleProvider.notifier).previousDay();
+            final shouldAlert = ref.read(battleProvider.notifier).slideLeft();
+            if (shouldAlert) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('已到达最左边'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
           },
         ),
         const SizedBox(width: 4),
         _buildControlButton(
+          context: context,
           icon: Icons.chevron_right,
           label: '右滑',
           onPressed: () {
-            ref.read(battleProvider.notifier).nextDay();
+            final shouldAlert = ref.read(battleProvider.notifier).slideRight();
+            if (shouldAlert) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('已到达最右边'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
           },
         ),
         const SizedBox(width: 4),
         _buildControlButton(
+          context: context,
           icon: Icons.zoom_in,
           label: '放大',
-          onPressed: () {},
+          onPressed: () {
+            final shouldAlert = ref.read(battleProvider.notifier).zoomIn();
+            if (shouldAlert) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('已达到最大放大级别'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          },
         ),
         const SizedBox(width: 4),
         _buildControlButton(
+          context: context,
           icon: Icons.zoom_out,
           label: '缩小',
-          onPressed: () {},
+          onPressed: () {
+            final shouldAlert = ref.read(battleProvider.notifier).zoomOut();
+            if (shouldAlert) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('已达到最小缩放级别'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          },
         ),
       ],
     );
   }
 
   Widget _buildControlButton({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required VoidCallback onPressed,

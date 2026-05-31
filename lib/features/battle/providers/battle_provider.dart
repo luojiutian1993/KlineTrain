@@ -7,6 +7,8 @@ import 'package:kline_trainer/data/repositories/kline_repository.dart';
 import 'package:kline_trainer/features/battle/models/battle_state.dart';
 import 'package:kline_trainer/features/battle/models/battle_config.dart';
 import 'package:kline_trainer/features/battle/trading_calculator.dart';
+import 'package:kline_trainer/features/battle/services/training_config_service.dart';
+import 'package:kline_trainer/features/battle/services/indicator_cache_service.dart';
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
 
 part 'battle_provider.g.dart';
@@ -55,6 +57,9 @@ class Battle extends _$Battle {
           ? availableTrainingDays.clamp(1, BattleConfig.defaultTrainingDays)
           : 1;
 
+      // 预计算所有指标数据（与 K 线数据一一对应）
+      final computed = _precomputeIndicators(klineData);
+
       // 确保visibleStartIndex有效
       final visibleStartIndex =
           (startDayIndex - BattleConfig.defaultVisibleKlineCount + 1)
@@ -69,6 +74,20 @@ class Battle extends _$Battle {
         currentMarketCode: marketCode ?? '',
         trainingStartDate: startDate,
         allKlineData: klineData,
+        precomputedVolumes: computed['volumes'] as List<VolumeData>,
+        precomputedMacd: computed['macd'] as List<MacdData>,
+        precomputedKdj: computed['kdj'] as List<KdjData>,
+        precomputedRsi: computed['rsi'] as List<double>,
+        precomputedBoll: computed['boll'] as List<BollData>,
+        precomputedDmi: computed['dmi'] as List<DmiData>,
+        precomputedCci: computed['cci'] as List<double>,
+        precomputedWr: computed['wr'] as List<double>,
+        precomputedObv: computed['obv'] as List<double>,
+        precomputedDma: computed['dma'] as List<DmaData>,
+        precomputedBbi: computed['bbi'] as List<double>,
+        precomputedMa5: computed['ma5'] as List<double>,
+        precomputedMa10: computed['ma10'] as List<double>,
+        precomputedMa30: computed['ma30'] as List<double>,
         currentDayIndex: startDayIndex >= 0
             ? startDayIndex.clamp(0, klineData.length - 1)
             : 0,
@@ -246,29 +265,355 @@ class Battle extends _$Battle {
     return null;
   }
 
+  /// 预计算所有指标数据，确保与 K 线数据一一对应
+  Map<String, dynamic> _precomputeIndicators(List<KlineModel> data) {
+    final volumes = data
+        .map((d) => VolumeData(volume: d.volume, isUp: d.close >= d.open))
+        .toList();
+
+    final closes = data.map((d) => d.close).toList();
+    final ma5 = _computeFullMA(closes, 5);
+    final ma10 = _computeFullMA(closes, 10);
+    final ma30 = _computeFullMA(closes, 30);
+
+    // 计算 MACD（完整数组，长度与 data 一致）
+    final macdResult = IndicatorCalculator.calculateMACD(data);
+    final macdData = List.generate(data.length, (i) {
+      return MacdData(
+        macd: macdResult.macd[i],
+        diff: macdResult.dif[i],
+        dea: macdResult.dea[i],
+      );
+    });
+
+    // 计算 KDJ（完整数组，长度与 data 一致）
+    final kdjResult = IndicatorCalculator.calculateKDJ(data);
+    final kdjData = List.generate(data.length, (i) {
+      return KdjData(
+        k: kdjResult.k[i],
+        d: kdjResult.d[i],
+        j: kdjResult.j[i],
+      );
+    });
+
+    // 计算 RSI（完整数组，长度与 data 一致）
+    final rsiResult = IndicatorCalculator.calculateRSI(data);
+    final rsiData = rsiResult.values;
+
+    // 计算 BOLL（完整数组，长度与 data 一致）
+    final bollResult = IndicatorCalculator.calculateBoll(data);
+    final bollData = List.generate(data.length, (i) {
+      return BollData(
+        mb: bollResult.mb[i],
+        up: bollResult.up[i],
+        dn: bollResult.dn[i],
+      );
+    });
+
+    // 计算 DMI（完整数组，长度与 data 一致）
+    final dmiResult = IndicatorCalculator.calculateDMI(data);
+    final dmiData = List.generate(data.length, (i) {
+      return DmiData(
+        plusDi: dmiResult.plusDI[i],
+        minusDi: dmiResult.minusDI[i],
+        adx: dmiResult.adx[i],
+      );
+    });
+
+    // 计算 CCI（完整数组，长度与 data 一致）
+    final cciResult = IndicatorCalculator.calculateCCI(data);
+    final cciData = cciResult.values;
+
+    // 计算 WR（完整数组，长度与 data 一致）
+    final wrResult = IndicatorCalculator.calculateWR(data);
+    final wrData = wrResult.values;
+
+    // 计算 OBV（完整数组，长度与 data 一致）
+    final obvResult = IndicatorCalculator.calculateOBV(data);
+    final obvData = obvResult.values;
+
+    // 计算 DMA（完整数组，长度与 data 一致）
+    final dmaResult = IndicatorCalculator.calculateDMA(data);
+    final dmaData = List.generate(data.length, (i) {
+      return DmaData(
+        dma: dmaResult.dma[i],
+        ama: dmaResult.ama[i],
+      );
+    });
+
+    // 计算 BBI（完整数组，长度与 data 一致）
+    final bbiResult = IndicatorCalculator.calculateBBI(data);
+    final bbiData = bbiResult.values;
+
+    return {
+      'volumes': volumes,
+      'macd': macdData,
+      'kdj': kdjData,
+      'rsi': rsiData,
+      'boll': bollData,
+      'dmi': dmiData,
+      'cci': cciData,
+      'wr': wrData,
+      'obv': obvData,
+      'dma': dmaData,
+      'bbi': bbiData,
+      'ma5': ma5,
+      'ma10': ma10,
+      'ma30': ma30,
+    };
+  }
+
+  /// 计算完整的 MA 数组，长度与数据一致
+  List<double> _computeFullMA(List<double> data, int period) {
+    final result = List<double>.filled(data.length, 0);
+    for (int i = 0; i < data.length; i++) {
+      int start = max(0, i - period + 1);
+      double sum = 0;
+      for (int j = start; j <= i; j++) {
+        sum += data[j];
+      }
+      result[i] = sum / (i - start + 1);
+    }
+    return result;
+  }
+
   Future<List<KlineModel>> _loadKlineData(
     String symbol,
     DateTime? startDate,
   ) async {
-    // 首先尝试获取该股票的所有K线数据
-    List<KlineModel> data = await _repository.fetchKlineDataFromDb(
-      symbol: symbol,
-      period: 'day',
-      limit: 10000, // 足够大的数量获取所有数据
-    );
+    final configService = TrainingConfigService(DatabaseService.instance);
 
-    if (data.isEmpty) {
-      // 如果没有数据，尝试通过API获取（但根据需求文档，应该优先使用数据库数据）
-      data = await _repository.fetchKlineData(
-        symbol: symbol,
-        timeframe: 'day',
-        limit: BattleConfig.defaultHistoryDays +
-            BattleConfig.defaultTrainingDays +
-            50,
+    final trainingDays = await configService.getTrainingDays();
+    final totalPreloadDays = await configService.getTotalPreloadDays();
+
+    DateTime dataStartTime;
+    final dataEndTime = DateTime.now();
+
+    if (startDate != null) {
+      dataStartTime = startDate.subtract(Duration(days: totalPreloadDays));
+    } else {
+      dataStartTime = dataEndTime.subtract(
+        Duration(days: trainingDays + totalPreloadDays),
       );
     }
 
+    print(
+        '🔵 [BattleProvider] 三层数据加载: trainingDays=$trainingDays, totalPreloadDays=$totalPreloadDays');
+    print('🔵 [BattleProvider] 数据加载范围: $dataStartTime ~ $dataEndTime');
+
+    List<KlineModel> data = await _repository.fetchKlineDataFromDbWithDateRange(
+      symbol: symbol,
+      period: 'day',
+      startTime: dataStartTime,
+      endTime: dataEndTime,
+    );
+
+    if (data.isEmpty) {
+      print('🔴 [BattleProvider] 没有找到K线数据，尝试获取所有数据');
+      data = await _repository.fetchKlineDataFromDb(
+        symbol: symbol,
+        period: 'day',
+        limit: 10000,
+      );
+
+      if (data.isNotEmpty) {
+        final firstDate =
+            DateTime.fromMillisecondsSinceEpoch(data.first.timestamp);
+        final availablePreloadDays = dataEndTime.difference(firstDate).inDays;
+        if (availablePreloadDays < totalPreloadDays) {
+          print(
+              '⚠️ [BattleProvider] 数据不足 $totalPreloadDays 天，可用: $availablePreloadDays 天');
+        }
+      }
+    }
+
     return data;
+  }
+
+  Future<Map<String, dynamic>?> _loadDataForRange({
+    required String symbol,
+    required int visibleKlineCount,
+    required DateTime visibleStart,
+    required DateTime visibleEnd,
+  }) async {
+    final cacheService = IndicatorCacheService();
+    final configService = TrainingConfigService(DatabaseService.instance);
+
+    final cacheKey = '$symbol\_$visibleKlineCount';
+    final cached = cacheService.get(cacheKey);
+
+    if (cached != null &&
+        !visibleStart.isBefore(cached.startDate) &&
+        !visibleEnd.isAfter(cached.endDate)) {
+      print('🔵 [BattleProvider] 缓存命中: $cacheKey');
+      return {
+        'klineData': cached.klineData,
+        'indicators': cached.indicators,
+      };
+    }
+
+    final indicatorPreloadDays = await configService.getIndicatorPreloadDays();
+    final dataStart =
+        visibleStart.subtract(Duration(days: indicatorPreloadDays));
+
+    print('🔵 [BattleProvider] 按需加载: $dataStart ~ $visibleEnd');
+
+    final extendedData = await _repository.fetchKlineDataFromDbWithDateRange(
+      symbol: symbol,
+      period: 'day',
+      startTime: dataStart,
+      endTime: visibleEnd,
+    );
+
+    if (extendedData.isEmpty) {
+      return null;
+    }
+
+    final indicators = _precomputeAllIndicators(extendedData);
+
+    final cache = IndicatorCache(
+      cacheKey: cacheKey,
+      dataLength: extendedData.length,
+      startDate: dataStart,
+      endDate: visibleEnd,
+      klineData: extendedData,
+      indicators: indicators,
+      createdAt: DateTime.now(),
+    );
+    cacheService.put(cache);
+
+    return {
+      'klineData': extendedData,
+      'indicators': indicators,
+    };
+  }
+
+  Map<String, dynamic> _precomputeAllIndicators(List<KlineModel> data) {
+    if (data.isEmpty) {
+      return {
+        'volumes': <VolumeData>[],
+        'ma5': <double>[],
+        'ma10': <double>[],
+        'ma30': <double>[],
+        'macd': <MacdData>[],
+        'kdj': <KdjData>[],
+        'rsi': <double>[],
+        'boll': <BollData>[],
+        'dmi': <DmiData>[],
+        'cci': <double>[],
+        'wr': <double>[],
+        'obv': <double>[],
+        'dma': <DmaData>[],
+        'bbi': <double>[],
+      };
+    }
+
+    final closes = data.map((d) => d.close).toList();
+    final volumes = data
+        .map((d) => VolumeData(volume: d.volume, isUp: d.close >= d.open))
+        .toList();
+
+    final ma5 = IndicatorCalculator.calculateSMA(closes, 5);
+    final ma10 = IndicatorCalculator.calculateSMA(closes, 10);
+    final ma30 = IndicatorCalculator.calculateSMA(closes, 30);
+
+    final macdResult = IndicatorCalculator.calculateMACD(data);
+    final macdData = <MacdData>[];
+    for (int i = 0; i < macdResult.macd.length; i++) {
+      macdData.add(MacdData(
+        macd: macdResult.macd[i],
+        diff: i < macdResult.dif.length ? macdResult.dif[i] : 0,
+        dea: i < macdResult.dea.length ? macdResult.dea[i] : 0,
+      ));
+    }
+
+    final kdjResult = IndicatorCalculator.calculateKDJ(data);
+    final kdjData = <KdjData>[];
+    for (int i = 0; i < kdjResult.k.length; i++) {
+      kdjData.add(KdjData(
+        k: kdjResult.k[i],
+        d: kdjResult.d[i],
+        j: kdjResult.j[i],
+      ));
+    }
+
+    final rsiResult = IndicatorCalculator.calculateRSI(data);
+    final bollResult = IndicatorCalculator.calculateBoll(data);
+    final bollData = <BollData>[];
+    for (int i = 0; i < bollResult.mb.length; i++) {
+      bollData.add(BollData(
+        mb: bollResult.mb[i],
+        up: bollResult.up[i],
+        dn: bollResult.dn[i],
+      ));
+    }
+
+    final dmiResult = IndicatorCalculator.calculateDMI(data);
+    final dmiData = <DmiData>[];
+    for (int i = 0; i < dmiResult.plusDI.length; i++) {
+      dmiData.add(DmiData(
+        plusDi: dmiResult.plusDI[i],
+        minusDi: dmiResult.minusDI[i],
+        adx: dmiResult.adx[i],
+      ));
+    }
+
+    final cciResult = IndicatorCalculator.calculateCCI(data);
+    final wrResult = IndicatorCalculator.calculateWR(data);
+    final obvResult = IndicatorCalculator.calculateOBV(data);
+
+    final dmaResult = IndicatorCalculator.calculateDMA(data);
+    final dmaData = <DmaData>[];
+    for (int i = 0; i < dmaResult.dma.length; i++) {
+      dmaData.add(DmaData(
+        dma: dmaResult.dma[i],
+        ama: dmaResult.ama[i],
+      ));
+    }
+
+    final bbiResult = IndicatorCalculator.calculateBBI(data);
+
+    print(
+        '🔵 [BattleProvider] 预计算指标: ma5[0..4]=[${ma5.take(5).toList()}], macd[0..4]=[${macdData.take(5).map((m) => m.macd).toList()}]');
+
+    return {
+      'volumes': volumes,
+      'ma5': ma5,
+      'ma10': ma10,
+      'ma30': ma30,
+      'macd': macdData,
+      'kdj': kdjData,
+      'rsi': rsiResult.values,
+      'boll': bollData,
+      'dmi': dmiData,
+      'cci': cciResult.values,
+      'wr': wrResult.values,
+      'obv': obvResult.values,
+      'dma': dmaData,
+      'bbi': bbiResult.values,
+    };
+  }
+
+  String _generateCacheKey(String symbol, int visibleKlineCount) {
+    return '${symbol}_$visibleKlineCount';
+  }
+
+  bool _coversRange(
+    IndicatorCache cache,
+    DateTime requestStart,
+    DateTime requestEnd,
+  ) {
+    return !requestStart.isBefore(cache.startDate) &&
+        !requestEnd.isAfter(cache.endDate);
+  }
+
+  void _applyCachedData(IndicatorCache cache) {
+    state = state.copyWith(
+      allKlineData: cache.klineData,
+      precomputedMa5: (cache.indicators['ma5'] as List<double>?) ?? [],
+      precomputedMa10: (cache.indicators['ma10'] as List<double>?) ?? [],
+      precomputedMa30: (cache.indicators['ma30'] as List<double>?) ?? [],
+    );
   }
 
   int _findStartDayIndex(List<KlineModel> data, DateTime? targetDate) {
@@ -428,38 +773,108 @@ class Battle extends _$Battle {
     );
   }
 
-  void zoomIn() {
-    final newZoom = (state.zoomScale * 1.2).clamp(0.0286, 3.0);
-    final newCount = (20 / newZoom).round().clamp(10, 700);
+  bool zoomIn() {
+    final newCount = (state.visibleKlineCount / BattleConfig.zoomFactor)
+        .round()
+        .clamp(BattleConfig.minVisibleKlineCount,
+            BattleConfig.maxVisibleKlineCount);
+
+    if (newCount <= BattleConfig.minVisibleKlineCount) {
+      final shouldAlert = _shouldShowBoundaryAlert(state.lastZoomBoundaryTime);
+      if (shouldAlert) {
+        state = state.copyWith(
+          visibleKlineCount: BattleConfig.minVisibleKlineCount,
+          lastZoomBoundaryTime: DateTime.now(),
+        );
+      } else {
+        state = state.copyWith(
+            visibleKlineCount: BattleConfig.minVisibleKlineCount);
+      }
+      return shouldAlert;
+    }
+
+    final newStart = max(0, state.currentDayIndex - newCount + 1);
     state = state.copyWith(
-      zoomScale: newZoom,
       visibleKlineCount: newCount.clamp(1, state.currentDayIndex + 1),
+      visibleStartIndex: newStart,
     );
+    return false;
   }
 
-  void zoomOut() {
-    final newZoom = (state.zoomScale / 1.2).clamp(0.0286, 3.0);
-    final newCount = (20 / newZoom).round().clamp(10, 700);
+  bool zoomOut() {
+    final newCount = (state.visibleKlineCount * BattleConfig.zoomFactor)
+        .round()
+        .clamp(BattleConfig.minVisibleKlineCount,
+            BattleConfig.maxVisibleKlineCount);
+
+    if (newCount >= BattleConfig.maxVisibleKlineCount) {
+      final shouldAlert = _shouldShowBoundaryAlert(state.lastZoomBoundaryTime);
+      if (shouldAlert) {
+        state = state.copyWith(
+          visibleKlineCount: BattleConfig.maxVisibleKlineCount,
+          lastZoomBoundaryTime: DateTime.now(),
+        );
+      } else {
+        state = state.copyWith(
+            visibleKlineCount: BattleConfig.maxVisibleKlineCount);
+      }
+      return shouldAlert;
+    }
+
+    final newStart = max(0, state.currentDayIndex - newCount + 1);
     state = state.copyWith(
-      zoomScale: newZoom,
       visibleKlineCount: newCount.clamp(1, state.currentDayIndex + 1),
+      visibleStartIndex: newStart,
     );
+    return false;
   }
 
-  void slideLeft() {
-    if (state.visibleStartIndex <= 0) return;
-    state = state.copyWith(
-      visibleStartIndex: max(0, state.visibleStartIndex - 5),
-    );
+  bool slideLeft() {
+    final newStart = state.visibleStartIndex - BattleConfig.slideStepCount;
+
+    if (newStart <= 0) {
+      final shouldAlert = _shouldShowBoundaryAlert(state.lastLeftBoundaryTime);
+      if (shouldAlert) {
+        state = state.copyWith(
+          visibleStartIndex: 0,
+          lastLeftBoundaryTime: DateTime.now(),
+        );
+      } else {
+        state = state.copyWith(visibleStartIndex: 0);
+      }
+      return shouldAlert;
+    }
+
+    state = state.copyWith(visibleStartIndex: newStart);
+    return false;
   }
 
-  void slideRight() {
+  bool slideRight() {
     final maxStart = (state.currentDayIndex + 1 - state.visibleKlineCount)
         .clamp(0, state.currentDayIndex);
-    if (state.visibleStartIndex >= maxStart) return;
-    state = state.copyWith(
-      visibleStartIndex: min(maxStart, state.visibleStartIndex + 5),
-    );
+    final newStart = state.visibleStartIndex + BattleConfig.slideStepCount;
+
+    if (newStart >= maxStart) {
+      final shouldAlert = _shouldShowBoundaryAlert(state.lastRightBoundaryTime);
+      if (shouldAlert) {
+        state = state.copyWith(
+          visibleStartIndex: maxStart,
+          lastRightBoundaryTime: DateTime.now(),
+        );
+      } else {
+        state = state.copyWith(visibleStartIndex: maxStart);
+      }
+      return shouldAlert;
+    }
+
+    state = state.copyWith(visibleStartIndex: newStart);
+    return false;
+  }
+
+  bool _shouldShowBoundaryAlert(DateTime? lastTime) {
+    if (lastTime == null) return true;
+    final diff = DateTime.now().difference(lastTime).inSeconds;
+    return diff >= BattleConfig.boundaryDebounceSeconds;
   }
 
   void updateTopIndicator(String indicator) {
@@ -532,28 +947,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 26) return [];
-
-    final macdResult = IndicatorCalculator.calculateMACD(fullData);
-    final macdOffset = fullData.length - macdResult.macd.length;
-
-    final result = <MacdData>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final macdIndex = i - macdOffset;
-      if (macdIndex >= 0 && macdIndex < macdResult.macd.length) {
-        result.add(MacdData(
-          macd: macdResult.macd[macdIndex],
-          diff: macdResult.dif[macdIndex],
-          dea: macdResult.dea[macdIndex],
-        ));
-      } else {
-        result.add(MacdData(macd: 0, diff: 0, dea: 0));
-      }
-    }
-
-    return result;
+    return state.precomputedMacd
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<VolumeData> get displayVolumes {
@@ -564,26 +961,34 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    return state.allKlineData
+    return state.precomputedVolumes
         .skip(startIndex)
         .take(min(state.visibleKlineCount, endIndex - startIndex))
-        .map((e) => VolumeData(volume: e.volume, isUp: e.isUp))
         .toList();
   }
 
   List<double> get ma5Data {
-    return _calculateMA(displayKlineData, 5);
+    if (state.allKlineData.isEmpty) return [];
+
+    final displayCloses = displayKlineData.map((e) => e.close).toList();
+    return _computeMA(displayCloses, 5);
   }
 
   List<double> get ma10Data {
-    return _calculateMA(displayKlineData, 10);
+    if (state.allKlineData.isEmpty) return [];
+
+    final displayCloses = displayKlineData.map((e) => e.close).toList();
+    return _computeMA(displayCloses, 10);
   }
 
   List<double> get ma30Data {
-    return _calculateMA(displayKlineData, 30);
+    if (state.allKlineData.isEmpty) return [];
+
+    final displayCloses = displayKlineData.map((e) => e.close).toList();
+    return _computeMA(displayCloses, 30);
   }
 
-  List<double> _calculateMA(List<KlineData> data, int period) {
+  List<double> _computeMA(List<double> data, int period) {
     final result = <double>[];
     for (int i = 0; i < data.length; i++) {
       if (i < period - 1) {
@@ -591,7 +996,7 @@ class Battle extends _$Battle {
       } else {
         double sum = 0;
         for (int j = i - period + 1; j <= i; j++) {
-          sum += data[j].close;
+          sum += data[j];
         }
         result.add(sum / period);
       }
@@ -607,28 +1012,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 9) return [];
-
-    final kdjResult = IndicatorCalculator.calculateKDJ(fullData);
-    final kdjOffset = fullData.length - kdjResult.k.length;
-
-    final result = <KdjData>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final kdjIndex = i - kdjOffset;
-      if (kdjIndex >= 0 && kdjIndex < kdjResult.k.length) {
-        result.add(KdjData(
-          k: kdjResult.k[kdjIndex],
-          d: kdjResult.d[kdjIndex],
-          j: kdjResult.j[kdjIndex],
-        ));
-      } else {
-        result.add(KdjData(k: 50, d: 50, j: 50));
-      }
-    }
-
-    return result;
+    return state.precomputedKdj
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<double> get displayRsiData {
@@ -639,24 +1026,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 14) return [];
-
-    final rsiResult = IndicatorCalculator.calculateRSI(fullData);
-    final rsiOffset = fullData.length - rsiResult.values.length;
-
-    final result = <double>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final rsiIndex = i - rsiOffset;
-      if (rsiIndex >= 0 && rsiIndex < rsiResult.values.length) {
-        result.add(rsiResult.values[rsiIndex]);
-      } else {
-        result.add(50);
-      }
-    }
-
-    return result;
+    return state.precomputedRsi
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<BollData> get displayBollData {
@@ -667,28 +1040,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 20) return [];
-
-    final bollResult = IndicatorCalculator.calculateBoll(fullData);
-    final bollOffset = fullData.length - bollResult.mb.length;
-
-    final result = <BollData>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final bollIndex = i - bollOffset;
-      if (bollIndex >= 0 && bollIndex < bollResult.mb.length) {
-        result.add(BollData(
-          mb: bollResult.mb[bollIndex],
-          up: bollResult.up[bollIndex],
-          dn: bollResult.dn[bollIndex],
-        ));
-      } else {
-        result.add(BollData(mb: 0, up: 0, dn: 0));
-      }
-    }
-
-    return result;
+    return state.precomputedBoll
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<DmiData> get displayDmiData {
@@ -699,28 +1054,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 14) return [];
-
-    final dmiResult = IndicatorCalculator.calculateDMI(fullData);
-    final dmiOffset = fullData.length - dmiResult.plusDI.length;
-
-    final result = <DmiData>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final dmiIndex = i - dmiOffset;
-      if (dmiIndex >= 0 && dmiIndex < dmiResult.plusDI.length) {
-        result.add(DmiData(
-          plusDi: dmiResult.plusDI[dmiIndex],
-          minusDi: dmiResult.minusDI[dmiIndex],
-          adx: dmiIndex < dmiResult.adx.length ? dmiResult.adx[dmiIndex] : 0,
-        ));
-      } else {
-        result.add(DmiData(plusDi: 0, minusDi: 0, adx: 0));
-      }
-    }
-
-    return result;
+    return state.precomputedDmi
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<double> get displayCciData {
@@ -731,24 +1068,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 14) return [];
-
-    final cciResult = IndicatorCalculator.calculateCCI(fullData);
-    final cciOffset = fullData.length - cciResult.values.length;
-
-    final result = <double>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final cciIndex = i - cciOffset;
-      if (cciIndex >= 0 && cciIndex < cciResult.values.length) {
-        result.add(cciResult.values[cciIndex]);
-      } else {
-        result.add(0);
-      }
-    }
-
-    return result;
+    return state.precomputedCci
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<double> get displayWrData {
@@ -759,24 +1082,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 14) return [];
-
-    final wrResult = IndicatorCalculator.calculateWR(fullData);
-    final wrOffset = fullData.length - wrResult.values.length;
-
-    final result = <double>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final wrIndex = i - wrOffset;
-      if (wrIndex >= 0 && wrIndex < wrResult.values.length) {
-        result.add(wrResult.values[wrIndex]);
-      } else {
-        result.add(-50);
-      }
-    }
-
-    return result;
+    return state.precomputedWr
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<double> get displayObvData {
@@ -787,22 +1096,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    final obvResult = IndicatorCalculator.calculateOBV(fullData);
-    final obvOffset = fullData.length - obvResult.values.length;
-
-    final result = <double>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final obvIndex = i - obvOffset;
-      if (obvIndex >= 0 && obvIndex < obvResult.values.length) {
-        result.add(obvResult.values[obvIndex]);
-      } else {
-        result.add(0);
-      }
-    }
-
-    return result;
+    return state.precomputedObv
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<DmaData> get displayDmaData {
@@ -813,27 +1110,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 50) return [];
-
-    final dmaResult = IndicatorCalculator.calculateDMA(fullData);
-    final dmaOffset = fullData.length - dmaResult.dma.length;
-
-    final result = <DmaData>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final dmaIndex = i - dmaOffset;
-      if (dmaIndex >= 0 && dmaIndex < dmaResult.dma.length) {
-        result.add(DmaData(
-          dma: dmaResult.dma[dmaIndex],
-          ama: dmaIndex < dmaResult.ama.length ? dmaResult.ama[dmaIndex] : 0,
-        ));
-      } else {
-        result.add(DmaData(dma: 0, ama: 0));
-      }
-    }
-
-    return result;
+    return state.precomputedDma
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<double> get displayBbiData {
@@ -844,24 +1124,10 @@ class Battle extends _$Battle {
     final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
     final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-    final fullData = state.allKlineData.take(endIndex).toList();
-
-    if (fullData.length < 24) return [];
-
-    final bbiResult = IndicatorCalculator.calculateBBI(fullData);
-    final bbiOffset = fullData.length - bbiResult.values.length;
-
-    final result = <double>[];
-    for (int i = startIndex; i < endIndex; i++) {
-      final bbiIndex = i - bbiOffset;
-      if (bbiIndex >= 0 && bbiIndex < bbiResult.values.length) {
-        result.add(bbiResult.values[bbiIndex]);
-      } else {
-        result.add(0);
-      }
-    }
-
-    return result;
+    return state.precomputedBbi
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 }
 

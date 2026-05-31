@@ -1,0 +1,121 @@
+  List<MacdData> get displayMacdData {
+    if (state.allKlineData.isEmpty) return [];
+
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedMacd
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
+  }
+
+  List<VolumeData> get displayVolumes {
+    if (state.allKlineData.isEmpty) return [];
+
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedVolumes
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
+  }
+
+  List<double> get ma5Data {
+    if (state.allKlineData.isEmpty) return [];
+
+    final displayCloses = displayKlineData.map((e) => e.close).toList();
+    return _computeMA(displayCloses, 5);
+  }
+
+  List<double> get ma10Data {
+    if (state.allKlineData.isEmpty) return [];
+
+    final displayCloses = displayKlineData.map((e) => e.close).toList();
+    return _computeMA(displayCloses, 10);
+  }
+
+  List<double> get ma30Data {
+    if (state.allKlineData.isEmpty) return [];
+
+    final displayCloses = displayKlineData.map((e) => e.close).toList();
+    return _computeMA(displayCloses, 30);
+  }
+
+  List<double> _computeMA(List<double> data, int period) {
+    final result = <double>[];
+    for (int i = 0; i < data.length; i++) {
+      if (i < period - 1) {
+        result.add(0);
+      } else {
+        double sum = 0;
+        for (int j = i - period + 1; j <= i; j++) {
+          sum += data[j];
+        }
+        result.add(sum / period);
+      }
+    }
+    return result;
+  }
+
+  List<KdjData> get displayKdjData {
+    if (state.allKlineData.isEmpty) return [];
+
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedKdj
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
+  }
+
+  List<double> get displayRsiData {
+    if (state.allKlineData.isEmpty) return [];
+
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedRsi
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
+  }
+
+  List<BollData> get displayBollData {
+    if (state.allKlineData.isEmpty) return [];
+
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedBoll
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
+  }
+
+  List<DmiData> get displayDmiData {
+    if (state.allKlineData.isEmpty) return [];
+
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedDmi
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
+  }
+}
