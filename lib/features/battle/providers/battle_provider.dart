@@ -243,7 +243,7 @@ class Battle extends _$Battle {
         return;
       }
 
-      final startTime = session.startDate!.subtract(const Duration(days: 100));
+      final startTime = session.startDate!.subtract(const Duration(days: 220));
       final endTime = session.endDate!.add(const Duration(days: 30));
 
       print('🔵 [loadReplayMode] 加载K线数据: $startTime ~ $endTime');
