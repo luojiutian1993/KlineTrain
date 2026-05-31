@@ -234,6 +234,19 @@ class BattleState {
     return day;
   }
 
+  int get trainingEndIndex {
+    return initialStartIndex + trainingDays - 1;
+  }
+
+  bool get isTrainingComplete {
+    return currentDayIndex >= trainingEndIndex;
+  }
+
+  int get currentTrainingDay {
+    if (currentDayIndex < initialStartIndex) return 0;
+    return (currentDayIndex - initialStartIndex + 1).clamp(1, trainingDays);
+  }
+
   double get profitRate {
     if (positionCost <= 0) return 0;
     return ((currentPrice - positionCost) / positionCost) * 100;

@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
+import 'package:kline_trainer/data/models/kline_model.dart';
 
 class VolumeChart extends StatelessWidget {
   final List<VolumeData> data;

@@ -1,5 +1,5 @@
 import 'package:kline_trainer/data/models/kline_model.dart';
-import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
+import 'package:kline_trainer/data/models/trade_point_model.dart';
 
 enum TrainingPhase {
   opening,

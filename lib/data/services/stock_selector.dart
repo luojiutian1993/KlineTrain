@@ -75,7 +75,8 @@ class StockSelector {
           isAutoSelected: preferredStartDate == null,
         );
       } else {
-        print('⚠️ [StockSelector] 股票 $symbol 数据不足，可用: ${sufficiencyCheck.availableDays}，需求: ${sufficiencyCheck.requiredDays}');
+        print(
+            '⚠️ [StockSelector] 股票 $symbol 数据不足，可用: ${sufficiencyCheck.availableDays}，需求: ${sufficiencyCheck.requiredDays}');
       }
     }
 
@@ -90,27 +91,31 @@ class StockSelector {
     );
   }
 
-  Future<List<KlineModel>> _loadKlineDataForSymbol(String symbol, DateTime? startDate) async {
+  Future<List<KlineModel>> _loadKlineDataForSymbol(
+      String symbol, DateTime? startDate) async {
     final configService = TrainingConfigService(_dbService);
     final trainingDays = await configService.getTrainingDays();
     final preloadDays = await configService.getPreloadDays();
     final indicatorPreloadDays = await configService.getIndicatorPreloadDays();
     final totalRequiredDays = trainingDays + preloadDays + indicatorPreloadDays;
 
-    final estimatedCalendarDays = await _tradingDayCalculator.tradingDaysToCalendarDays(
+    final estimatedCalendarDays =
+        await _tradingDayCalculator.tradingDaysToCalendarDays(
       totalRequiredDays,
       DateTime.now(),
     );
 
     DateTime dataStartTime;
     if (startDate != null) {
-      final totalCalendarDays = await _tradingDayCalculator.tradingDaysToCalendarDays(
+      final totalCalendarDays =
+          await _tradingDayCalculator.tradingDaysToCalendarDays(
         preloadDays + indicatorPreloadDays,
         startDate,
       );
       dataStartTime = startDate.subtract(Duration(days: totalCalendarDays));
     } else {
-      dataStartTime = DateTime.now().subtract(Duration(days: estimatedCalendarDays));
+      dataStartTime =
+          DateTime.now().subtract(Duration(days: estimatedCalendarDays));
     }
 
     return await _repository.fetchKlineDataFromDbWithDateRange(

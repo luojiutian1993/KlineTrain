@@ -36,8 +36,7 @@ class DataSufficiencyChecker {
       );
     }
 
-    final firstDate =
-        DateTime.fromMillisecondsSinceEpoch(data.first.timestamp);
+    final firstDate = DateTime.fromMillisecondsSinceEpoch(data.first.timestamp);
     final lastDate = DateTime.fromMillisecondsSinceEpoch(data.last.timestamp);
 
     final actualTradingDays =

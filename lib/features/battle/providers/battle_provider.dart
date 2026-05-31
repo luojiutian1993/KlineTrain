@@ -737,6 +737,12 @@ class Battle extends _$Battle {
   }
 
   void nextDay() {
+    if (state.currentDayIndex >= state.trainingEndIndex) {
+      print(
+          '🔵 [BattleProvider] 到达训练终点，不再推进: currentDayIndex=${state.currentDayIndex}, trainingEndIndex=${state.trainingEndIndex}');
+      return;
+    }
+
     if (state.currentDayIndex >= state.allKlineData.length - 1) {
       return;
     }
@@ -763,6 +769,12 @@ class Battle extends _$Battle {
           setPhase(TrainingPhase.opening);
         }
       }
+      return;
+    }
+
+    if (state.isTrainingComplete) {
+      print(
+          '🔵 [BattleProvider] 训练已完成，不再推进: currentDayIndex=${state.currentDayIndex}, trainingEndIndex=${state.trainingEndIndex}');
       return;
     }
 
@@ -1052,38 +1064,43 @@ class Battle extends _$Battle {
   List<double> get ma5Data {
     if (state.allKlineData.isEmpty) return [];
 
-    final displayCloses = displayKlineData.map((e) => e.close).toList();
-    return _computeMA(displayCloses, 5);
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedMa5
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<double> get ma10Data {
     if (state.allKlineData.isEmpty) return [];
 
-    final displayCloses = displayKlineData.map((e) => e.close).toList();
-    return _computeMA(displayCloses, 10);
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
+
+    return state.precomputedMa10
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<double> get ma30Data {
     if (state.allKlineData.isEmpty) return [];
 
-    final displayCloses = displayKlineData.map((e) => e.close).toList();
-    return _computeMA(displayCloses, 30);
-  }
+    final endIndex =
+        (state.currentDayIndex + 1).clamp(0, state.allKlineData.length);
+    final maxStart = (endIndex - state.visibleKlineCount).clamp(0, endIndex);
+    final startIndex = state.visibleStartIndex.clamp(0, maxStart);
 
-  List<double> _computeMA(List<double> data, int period) {
-    final result = <double>[];
-    for (int i = 0; i < data.length; i++) {
-      if (i < period - 1) {
-        result.add(0);
-      } else {
-        double sum = 0;
-        for (int j = i - period + 1; j <= i; j++) {
-          sum += data[j];
-        }
-        result.add(sum / period);
-      }
-    }
-    return result;
+    return state.precomputedMa30
+        .skip(startIndex)
+        .take(min(state.visibleKlineCount, endIndex - startIndex))
+        .toList();
   }
 
   List<KdjData> get displayKdjData {

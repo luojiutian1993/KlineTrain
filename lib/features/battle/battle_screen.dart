@@ -33,6 +33,8 @@ class BattleScreen extends ConsumerStatefulWidget {
 }
 
 class _BattleScreenState extends ConsumerState<BattleScreen> {
+  bool _hasShownTrainingCompleteDialog = false;
+
   @override
   void initState() {
     super.initState();
@@ -106,6 +108,15 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
       );
     }
 
+    if (state.isTrainingComplete &&
+        !_hasShownTrainingCompleteDialog &&
+        !state.isReplayMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _hasShownTrainingCompleteDialog = true;
+        _showTrainingCompleteDialog();
+      });
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -121,6 +132,97 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         ),
       ),
     );
+  }
+
+  void _showTrainingCompleteDialog() {
+    final state = ref.read(battleProvider);
+    final finalCapital = state.accountBalance + state.positionValue;
+    final profitRate =
+        (finalCapital - state.initialBalance) / state.initialBalance * 100;
+    final winCount = _calculateWinCount(state);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.celebration, color: Colors.amber),
+            SizedBox(width: 8),
+            Text('训练结束'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('恭喜完成 ${state.trainingDays} 天训练！'),
+            const SizedBox(height: 16),
+            _buildStatRow('最终收益',
+                '${state.totalProfitLoss >= 0 ? '+' : ''}${state.totalProfitLoss.toStringAsFixed(2)}'),
+            _buildStatRow('收益率',
+                '${profitRate >= 0 ? '+' : ''}${profitRate.toStringAsFixed(2)}%'),
+            _buildStatRow('交易次数', '${state.tradePoints.length}'),
+            if (state.tradePoints.isNotEmpty)
+              _buildStatRow('胜率',
+                  '${(winCount / state.tradePoints.length * 100).toStringAsFixed(1)}%'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ref.read(battleProvider.notifier).initializeRandom();
+            },
+            child: const Text('重新开始'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accent,
+            ),
+            child: const Text('查看结果'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  int _calculateWinCount(BattleState state) {
+    final buyPoints = state.tradePoints.where((p) => p.isBuy).toList();
+    final sellPoints = state.tradePoints.where((p) => !p.isBuy).toList();
+
+    if (sellPoints.isEmpty) return 0;
+
+    int winCount = 0;
+    int buyIndex = 0;
+
+    for (final sell in sellPoints) {
+      if (buyIndex < buyPoints.length) {
+        final buy = buyPoints[buyIndex];
+        if (sell.price > buy.price) {
+          winCount++;
+        }
+        buyIndex++;
+      }
+    }
+
+    return winCount;
   }
 
   Widget _buildPeriodSelector(BattleState state) {
@@ -199,6 +301,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   }
 
   Widget _buildTradeButtons() {
+    final state = ref.watch(battleProvider);
+    final isComplete = state.isTrainingComplete;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
@@ -207,35 +312,42 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
         children: [
           Expanded(
               flex: 2,
-              child: _buildButton(
-                  '换股',
-                  () => ref.read(battleProvider.notifier).initializeRandom(),
-                  AppTheme.surface,
-                  AppTheme.muted)),
+              child: _buildButton('换股', () {
+                _hasShownTrainingCompleteDialog = false;
+                ref.read(battleProvider.notifier).initializeRandom();
+              }, AppTheme.surface, AppTheme.muted)),
           const SizedBox(width: 4),
-          Expanded(
-              flex: 2,
-              child: _buildButton('条件单', _showConditionalOrderDialog,
-                  AppTheme.surface, AppTheme.muted)),
-          const SizedBox(width: 4),
-          Expanded(
-              flex: 2,
-              child:
-                  _buildButton('买入', _showBuyDialog, Colors.red, Colors.white)),
-          const SizedBox(width: 4),
-          Expanded(
-              flex: 2,
-              child: _buildButton(
-                  '卖出', _showSellDialog, Colors.green, Colors.white)),
-          const SizedBox(width: 4),
+          if (!isComplete)
+            Expanded(
+                flex: 2,
+                child: _buildButton('条件单', _showConditionalOrderDialog,
+                    AppTheme.surface, AppTheme.muted)),
+          if (!isComplete) const SizedBox(width: 4),
+          if (!isComplete)
+            Expanded(
+                flex: 2,
+                child: _buildButton(
+                    '买入', _showBuyDialog, Colors.red, Colors.white)),
+          if (!isComplete) const SizedBox(width: 4),
+          if (!isComplete)
+            Expanded(
+                flex: 2,
+                child: _buildButton(
+                    '卖出', _showSellDialog, Colors.green, Colors.white)),
+          if (!isComplete) const SizedBox(width: 4),
           _buildProgressDisplay(),
           const SizedBox(width: 4),
           Expanded(
               flex: 2,
               child: _buildButton(
-                  '下一步',
-                  () => ref.read(battleProvider.notifier).handleNextStep(),
-                  AppTheme.accent,
+                  isComplete ? '已完成' : '下一步',
+                  isComplete
+                      ? () {}
+                      : () {
+                          _hasShownTrainingCompleteDialog = false;
+                          ref.read(battleProvider.notifier).handleNextStep();
+                        },
+                  isComplete ? Colors.grey : AppTheme.accent,
                   Colors.white)),
         ],
       ),
@@ -257,15 +369,22 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
 
   Widget _buildProgressDisplay() {
     final state = ref.watch(battleProvider);
+    final isComplete = state.isTrainingComplete;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       decoration: BoxDecoration(
-          color: AppTheme.bg, borderRadius: BorderRadius.circular(4)),
-      child: Text('${state.trainingProgress}/${state.trainingDays}',
-          style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.accent)),
+        color: isComplete ? Colors.green.withOpacity(0.1) : AppTheme.bg,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '${state.currentTrainingDay}/${state.trainingDays}',
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+          color: isComplete ? Colors.green : AppTheme.accent,
+        ),
+      ),
     );
   }
 

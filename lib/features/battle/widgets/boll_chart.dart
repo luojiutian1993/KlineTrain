@@ -12,7 +12,7 @@ class BollChart extends StatelessWidget {
     if (data.isEmpty) return const SizedBox.expand();
 
     final prices =
-        data.map((e) => [e.upper, e.mid, e.lower]).expand((x) => x).toList();
+        data.map((e) => [e.up, e.mb, e.dn]).expand((x) => x).toList();
     final minPrice = prices.reduce((a, b) => a < b ? a : b);
     final maxPrice = prices.reduce((a, b) => a > b ? a : b);
     final safeMin = minPrice - (maxPrice - minPrice) * 0.1;
@@ -41,7 +41,7 @@ class BollChart extends StatelessWidget {
             spots: data
                 .asMap()
                 .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.upper))
+                .map((e) => FlSpot(e.key.toDouble(), e.value.up))
                 .toList(),
             isCurved: true,
             color: Colors.orange,
@@ -52,7 +52,7 @@ class BollChart extends StatelessWidget {
             spots: data
                 .asMap()
                 .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.mid))
+                .map((e) => FlSpot(e.key.toDouble(), e.value.mb))
                 .toList(),
             isCurved: true,
             color: Colors.purple,
@@ -63,7 +63,7 @@ class BollChart extends StatelessWidget {
             spots: data
                 .asMap()
                 .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.lower))
+                .map((e) => FlSpot(e.key.toDouble(), e.value.dn))
                 .toList(),
             isCurved: true,
             color: Colors.green,
