@@ -13451,6 +13451,245 @@ class VersionHistoryCompanion extends UpdateCompanion<VersionHistoryData> {
   }
 }
 
+class $HolidaysTable extends Holidays with TableInfo<$HolidaysTable, Holiday> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $HolidaysTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<String> date = GeneratedColumn<String>(
+      'date', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _isHolidayMeta =
+      const VerificationMeta('isHoliday');
+  @override
+  late final GeneratedColumn<bool> isHoliday = GeneratedColumn<bool>(
+      'is_holiday', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: true,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_holiday" IN (0, 1))'));
+  static const VerificationMeta _holidayNameMeta =
+      const VerificationMeta('holidayName');
+  @override
+  late final GeneratedColumn<String> holidayName = GeneratedColumn<String>(
+      'holiday_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [date, isHoliday, holidayName];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'holidays';
+  @override
+  VerificationContext validateIntegrity(Insertable<Holiday> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('date')) {
+      context.handle(
+          _dateMeta, date.isAcceptableOrUnknown(data['date']!, _dateMeta));
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('is_holiday')) {
+      context.handle(_isHolidayMeta,
+          isHoliday.isAcceptableOrUnknown(data['is_holiday']!, _isHolidayMeta));
+    } else if (isInserting) {
+      context.missing(_isHolidayMeta);
+    }
+    if (data.containsKey('holiday_name')) {
+      context.handle(
+          _holidayNameMeta,
+          holidayName.isAcceptableOrUnknown(
+              data['holiday_name']!, _holidayNameMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {date};
+  @override
+  Holiday map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Holiday(
+      date: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}date'])!,
+      isHoliday: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_holiday'])!,
+      holidayName: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}holiday_name']),
+    );
+  }
+
+  @override
+  $HolidaysTable createAlias(String alias) {
+    return $HolidaysTable(attachedDatabase, alias);
+  }
+}
+
+class Holiday extends DataClass implements Insertable<Holiday> {
+  final String date;
+  final bool isHoliday;
+  final String? holidayName;
+  const Holiday(
+      {required this.date, required this.isHoliday, this.holidayName});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['date'] = Variable<String>(date);
+    map['is_holiday'] = Variable<bool>(isHoliday);
+    if (!nullToAbsent || holidayName != null) {
+      map['holiday_name'] = Variable<String>(holidayName);
+    }
+    return map;
+  }
+
+  HolidaysCompanion toCompanion(bool nullToAbsent) {
+    return HolidaysCompanion(
+      date: Value(date),
+      isHoliday: Value(isHoliday),
+      holidayName: holidayName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(holidayName),
+    );
+  }
+
+  factory Holiday.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Holiday(
+      date: serializer.fromJson<String>(json['date']),
+      isHoliday: serializer.fromJson<bool>(json['isHoliday']),
+      holidayName: serializer.fromJson<String?>(json['holidayName']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'date': serializer.toJson<String>(date),
+      'isHoliday': serializer.toJson<bool>(isHoliday),
+      'holidayName': serializer.toJson<String?>(holidayName),
+    };
+  }
+
+  Holiday copyWith(
+          {String? date,
+          bool? isHoliday,
+          Value<String?> holidayName = const Value.absent()}) =>
+      Holiday(
+        date: date ?? this.date,
+        isHoliday: isHoliday ?? this.isHoliday,
+        holidayName: holidayName.present ? holidayName.value : this.holidayName,
+      );
+  Holiday copyWithCompanion(HolidaysCompanion data) {
+    return Holiday(
+      date: data.date.present ? data.date.value : this.date,
+      isHoliday: data.isHoliday.present ? data.isHoliday.value : this.isHoliday,
+      holidayName:
+          data.holidayName.present ? data.holidayName.value : this.holidayName,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Holiday(')
+          ..write('date: $date, ')
+          ..write('isHoliday: $isHoliday, ')
+          ..write('holidayName: $holidayName')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(date, isHoliday, holidayName);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Holiday &&
+          other.date == this.date &&
+          other.isHoliday == this.isHoliday &&
+          other.holidayName == this.holidayName);
+}
+
+class HolidaysCompanion extends UpdateCompanion<Holiday> {
+  final Value<String> date;
+  final Value<bool> isHoliday;
+  final Value<String?> holidayName;
+  final Value<int> rowid;
+  const HolidaysCompanion({
+    this.date = const Value.absent(),
+    this.isHoliday = const Value.absent(),
+    this.holidayName = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  HolidaysCompanion.insert({
+    required String date,
+    required bool isHoliday,
+    this.holidayName = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : date = Value(date),
+        isHoliday = Value(isHoliday);
+  static Insertable<Holiday> custom({
+    Expression<String>? date,
+    Expression<bool>? isHoliday,
+    Expression<String>? holidayName,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (date != null) 'date': date,
+      if (isHoliday != null) 'is_holiday': isHoliday,
+      if (holidayName != null) 'holiday_name': holidayName,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  HolidaysCompanion copyWith(
+      {Value<String>? date,
+      Value<bool>? isHoliday,
+      Value<String?>? holidayName,
+      Value<int>? rowid}) {
+    return HolidaysCompanion(
+      date: date ?? this.date,
+      isHoliday: isHoliday ?? this.isHoliday,
+      holidayName: holidayName ?? this.holidayName,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (date.present) {
+      map['date'] = Variable<String>(date.value);
+    }
+    if (isHoliday.present) {
+      map['is_holiday'] = Variable<bool>(isHoliday.value);
+    }
+    if (holidayName.present) {
+      map['holiday_name'] = Variable<String>(holidayName.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('HolidaysCompanion(')
+          ..write('date: $date, ')
+          ..write('isHoliday: $isHoliday, ')
+          ..write('holidayName: $holidayName, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -13480,6 +13719,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $StrategyTipsTable strategyTips = $StrategyTipsTable(this);
   late final $SystemConfigsTable systemConfigs = $SystemConfigsTable(this);
   late final $VersionHistoryTable versionHistory = $VersionHistoryTable(this);
+  late final $HolidaysTable holidays = $HolidaysTable(this);
   late final UserDao userDao = UserDao(this as AppDatabase);
   late final KlineDao klineDao = KlineDao(this as AppDatabase);
   late final MarketDao marketDao = MarketDao(this as AppDatabase);
@@ -13489,6 +13729,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final ConfigDao configDao = ConfigDao(this as AppDatabase);
   late final StockFilterDao stockFilterDao =
       StockFilterDao(this as AppDatabase);
+  late final HolidayDao holidayDao = HolidayDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -13512,7 +13753,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         tradingPatterns,
         strategyTips,
         systemConfigs,
-        versionHistory
+        versionHistory,
+        holidays
       ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules(
@@ -22268,6 +22510,141 @@ typedef $$VersionHistoryTableProcessedTableManager = ProcessedTableManager<
     ),
     VersionHistoryData,
     PrefetchHooks Function()>;
+typedef $$HolidaysTableCreateCompanionBuilder = HolidaysCompanion Function({
+  required String date,
+  required bool isHoliday,
+  Value<String?> holidayName,
+  Value<int> rowid,
+});
+typedef $$HolidaysTableUpdateCompanionBuilder = HolidaysCompanion Function({
+  Value<String> date,
+  Value<bool> isHoliday,
+  Value<String?> holidayName,
+  Value<int> rowid,
+});
+
+class $$HolidaysTableFilterComposer
+    extends Composer<_$AppDatabase, $HolidaysTable> {
+  $$HolidaysTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get date => $composableBuilder(
+      column: $table.date, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isHoliday => $composableBuilder(
+      column: $table.isHoliday, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get holidayName => $composableBuilder(
+      column: $table.holidayName, builder: (column) => ColumnFilters(column));
+}
+
+class $$HolidaysTableOrderingComposer
+    extends Composer<_$AppDatabase, $HolidaysTable> {
+  $$HolidaysTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get date => $composableBuilder(
+      column: $table.date, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isHoliday => $composableBuilder(
+      column: $table.isHoliday, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get holidayName => $composableBuilder(
+      column: $table.holidayName, builder: (column) => ColumnOrderings(column));
+}
+
+class $$HolidaysTableAnnotationComposer
+    extends Composer<_$AppDatabase, $HolidaysTable> {
+  $$HolidaysTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<bool> get isHoliday =>
+      $composableBuilder(column: $table.isHoliday, builder: (column) => column);
+
+  GeneratedColumn<String> get holidayName => $composableBuilder(
+      column: $table.holidayName, builder: (column) => column);
+}
+
+class $$HolidaysTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $HolidaysTable,
+    Holiday,
+    $$HolidaysTableFilterComposer,
+    $$HolidaysTableOrderingComposer,
+    $$HolidaysTableAnnotationComposer,
+    $$HolidaysTableCreateCompanionBuilder,
+    $$HolidaysTableUpdateCompanionBuilder,
+    (Holiday, BaseReferences<_$AppDatabase, $HolidaysTable, Holiday>),
+    Holiday,
+    PrefetchHooks Function()> {
+  $$HolidaysTableTableManager(_$AppDatabase db, $HolidaysTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$HolidaysTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$HolidaysTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$HolidaysTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> date = const Value.absent(),
+            Value<bool> isHoliday = const Value.absent(),
+            Value<String?> holidayName = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              HolidaysCompanion(
+            date: date,
+            isHoliday: isHoliday,
+            holidayName: holidayName,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String date,
+            required bool isHoliday,
+            Value<String?> holidayName = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              HolidaysCompanion.insert(
+            date: date,
+            isHoliday: isHoliday,
+            holidayName: holidayName,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$HolidaysTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $HolidaysTable,
+    Holiday,
+    $$HolidaysTableFilterComposer,
+    $$HolidaysTableOrderingComposer,
+    $$HolidaysTableAnnotationComposer,
+    $$HolidaysTableCreateCompanionBuilder,
+    $$HolidaysTableUpdateCompanionBuilder,
+    (Holiday, BaseReferences<_$AppDatabase, $HolidaysTable, Holiday>),
+    Holiday,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -22310,4 +22687,6 @@ class $AppDatabaseManager {
       $$SystemConfigsTableTableManager(_db, _db.systemConfigs);
   $$VersionHistoryTableTableManager get versionHistory =>
       $$VersionHistoryTableTableManager(_db, _db.versionHistory);
+  $$HolidaysTableTableManager get holidays =>
+      $$HolidaysTableTableManager(_db, _db.holidays);
 }

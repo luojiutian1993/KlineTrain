@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/models/trade_point_model.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
+import 'package:kline_trainer/data/database/daos/holiday_dao.dart';
 import 'package:kline_trainer/data/repositories/kline_repository.dart';
 import 'package:kline_trainer/features/battle/models/battle_state.dart';
 import 'package:kline_trainer/features/battle/models/battle_config.dart';
@@ -10,16 +11,36 @@ import 'package:kline_trainer/features/battle/trading_calculator.dart';
 import 'package:kline_trainer/features/battle/services/training_config_service.dart';
 import 'package:kline_trainer/features/battle/services/indicator_cache_service.dart';
 import 'package:kline_trainer/data/utils/indicator_calculator.dart';
+import 'package:kline_trainer/data/services/trading_day_calculator.dart';
+import 'package:kline_trainer/data/services/data_sufficiency_checker.dart';
+import 'package:kline_trainer/data/services/stock_selector.dart';
 
 part 'battle_provider.g.dart';
 
 @riverpod
 class Battle extends _$Battle {
   final KlineRepository _repository = KlineRepository();
+  late final TradingDayCalculator _tradingDayCalculator;
+  late final DataSufficiencyChecker _sufficiencyChecker;
+  late final StockSelector _stockSelector;
 
   @override
   BattleState build() {
+    _initializeServices();
     return const BattleState();
+  }
+
+  void _initializeServices() {
+    final holidayDao = DatabaseService.instance.db.holidayDao;
+    _tradingDayCalculator = TradingDayCalculator(holidayDao);
+    _sufficiencyChecker = DataSufficiencyChecker(holidayDao);
+    _stockSelector = StockSelector(
+      repository: _repository,
+      holidayDao: holidayDao,
+      tradingDayCalculator: _tradingDayCalculator,
+      sufficiencyChecker: _sufficiencyChecker,
+      dbService: DatabaseService.instance,
+    );
   }
 
   Future<void> initializeWithSymbol({
@@ -33,9 +54,56 @@ class Battle extends _$Battle {
     try {
       print(
           '🔵 [BattleProvider] initializeWithSymbol: symbol=$symbol, startDate=$startDate');
-      final klineData = await _loadKlineData(symbol, startDate);
+
+      var klineData = await _loadKlineData(symbol, startDate);
+      var currentSymbol = symbol;
+      var currentStartDate = startDate;
+
+      final configService = TrainingConfigService(DatabaseService.instance);
+      final totalRequiredDays = await configService.getRequiredTradingDays();
+
+      var sufficiencyCheck = await _sufficiencyChecker.checkSufficiency(
+        data: klineData,
+        requiredTradingDays: totalRequiredDays,
+      );
+
+      if (!sufficiencyCheck.isSufficient) {
+        print('⚠️ [BattleProvider] 当前股票数据不足，自动切换...');
+
+        final stockSelection = await _stockSelector.selectSufficientStock(
+          preferredStartDate: startDate,
+          totalRequiredDays: totalRequiredDays,
+        );
+
+        if (stockSelection.symbol != null) {
+          print('✅ [BattleProvider] 已切换到数据充足的股票: ${stockSelection.symbol}');
+
+          if (stockSelection.isAutoSelected) {
+            print('ℹ️ [BattleProvider] 随机选择了数据充足的股票');
+          } else {
+            print(
+                'ℹ️ [BattleProvider] 原股票数据不足，已自动切换到 ${stockSelection.symbol}');
+          }
+
+          currentSymbol = stockSelection.symbol!;
+          klineData = stockSelection.data;
+          sufficiencyCheck = stockSelection.sufficiencyCheck!;
+          currentStartDate = stockSelection.isAutoSelected ? null : startDate;
+        } else {
+          print('🔴 [BattleProvider] 没有找到数据充足的股票');
+
+          state = state.copyWith(
+            isLoading: false,
+            hasAvailableData: false,
+            errorMessage: '没有找到数据充足的股票，请同步更多数据',
+          );
+          return;
+        }
+      }
+
       print(
           '🔵 [BattleProvider] initializeWithSymbol: klineData.length=${klineData.length}');
+      print('🔵 [BattleProvider] 数据充足性: ${sufficiencyCheck.isSufficient}');
 
       if (klineData.isEmpty) {
         print('🔴 [BattleProvider] initializeWithSymbol: K线数据为空');
@@ -47,7 +115,7 @@ class Battle extends _$Battle {
         return;
       }
 
-      final startDayIndex = _findStartDayIndex(klineData, startDate);
+      final startDayIndex = _findStartDayIndex(klineData, currentStartDate);
       print(
           '🔵 [BattleProvider] initializeWithSymbol: startDayIndex=$startDayIndex');
 
@@ -69,10 +137,10 @@ class Battle extends _$Battle {
           '🔵 [BattleProvider] initializeWithSymbol: trainingDays=$trainingDays, visibleStartIndex=$visibleStartIndex');
 
       state = state.copyWith(
-        currentSymbol: symbol,
-        currentSymbolName: name ?? symbol,
+        currentSymbol: currentSymbol,
+        currentSymbolName: name ?? currentSymbol,
         currentMarketCode: marketCode ?? '',
-        trainingStartDate: startDate,
+        trainingStartDate: currentStartDate,
         allKlineData: klineData,
         precomputedVolumes: computed['volumes'] as List<VolumeData>,
         precomputedMacd: computed['macd'] as List<MacdData>,
@@ -384,22 +452,38 @@ class Battle extends _$Battle {
     final configService = TrainingConfigService(DatabaseService.instance);
 
     final trainingDays = await configService.getTrainingDays();
-    final totalPreloadDays = await configService.getTotalPreloadDays();
+    final preloadDays = await configService.getPreloadDays();
+    final indicatorPreloadDays = await configService.getIndicatorPreloadDays();
+    final totalRequiredDays = await configService.getRequiredTradingDays();
+
+    // 多查询 20 天，保证满足前端需求的天数
+    final bufferDays = 20;
 
     DateTime dataStartTime;
     final dataEndTime = DateTime.now();
 
+    // 估算日历天数：工作日 * 1.5（考虑周末和节假日）
+    // 然后加上缓冲天数
+    final estimatedCalendarDays = (totalRequiredDays * 1.5).ceil() + bufferDays;
+
     if (startDate != null) {
-      dataStartTime = startDate.subtract(Duration(days: totalPreloadDays));
+      // 从训练起始日期往前推算：预加载 + 指标前置 + 缓冲
+      final totalPreloadDays = preloadDays + indicatorPreloadDays;
+      final preloadCalendarDays = (totalPreloadDays * 1.5).ceil() + bufferDays;
+      dataStartTime = startDate.subtract(Duration(days: preloadCalendarDays));
     } else {
-      dataStartTime = dataEndTime.subtract(
-        Duration(days: trainingDays + totalPreloadDays),
-      );
+      dataStartTime =
+          dataEndTime.subtract(Duration(days: estimatedCalendarDays));
     }
 
-    print(
-        '🔵 [BattleProvider] 三层数据加载: trainingDays=$trainingDays, totalPreloadDays=$totalPreloadDays');
-    print('🔵 [BattleProvider] 数据加载范围: $dataStartTime ~ $dataEndTime');
+    print('🔵 [BattleProvider] 数据加载计算:');
+    print('  - 训练天数（工作日）: $trainingDays');
+    print('  - 预加载天数（工作日）: $preloadDays');
+    print('  - 指标前置天数（工作日）: $indicatorPreloadDays');
+    print('  - 总交易日: $totalRequiredDays');
+    print('  - 缓冲天数: $bufferDays');
+    print('  - 估算日历天: $estimatedCalendarDays');
+    print('  - 数据加载范围: $dataStartTime ~ $dataEndTime');
 
     List<KlineModel> data = await _repository.fetchKlineDataFromDbWithDateRange(
       symbol: symbol,
@@ -419,11 +503,9 @@ class Battle extends _$Battle {
       if (data.isNotEmpty) {
         final firstDate =
             DateTime.fromMillisecondsSinceEpoch(data.first.timestamp);
-        final availablePreloadDays = dataEndTime.difference(firstDate).inDays;
-        if (availablePreloadDays < totalPreloadDays) {
-          print(
-              '⚠️ [BattleProvider] 数据不足 $totalPreloadDays 天，可用: $availablePreloadDays 天');
-        }
+        final availableDays = dataEndTime.difference(firstDate).inDays;
+        print(
+            '⚠️ [BattleProvider] 数据加载范围不足，可用: $availableDays 天，估算需求: $estimatedCalendarDays 天');
       }
     }
 

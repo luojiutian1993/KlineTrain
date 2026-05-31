@@ -6,7 +6,7 @@ part of 'battle_provider.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$battleHash() => r'87bc5cbd7576478a92fae73debc4fea38d40f5a1';
+String _$battleHash() => r'bbf2861e221eda3e1e791430f81d5cb875dad67c';
 
 /// See also [Battle].
 @ProviderFor(Battle)

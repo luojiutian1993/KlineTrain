@@ -30,4 +30,10 @@ class TrainingConfigService {
     final indicatorPreloadDays = await getIndicatorPreloadDays();
     return preloadDays + indicatorPreloadDays;
   }
+
+  Future<int> getRequiredTradingDays() async {
+    final trainingDays = await getTrainingDays();
+    final totalPreloadDays = await getTotalPreloadDays();
+    return trainingDays + totalPreloadDays;
+  }
 }

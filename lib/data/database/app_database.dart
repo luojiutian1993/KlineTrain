@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'tables/tables.dart';
 import 'daos/daos.dart';
+import '../services/holiday_initializer.dart';
 
 part 'app_database.g.dart';
 
@@ -32,6 +33,7 @@ part 'app_database.g.dart';
     StrategyTips,
     SystemConfigs,
     VersionHistory,
+    Holidays,
   ],
   daos: [
     UserDao,
@@ -42,18 +44,20 @@ part 'app_database.g.dart';
     AnalysisDao,
     ConfigDao,
     StockFilterDao,
+    HolidayDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (Migrator m) {
-          return m.createAll();
+        onCreate: (Migrator m) async {
+          await m.createAll();
+          await _initializeHolidays();
         },
         onUpgrade: (Migrator m, int from, int to) async {
           if (from < 2) {
@@ -62,6 +66,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 3) {
             await _migrateImportData(m);
+          }
+          if (from < 4) {
+            await m.createTable(holidays);
+            await _initializeHolidays();
           }
         },
       );
@@ -76,13 +84,18 @@ class AppDatabase extends _$AppDatabase {
       VALUES ('XSHE', '深圳证券交易所', 'CNY', 1, 2, datetime('now'), datetime('now'))
     ''');
     await customStatement('''
-      UPDATE symbols SET market_code = 'A股' 
+      UPDATE symbols SET market_code = 'A股'
       WHERE market_code IS NULL OR market_code = ''
     ''');
     await customStatement('''
       INSERT OR IGNORE INTO markets (code, name, currency, enabled, sort_order, created_at, updated_at)
       VALUES ('A股', 'A股市场', 'CNY', 1, 1, datetime('now'), datetime('now'))
     ''');
+  }
+
+  Future<void> _initializeHolidays() async {
+    final initializer = HolidayInitializer(holidayDao);
+    await initializer.initializeHolidays();
   }
 }
 
