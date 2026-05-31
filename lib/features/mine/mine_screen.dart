@@ -7,6 +7,7 @@ import 'package:kline_trainer/providers/user_provider.dart';
 import 'package:kline_trainer/providers/auth_provider.dart';
 import 'package:kline_trainer/data/models/user_model.dart';
 import 'package:kline_trainer/shared/utils/logger.dart';
+import 'package:kline_trainer/shared/constants/app_colors.dart';
 
 class MineScreen extends ConsumerStatefulWidget {
   const MineScreen({super.key});
@@ -225,7 +226,7 @@ class _MineScreenState extends ConsumerState<MineScreen>
                         decoration: const BoxDecoration(
                             color: Colors.white, shape: BoxShape.circle),
                         child: const Icon(Icons.camera_alt,
-                            size: 16, color: Color(0xFF667eea)),
+                            size: 16, color: AppTheme.accent),
                       ),
                     ),
                   ],
@@ -429,15 +430,15 @@ class _LevelBadge extends StatelessWidget {
   Color get _levelColor {
     switch (level) {
       case MemberLevel.bronze:
-        return const Color(0xFFCD7F32);
+        return AppColors.memberBronze;
       case MemberLevel.silver:
-        return const Color(0xFFC0C0C0);
+        return AppColors.memberSilver;
       case MemberLevel.gold:
-        return const Color(0xFFFFD700);
+        return AppColors.memberGold;
       case MemberLevel.platinum:
-        return const Color(0xFFE5E4E2);
+        return AppColors.memberPlatinum;
       case MemberLevel.diamond:
-        return const Color(0xFFB9F2FF);
+        return AppColors.memberDiamond;
     }
   }
 
@@ -500,7 +501,7 @@ class _StatItem extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: const Color(0xFF667eea), size: 20),
+        Icon(icon, color: AppTheme.accent, size: 20),
         const SizedBox(height: 4),
         Text(value,
             style: TextStyle(

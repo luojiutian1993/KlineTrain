@@ -17,6 +17,7 @@ import 'package:kline_trainer/data/services/trading_day_calculator.dart';
 import 'package:kline_trainer/data/services/data_sufficiency_checker.dart';
 import 'package:kline_trainer/data/services/stock_selector.dart';
 import 'package:intl/intl.dart';
+import 'package:kline_trainer/shared/constants/app_strings.dart';
 
 part 'battle_provider.g.dart';
 
@@ -98,7 +99,7 @@ class Battle extends _$Battle {
           state = state.copyWith(
             isLoading: false,
             hasAvailableData: false,
-            errorMessage: '没有找到数据充足的股票，请同步更多数据',
+            errorMessage: AppStrings.noDataInDatabase,
           );
           return;
         }
@@ -113,7 +114,7 @@ class Battle extends _$Battle {
         state = state.copyWith(
           isLoading: false,
           hasAvailableData: false,
-          errorMessage: '数据库中暂无合格股票，请先同步数据',
+          errorMessage: AppStrings.noDataInDatabase,
         );
         return;
       }
@@ -179,7 +180,7 @@ class Battle extends _$Battle {
       state = state.copyWith(
         isLoading: false,
         hasAvailableData: false,
-        errorMessage: '数据加载失败，请检查网络后重试',
+        errorMessage: AppStrings.loadFailedRetry,
       );
     }
   }
@@ -197,7 +198,7 @@ class Battle extends _$Battle {
         state = state.copyWith(
           isLoading: false,
           hasAvailableData: false,
-          errorMessage: '数据库中暂无合格股票，请先同步数据',
+          errorMessage: AppStrings.noDataInDatabase,
         );
         return;
       }
@@ -216,7 +217,7 @@ class Battle extends _$Battle {
       state = state.copyWith(
         isLoading: false,
         hasAvailableData: false,
-        errorMessage: '数据加载失败，请检查网络后重试',
+        errorMessage: AppStrings.loadFailedRetry,
       );
     }
   }
@@ -238,7 +239,7 @@ class Battle extends _$Battle {
         state = state.copyWith(
           isLoading: false,
           hasAvailableData: false,
-          errorMessage: '未找到训练记录',
+          errorMessage: AppStrings.recordNotFound,
         );
         return;
       }
@@ -290,8 +291,10 @@ class Battle extends _$Battle {
           tradePoints.add(TradePoint(
             index: tradeIndex,
             price: trade.price ?? 0,
-            isBuy: trade.type == 'buy',
-            label: trade.type == 'buy' ? 'B' : 'S',
+            isBuy: trade.type == AppStrings.tradeBuy,
+            label: trade.type == AppStrings.tradeBuy
+                ? AppStrings.tradeBuyLabel
+                : AppStrings.tradeSellLabel,
             date: tradeDate,
             tradeId: trade.id,
             quantity: trade.quantity ?? 0,
@@ -340,7 +343,7 @@ class Battle extends _$Battle {
       state = state.copyWith(
         isLoading: false,
         hasAvailableData: false,
-        errorMessage: '复盘数据加载失败',
+        errorMessage: AppStrings.replayLoadFailed,
       );
     }
   }
@@ -392,7 +395,7 @@ class Battle extends _$Battle {
           userId: defaultUserId,
           symbol: state.currentSymbol,
           marketCode: state.currentMarketCode,
-          type: point.isBuy ? 'buy' : 'sell',
+          type: point.isBuy ? AppStrings.tradeBuy : AppStrings.tradeSell,
           price: point.price,
           quantity: point.quantity.toInt(),
           amount: point.price * point.quantity,
@@ -965,7 +968,8 @@ class Battle extends _$Battle {
       index: state.currentDayIndex,
       price: price,
       isBuy: true,
-      label: 'B${state.tradePoints.where((t) => t.isBuy).length + 1}',
+      label:
+          '${AppStrings.tradeBuyLabel}${state.tradePoints.where((t) => t.isBuy).length + 1}',
       date: state.currentKline?.dateTime ?? DateTime.now(),
       tradeId: state.tradePoints.length,
       quantity: quantity.toInt(),
@@ -998,7 +1002,8 @@ class Battle extends _$Battle {
       index: state.currentDayIndex,
       price: price,
       isBuy: false,
-      label: 'S${state.tradePoints.where((t) => !t.isBuy).length + 1}',
+      label:
+          '${AppStrings.tradeSellLabel}${state.tradePoints.where((t) => !t.isBuy).length + 1}',
       date: state.currentKline?.dateTime ?? DateTime.now(),
       tradeId: state.tradePoints.length,
       quantity: quantity.toInt(),

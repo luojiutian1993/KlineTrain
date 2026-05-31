@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/models/trade_point_model.dart'
     show TradePoint;
+import 'package:kline_trainer/shared/constants/app_colors.dart';
 
 class KlineChart extends StatelessWidget {
   final List<KlineData> klineData;
@@ -444,12 +445,12 @@ class _CandleStickPainter extends CustomPainter {
 
     if (currentOpenPrice != null) {
       _drawHorizontalDashedLine(
-          canvas, size, currentOpenPrice!, const Color(0xFF3B82F6));
+          canvas, size, currentOpenPrice!, AppColors.chartBlue);
     }
 
     if (positionCost != null && positionCost! > 0) {
       _drawHorizontalDashedLine(
-          canvas, size, positionCost!, const Color(0xFFEF4444));
+          canvas, size, positionCost!, AppColors.chartRed);
     }
 
     if (tradePoints != null && tradePoints!.isNotEmpty) {
@@ -521,7 +522,7 @@ class _CandleStickPainter extends CustomPainter {
       }
 
       final dashedPaint = Paint()
-        ..color = const Color(0xFF3B82F6)
+        ..color = AppColors.chartBlue
         ..strokeWidth = 1.0
         ..style = PaintingStyle.stroke;
 
@@ -558,8 +559,7 @@ class _CandleStickPainter extends CustomPainter {
         text: TextSpan(
           text: label,
           style: TextStyle(
-            color:
-                point.isBuy ? const Color(0xFFEF4444) : const Color(0xFF34C759),
+            color: point.isBuy ? AppColors.chartRed : AppColors.chartGreen,
             fontSize: 10,
             fontWeight: FontWeight.bold,
           ),
@@ -577,8 +577,7 @@ class _CandleStickPainter extends CustomPainter {
         ..color = Colors.white
         ..style = PaintingStyle.fill;
       final bgBorderPaint = Paint()
-        ..color =
-            point.isBuy ? const Color(0xFFEF4444) : const Color(0xFF34C759)
+        ..color = point.isBuy ? AppColors.chartRed : AppColors.chartGreen
         ..strokeWidth = 1.0
         ..style = PaintingStyle.stroke;
 

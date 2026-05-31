@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import 'package:kline_trainer/data/api/dio_client.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
+import 'package:kline_trainer/shared/constants/api_endpoints.dart';
 
 class KlineApi {
   final Dio _dio = DioClient.createDio();
@@ -13,7 +14,7 @@ class KlineApi {
   }) async {
     try {
       final response = await _dio.get(
-        '/api/kline',
+        ApiEndpoints.kline,
         queryParameters: {
           'symbol': symbol,
           'timeframe': timeframe,
@@ -35,7 +36,7 @@ class KlineApi {
   Future<List<KlineModel>> fetchRealtimeKline(String symbol) async {
     try {
       final response = await _dio.get(
-        '/api/kline/realtime',
+        ApiEndpoints.klineRealtime,
         queryParameters: {
           'symbol': symbol,
         },

@@ -123,9 +123,9 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
           children: [
             const StockInfoBar(),
             _buildPeriodSelector(state),
-            Expanded(flex: 3, child: KlineChartContainer()),
+            Expanded(flex: 1, child: KlineChartContainer()),
             const ControlButtons(),
-            const IndicatorPanel(),
+            const Expanded(flex: 1, child: IndicatorPanel()),
             _buildTradeButtons(),
             const AssetPanel(),
           ],

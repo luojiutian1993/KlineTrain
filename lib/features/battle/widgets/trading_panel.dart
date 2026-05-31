@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kline_trainer/features/battle/models/battle_state.dart';
 import 'package:kline_trainer/features/battle/providers/battle_provider.dart';
+import 'package:kline_trainer/shared/constants/app_colors.dart';
 
 class TradingPanel extends ConsumerWidget {
   const TradingPanel({super.key});
@@ -21,7 +22,8 @@ class TradingPanel extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0), width: 0.5)),
+        border:
+            Border(top: BorderSide(color: AppColors.borderGray, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -63,7 +65,7 @@ class TradingPanel extends ConsumerWidget {
           backgroundColor: Colors.grey[100],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(4),
-            side: const BorderSide(color: Color(0xFFE0E0E0)),
+            side: const BorderSide(color: AppColors.borderGray),
           ),
         ),
         onPressed: onPressed,

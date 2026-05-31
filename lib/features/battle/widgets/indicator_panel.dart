@@ -5,6 +5,7 @@ import 'package:kline_trainer/features/battle/providers/battle_provider.dart';
 import 'package:kline_trainer/features/battle/models/battle_state.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
+import 'package:kline_trainer/features/battle/widgets/unified_indicator_chart.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class IndicatorPanel extends ConsumerWidget {
@@ -15,28 +16,25 @@ class IndicatorPanel extends ConsumerWidget {
     final state = ref.watch(battleProvider);
     final notifier = ref.read(battleProvider.notifier);
 
-    return SizedBox(
-      height: 120,
-      child: Column(
-        children: [
-          Expanded(
-            child: _buildIndicatorSection(
-              context,
-              ref,
-              state.selectedTopIndicator,
-              (value) => notifier.updateTopIndicator(value),
-            ),
+    return Column(
+      children: [
+        Expanded(
+          child: _buildIndicatorSection(
+            context,
+            ref,
+            state.selectedTopIndicator,
+            (value) => notifier.updateTopIndicator(value),
           ),
-          Expanded(
-            child: _buildIndicatorSection(
-              context,
-              ref,
-              state.selectedBottomIndicator,
-              (value) => notifier.updateBottomIndicator(value),
-            ),
+        ),
+        Expanded(
+          child: _buildIndicatorSection(
+            context,
+            ref,
+            state.selectedBottomIndicator,
+            (value) => notifier.updateBottomIndicator(value),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -341,16 +339,22 @@ class IndicatorPanel extends ConsumerWidget {
   Widget _buildIndicatorContent(
       BuildContext context, WidgetRef ref, String indicatorType) {
     final notifier = ref.read(battleProvider.notifier);
+    return Expanded(
+      child: _buildIndicatorChart(notifier, indicatorType),
+    );
+  }
+
+  Widget _buildIndicatorChart(Battle notifier, String indicatorType) {
     if (indicatorType == '成交量') {
-      return _buildVolumeChart(notifier.displayVolumes);
+      return VolumeIndicatorChart(volumes: notifier.displayVolumes);
     } else if (indicatorType == 'MACD') {
-      return _buildMacdChart(notifier.displayMacdData);
+      return MacdIndicatorChart(macdData: notifier.displayMacdData);
     } else if (indicatorType == 'KDJ') {
-      return _buildKdjChart(notifier.displayKdjData);
+      return KdjIndicatorChart(kdjData: notifier.displayKdjData);
     } else if (indicatorType == 'RSI') {
-      return _buildRsiChart(notifier.displayRsiData);
+      return RsiIndicatorChart(rsiData: notifier.displayRsiData);
     } else if (indicatorType == 'BOLL') {
-      return _buildBollChart(notifier.displayBollData);
+      return BollIndicatorChart(bollData: notifier.displayBollData);
     } else if (indicatorType == 'DMI') {
       return _buildDmiChart(notifier.displayDmiData);
     } else if (indicatorType == 'CCI') {
@@ -401,6 +405,7 @@ class IndicatorPanel extends ConsumerWidget {
           minY: minVolume,
           maxY: maxVolume * 1.1,
           alignment: BarChartAlignment.center,
+          groupsSpace: 0,
         ),
       ),
     );
@@ -448,6 +453,7 @@ class IndicatorPanel extends ConsumerWidget {
                           max = max > m.macd.abs() ? max : m.macd.abs())) *
                   1.1,
               alignment: BarChartAlignment.center,
+              groupsSpace: 0,
             ),
           ),
           LineChart(

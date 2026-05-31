@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/providers/user_provider.dart';
 import 'package:kline_trainer/data/models/notice_model.dart';
+import 'package:kline_trainer/shared/constants/app_colors.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -88,7 +89,7 @@ class _NotificationItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: const Color(0xFFF0F4FF),
+                  color: AppColors.notificationBg,
                   borderRadius: BorderRadius.circular(8)),
               child: Icon(_icon, color: AppTheme.accent, size: 20),
             ),

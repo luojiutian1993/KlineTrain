@@ -1,5 +1,7 @@
 import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/models/trade_point_model.dart';
+import 'package:kline_trainer/shared/constants/app_constants.dart';
+import 'package:kline_trainer/shared/constants/api_endpoints.dart';
 
 enum TrainingPhase {
   opening,
@@ -59,19 +61,19 @@ class BattleState {
   final bool isLoading;
 
   const BattleState({
-    this.currentSymbol = 'SH600000',
+    this.currentSymbol = AppConstants.klineSymbol,
     this.currentSymbolName = '',
     this.currentMarketCode = '',
     this.trainingStartDate,
-    this.trainingDays = 150,
-    this.historyDays = 100,
-    this.initialStartIndex = 100, // 默认值
+    this.trainingDays = AppConstants.defaultTrainingDays,
+    this.historyDays = AppConstants.defaultHistoryDays,
+    this.initialStartIndex = AppConstants.defaultHistoryDays, // 默认值
     this.phase = TrainingPhase.opening,
     this.isReplayMode = false,
     this.hasAvailableData = true,
     this.errorMessage,
-    this.accountBalance = 100000.0,
-    this.initialBalance = 100000.0,
+    this.accountBalance = AppConstants.defaultInitialBalance,
+    this.initialBalance = AppConstants.defaultInitialBalance,
     this.positionQuantity = 0.0,
     this.positionCost = 0.0,
     this.totalProfitLoss = 0.0,
@@ -93,7 +95,7 @@ class BattleState {
     this.precomputedMa30 = const [],
     this.currentDayIndex = 0,
     this.visibleStartIndex = 0,
-    this.visibleKlineCount = 20,
+    this.visibleKlineCount = AppConstants.defaultVisibleKlineCount,
     this.zoomScale = 1.0,
     this.lastLeftBoundaryTime,
     this.lastRightBoundaryTime,

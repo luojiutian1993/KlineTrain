@@ -1,6 +1,7 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:kline_trainer/data/models/course_model.dart';
+import 'package:kline_trainer/shared/constants/app_constants.dart';
 
 part 'course_provider.g.dart';
 
@@ -24,7 +25,7 @@ Future<List<CourseModel>> _generateMockCourses() async {
       id: '1',
       title: 'K线基础入门',
       description: '从零开始学习K线基础知识，理解K线的构成和意义',
-      coverUrl: 'https://picsum.photos/seed/kline1/300/200',
+      coverUrl: '${AppConstants.placeholderImageBase}/kline1/300/200',
       duration: 180,
       lessonsCount: 8,
       rating: 4.8,
@@ -53,7 +54,7 @@ Future<List<CourseModel>> _generateMockCourses() async {
       id: '2',
       title: '技术指标详解',
       description: '深入学习常用技术指标，掌握MACD、RSI等指标的使用方法',
-      coverUrl: 'https://picsum.photos/seed/kline2/300/200',
+      coverUrl: '${AppConstants.placeholderImageBase}/kline2/300/200',
       duration: 240,
       lessonsCount: 12,
       rating: 4.7,
@@ -65,7 +66,7 @@ Future<List<CourseModel>> _generateMockCourses() async {
       id: '3',
       title: '实战交易策略',
       description: '学习实战交易策略，掌握买卖时机的判断方法',
-      coverUrl: 'https://picsum.photos/seed/kline3/300/200',
+      coverUrl: '${AppConstants.placeholderImageBase}/kline3/300/200',
       duration: 300,
       lessonsCount: 15,
       rating: 4.9,

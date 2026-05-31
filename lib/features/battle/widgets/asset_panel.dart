@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kline_trainer/features/battle/providers/battle_provider.dart';
+import 'package:kline_trainer/shared/constants/app_colors.dart';
 
 class AssetPanel extends ConsumerWidget {
   const AssetPanel({super.key});
@@ -14,7 +15,8 @@ class AssetPanel extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFE0E0E0), width: 0.5)),
+        border:
+            Border(top: BorderSide(color: AppColors.borderGray, width: 0.5)),
       ),
       child: Row(
         children: [
