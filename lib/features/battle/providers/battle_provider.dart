@@ -1,8 +1,10 @@
 import 'dart:math';
+import 'package:drift/drift.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/models/trade_point_model.dart';
 import 'package:kline_trainer/data/database/database_service.dart';
+import 'package:kline_trainer/data/database/app_database.dart';
 import 'package:kline_trainer/data/database/daos/holiday_dao.dart';
 import 'package:kline_trainer/data/repositories/kline_repository.dart';
 import 'package:kline_trainer/features/battle/models/battle_state.dart';
@@ -14,6 +16,7 @@ import 'package:kline_trainer/data/utils/indicator_calculator.dart';
 import 'package:kline_trainer/data/services/trading_day_calculator.dart';
 import 'package:kline_trainer/data/services/data_sufficiency_checker.dart';
 import 'package:kline_trainer/data/services/stock_selector.dart';
+import 'package:intl/intl.dart';
 
 part 'battle_provider.g.dart';
 
@@ -226,6 +229,11 @@ class Battle extends _$Battle {
       final session = await dbService.trainingDao.getSession(sessionId);
       final trades = await dbService.trainingDao.getSessionTrades(sessionId);
 
+      print('🔵 [loadReplayMode] sessionId=$sessionId');
+      print('🔵 [loadReplayMode] trades count=${trades.length}');
+      print(
+          '🔵 [loadReplayMode] session: ${session?.symbol} ${session?.startDate} ~ ${session?.endDate}');
+
       if (session == null) {
         state = state.copyWith(
           isLoading: false,
@@ -235,24 +243,48 @@ class Battle extends _$Battle {
         return;
       }
 
-      await initializeWithSymbol(
+      final startTime = session.startDate!.subtract(const Duration(days: 100));
+      final endTime = session.endDate!.add(const Duration(days: 30));
+
+      print('🔵 [loadReplayMode] 加载K线数据: $startTime ~ $endTime');
+
+      List<KlineModel> klineData =
+          await _repository.fetchKlineDataFromDbWithDateRange(
         symbol: session.symbol,
-        name: session.symbol,
-        marketCode: session.marketCode,
-        startDate: session.startDate,
+        period: 'day',
+        startTime: startTime,
+        endTime: endTime,
       );
 
-      final klineData = state.allKlineData;
+      print('🔵 [loadReplayMode] 加载到K线数据: ${klineData.length} 条');
+
+      if (klineData.isEmpty) {
+        klineData = state.allKlineData;
+        print('🔵 [loadReplayMode] K线数据为空，使用当前数据: ${klineData.length} 条');
+      }
+
+      print(
+          '🔵 [loadReplayMode] K线数据日期范围: ${klineData.first.dateTime} ~ ${klineData.last.dateTime}');
+
       final tradePoints = <TradePoint>[];
 
       for (final trade in trades) {
-        final tradeDate = DateTime.parse(trade.tradeDate ?? '');
+        final tradeDateStr = trade.tradeDate ?? '';
+        final tradeDate = DateTime.tryParse(tradeDateStr);
+        if (tradeDate == null) {
+          print('⚠️ [loadReplayMode] 无法解析交易日期: $tradeDateStr');
+          continue;
+        }
+
         final tradeIndex = klineData.indexWhere((k) {
           final kDate = k.dateTime;
           return kDate.year == tradeDate.year &&
               kDate.month == tradeDate.month &&
               kDate.day == tradeDate.day;
         });
+
+        print(
+            '🔵 [loadReplayMode] trade date=$tradeDate, found index=$tradeIndex');
 
         if (tradeIndex >= 0) {
           tradePoints.add(TradePoint(
@@ -267,23 +299,137 @@ class Battle extends _$Battle {
         }
       }
 
+      print('🔵 [loadReplayMode] 最终 tradePoints count=${tradePoints.length}');
+
+      final computed = _precomputeIndicators(klineData);
+
+      final trainingEndIndex = klineData.length - 1;
+
       state = state.copyWith(
         isLoading: false,
-        currentDayIndex: klineData.length - 1,
-        initialStartIndex: klineData.length - 1,
+        currentDayIndex: trainingEndIndex,
+        initialStartIndex: 0,
+        visibleStartIndex:
+            max(0, trainingEndIndex - state.visibleKlineCount + 1),
+        allKlineData: klineData,
+        precomputedVolumes: computed['volumes'] as List<VolumeData>,
+        precomputedMacd: computed['macd'] as List<MacdData>,
+        precomputedKdj: computed['kdj'] as List<KdjData>,
+        precomputedRsi: computed['rsi'] as List<double>,
+        precomputedBoll: computed['boll'] as List<BollData>,
+        precomputedDmi: computed['dmi'] as List<DmiData>,
+        precomputedCci: computed['cci'] as List<double>,
+        precomputedWr: computed['wr'] as List<double>,
+        precomputedObv: computed['obv'] as List<double>,
+        precomputedDma: computed['dma'] as List<DmaData>,
+        precomputedBbi: computed['bbi'] as List<double>,
+        precomputedMa5: computed['ma5'] as List<double>,
+        precomputedMa10: computed['ma10'] as List<double>,
+        precomputedMa30: computed['ma30'] as List<double>,
         phase: TrainingPhase.closing,
         tradePoints: tradePoints,
         accountBalance: session.currentCapital,
         totalProfitLoss: session.totalProfit ?? 0,
-        trainingDays: session.endDate.difference(session.startDate).inDays + 1,
+        trainingDays: klineData.length,
       );
+
+      print(
+          '🔵 [loadReplayMode] 完成，state tradePoints count=${state.tradePoints.length}');
     } catch (e) {
+      print('🔴 [loadReplayMode] 异常: $e');
       state = state.copyWith(
         isLoading: false,
         hasAvailableData: false,
         errorMessage: '复盘数据加载失败',
       );
     }
+  }
+
+  Future<int> saveTrainingRecordAndEnterReplay() async {
+    final dbService = DatabaseService.instance;
+    final now = DateTime.now();
+    const defaultUserId = 1;
+
+    final finalCapital = state.accountBalance + state.positionValue;
+    final profitRate = state.initialBalance > 0
+        ? (state.totalProfitLoss / state.initialBalance) * 100
+        : 0.0;
+    final winCount = _calculateWinCount();
+    final winRate = state.tradePoints.isEmpty
+        ? 0.0
+        : winCount / state.tradePoints.length * 100;
+
+    final endDate = state.allKlineData.isNotEmpty
+        ? state.allKlineData[state.trainingEndIndex].dateTime
+        : now;
+
+    final sessionId = await dbService.trainingDao.createSession(
+      TrainingSessionsCompanion.insert(
+        userId: defaultUserId,
+        symbol: state.currentSymbol,
+        marketCode: state.currentMarketCode,
+        period: 'day',
+        startDate: state.trainingStartDate ??
+            endDate.subtract(Duration(days: state.trainingDays)),
+        endDate: endDate,
+        status: 'completed',
+        initialCapital: Value(state.initialBalance),
+        currentCapital: Value(finalCapital),
+        totalProfit: Value(state.totalProfitLoss),
+        profitRate: Value(profitRate),
+        tradeCount: Value(state.tradePoints.length),
+        winCount: Value(winCount),
+        winRate: Value(winRate),
+        createdAt: Value(now),
+      ),
+    );
+
+    for (final point in state.tradePoints) {
+      final tradeDateStr = DateFormat('yyyy-MM-dd').format(point.date);
+      await dbService.trainingDao.addTrade(
+        TradesCompanion.insert(
+          sessionId: sessionId,
+          userId: defaultUserId,
+          symbol: state.currentSymbol,
+          marketCode: state.currentMarketCode,
+          type: point.isBuy ? 'buy' : 'sell',
+          price: point.price,
+          quantity: point.quantity.toInt(),
+          amount: point.price * point.quantity,
+          tradeDate: tradeDateStr,
+          createdAt: Value(now),
+        ),
+      );
+      print(
+          '🔵 [saveTrainingRecord] 保存交易: ${point.isBuy ? "买入" : "卖出"} $tradeDateStr price=${point.price}');
+    }
+
+    print('✅ [BattleProvider] 训练记录已保存: sessionId=$sessionId');
+
+    await loadReplayMode(sessionId);
+    return sessionId;
+  }
+
+  int _calculateWinCount() {
+    final buyPoints = state.tradePoints.where((p) => p.isBuy).toList();
+    final sellPoints = state.tradePoints.where((p) => !p.isBuy).toList();
+
+    if (sellPoints.isEmpty) return 0;
+
+    int winCount = 0;
+    int buyIndex = 0;
+
+    for (final sell in sellPoints) {
+      if (buyIndex < buyPoints.length) {
+        final buy = buyPoints[buyIndex];
+        if (sell.price > buy.price) {
+          winCount++;
+        }
+        buyIndex++;
+      }
+    }
+
+    return winCount;
   }
 
   Future<void> loadRetrainMode(int sessionId) async {
@@ -820,7 +966,7 @@ class Battle extends _$Battle {
       price: price,
       isBuy: true,
       label: 'B${state.tradePoints.where((t) => t.isBuy).length + 1}',
-      date: DateTime.now(),
+      date: state.currentKline?.dateTime ?? DateTime.now(),
       tradeId: state.tradePoints.length,
       quantity: quantity.toInt(),
     );
@@ -853,7 +999,7 @@ class Battle extends _$Battle {
       price: price,
       isBuy: false,
       label: 'S${state.tradePoints.where((t) => !t.isBuy).length + 1}',
-      date: DateTime.now(),
+      date: state.currentKline?.dateTime ?? DateTime.now(),
       tradeId: state.tradePoints.length,
       quantity: quantity.toInt(),
     );
@@ -924,17 +1070,18 @@ class Battle extends _$Battle {
   }
 
   bool slideLeft() {
+    final leftBoundary = state.initialStartIndex - state.visibleKlineCount;
     final newStart = state.visibleStartIndex - BattleConfig.slideStepCount;
 
-    if (newStart <= 0) {
+    if (newStart <= leftBoundary) {
       final shouldAlert = _shouldShowBoundaryAlert(state.lastLeftBoundaryTime);
       if (shouldAlert) {
         state = state.copyWith(
-          visibleStartIndex: 0,
+          visibleStartIndex: leftBoundary,
           lastLeftBoundaryTime: DateTime.now(),
         );
       } else {
-        state = state.copyWith(visibleStartIndex: 0);
+        state = state.copyWith(visibleStartIndex: leftBoundary);
       }
       return shouldAlert;
     }

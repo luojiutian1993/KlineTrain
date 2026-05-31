@@ -22,6 +22,12 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
     _loadTrainingSessions();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadTrainingSessions();
+  }
+
   Future<void> _loadTrainingSessions() async {
     setState(() => _isLoading = true);
     try {
@@ -104,9 +110,11 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   }
 
   Widget _buildSummaryCard() {
-    final totalProfit = _sessions.fold<double>(0, (sum, s) => sum + (s.totalProfit ?? 0));
+    final totalProfit =
+        _sessions.fold<double>(0, (sum, s) => sum + (s.totalProfit ?? 0));
     final winCount = _sessions.where((s) => (s.profitRate ?? 0) >= 0).length;
-    final winRate = _sessions.isNotEmpty ? (winCount / _sessions.length * 100) : 0;
+    final winRate =
+        _sessions.isNotEmpty ? (winCount / _sessions.length * 100) : 0;
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
@@ -116,8 +124,16 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
           children: [
             _SummaryItem(label: '周期', value: '日线'),
             _SummaryItem(label: '训练', value: '${_sessions.length}天'),
-            _SummaryItem(label: '胜率', value: '${winRate.toStringAsFixed(1)}%', color: Colors.green),
-            _SummaryItem(label: '盈利', value: totalProfit >= 0 ? '+¥${totalProfit.toStringAsFixed(0)}' : '¥${totalProfit.toStringAsFixed(0)}', color: totalProfit >= 0 ? Colors.red : Colors.green),
+            _SummaryItem(
+                label: '胜率',
+                value: '${winRate.toStringAsFixed(1)}%',
+                color: Colors.green),
+            _SummaryItem(
+                label: '盈利',
+                value: totalProfit >= 0
+                    ? '+¥${totalProfit.toStringAsFixed(0)}'
+                    : '¥${totalProfit.toStringAsFixed(0)}',
+                color: totalProfit >= 0 ? Colors.red : Colors.green),
           ],
         ),
       ),
@@ -154,10 +170,15 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
         return TrainingCard(
           name: stockName,
           code: session.symbol,
-          profit: profit >= 0 ? '+¥${profit.toStringAsFixed(0)}' : '¥${profit.toStringAsFixed(0)}',
-          profitPercent: profitPercent >= 0 ? '+${profitPercent.toStringAsFixed(1)}%' : '${profitPercent.toStringAsFixed(1)}%',
+          profit: profit >= 0
+              ? '+¥${profit.toStringAsFixed(0)}'
+              : '¥${profit.toStringAsFixed(0)}',
+          profitPercent: profitPercent >= 0
+              ? '+${profitPercent.toStringAsFixed(1)}%'
+              : '${profitPercent.toStringAsFixed(1)}%',
           period: '日线',
-          duration: '${session.endDate?.difference(session.startDate ?? DateTime.now()).inDays ?? 0}天',
+          duration:
+              '${session.endDate?.difference(session.startDate ?? DateTime.now()).inDays ?? 0}天',
           status: status,
           statusColor: statusColor,
           session: session,
@@ -186,7 +207,9 @@ class _SummaryItem extends StatelessWidget {
     return Expanded(
       child: Column(
         children: [
-          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 4),
           Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
         ],
@@ -239,18 +262,24 @@ class TrainingCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(code, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+                      Text(name,
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      Text(code,
+                          style:
+                              TextStyle(fontSize: 12, color: AppTheme.muted)),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(status, style: TextStyle(color: statusColor, fontSize: 12)),
+                  child: Text(status,
+                      style: TextStyle(color: statusColor, fontSize: 12)),
                 ),
               ],
             ),
@@ -277,18 +306,31 @@ class TrainingCard extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      Text(profit, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: profit.startsWith('+') ? Colors.red : Colors.green)),
+                      Text(profit,
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: profit.startsWith('+')
+                                  ? Colors.red
+                                  : Colors.green)),
                       const SizedBox(height: 4),
-                      Text(profitPercent, style: TextStyle(color: profit.startsWith('+') ? Colors.red : Colors.green)),
+                      Text(profitPercent,
+                          style: TextStyle(
+                              color: profit.startsWith('+')
+                                  ? Colors.red
+                                  : Colors.green)),
                     ],
                   ),
                 ),
                 Expanded(
                   child: Column(
                     children: [
-                      Text('训练周期', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
+                      Text('训练周期',
+                          style:
+                              TextStyle(fontSize: 12, color: AppTheme.muted)),
                       const SizedBox(height: 4),
-                      Text('$period · $duration', style: const TextStyle(fontSize: 14)),
+                      Text('$period · $duration',
+                          style: const TextStyle(fontSize: 14)),
                     ],
                   ),
                 ),

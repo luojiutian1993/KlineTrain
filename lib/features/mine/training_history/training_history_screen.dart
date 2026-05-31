@@ -30,6 +30,13 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    print('🐛 [TrainingHistoryScreen] didChangeDependencies - 刷新数据');
+    _loadTrainingSessions();
+  }
+
+  @override
   void dispose() {
     super.dispose();
   }

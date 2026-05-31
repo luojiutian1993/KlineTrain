@@ -21,7 +21,8 @@ class TrainingConfigService {
   }
 
   Future<int> getIndicatorPreloadDays() async {
-    final value = await _dbService.configDao.getConfig('training.indicator_preload_days');
+    final value =
+        await _dbService.configDao.getConfig('training.indicator_preload_days');
     return int.tryParse(value ?? '33') ?? 33;
   }
 

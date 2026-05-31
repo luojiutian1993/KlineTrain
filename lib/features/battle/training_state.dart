@@ -17,25 +17,25 @@ class TrainingState {
   final bool isReplayMode;
   final bool hasAvailableData;
   final String? errorMessage;
-  
+
   final double accountBalance;
   final double initialBalance;
   final double positionQuantity;
   final double positionCost;
   final double totalProfitLoss;
-  
+
   final List<KlineModel> allKlineData;
   final List<TradePoint> tradePoints;
-  
+
   final int currentDayIndex;
   final int visibleStartIndex;
   final int visibleKlineCount;
   final double zoomScale;
-  
+
   final String selectedPeriod;
   final String selectedTopIndicator;
   final String selectedBottomIndicator;
-  
+
   final bool isLoading;
 
   const TrainingState({
@@ -117,19 +117,22 @@ class TrainingState {
       zoomScale: zoomScale ?? this.zoomScale,
       selectedPeriod: selectedPeriod ?? this.selectedPeriod,
       selectedTopIndicator: selectedTopIndicator ?? this.selectedTopIndicator,
-      selectedBottomIndicator: selectedBottomIndicator ?? this.selectedBottomIndicator,
+      selectedBottomIndicator:
+          selectedBottomIndicator ?? this.selectedBottomIndicator,
       isLoading: isLoading ?? this.isLoading,
     );
   }
 
   bool get canStartTraining => hasAvailableData && !isLoading;
-  
+
   bool get hasPosition => positionQuantity > 0;
-  
+
   double get positionValue => positionQuantity * (currentKline?.close ?? 0);
-  
+
   KlineModel? get currentKline {
-    if (allKlineData.isEmpty || currentDayIndex < 0 || currentDayIndex >= allKlineData.length) {
+    if (allKlineData.isEmpty ||
+        currentDayIndex < 0 ||
+        currentDayIndex >= allKlineData.length) {
       return null;
     }
     return allKlineData[currentDayIndex];

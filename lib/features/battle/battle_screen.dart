@@ -177,13 +177,16 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
             child: const Text('重新开始'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
+              await ref
+                  .read(battleProvider.notifier)
+                  .saveTrainingRecordAndEnterReplay();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.accent,
             ),
-            child: const Text('查看结果'),
+            child: const Text('查看复盘'),
           ),
         ],
       ),
@@ -303,6 +306,8 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
   Widget _buildTradeButtons() {
     final state = ref.watch(battleProvider);
     final isComplete = state.isTrainingComplete;
+    final isReplay = state.isReplayMode;
+    final shouldDisableActions = isComplete || isReplay;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -317,37 +322,43 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
                 ref.read(battleProvider.notifier).initializeRandom();
               }, AppTheme.surface, AppTheme.muted)),
           const SizedBox(width: 4),
-          if (!isComplete)
-            Expanded(
-                flex: 2,
-                child: _buildButton('条件单', _showConditionalOrderDialog,
-                    AppTheme.surface, AppTheme.muted)),
-          if (!isComplete) const SizedBox(width: 4),
-          if (!isComplete)
-            Expanded(
-                flex: 2,
-                child: _buildButton(
-                    '买入', _showBuyDialog, Colors.red, Colors.white)),
-          if (!isComplete) const SizedBox(width: 4),
-          if (!isComplete)
-            Expanded(
-                flex: 2,
-                child: _buildButton(
-                    '卖出', _showSellDialog, Colors.green, Colors.white)),
-          if (!isComplete) const SizedBox(width: 4),
+          Expanded(
+              flex: 2,
+              child: _buildButton(
+                  '条件单',
+                  shouldDisableActions ? () {} : _showConditionalOrderDialog,
+                  shouldDisableActions ? Colors.grey[300]! : AppTheme.surface,
+                  shouldDisableActions ? Colors.grey : AppTheme.muted)),
+          const SizedBox(width: 4),
+          Expanded(
+              flex: 2,
+              child: _buildButton(
+                  '买入',
+                  shouldDisableActions ? () {} : _showBuyDialog,
+                  shouldDisableActions ? Colors.grey[300]! : Colors.red,
+                  shouldDisableActions ? Colors.grey : Colors.white)),
+          const SizedBox(width: 4),
+          Expanded(
+              flex: 2,
+              child: _buildButton(
+                  '卖出',
+                  shouldDisableActions ? () {} : _showSellDialog,
+                  shouldDisableActions ? Colors.grey[300]! : Colors.green,
+                  shouldDisableActions ? Colors.grey : Colors.white)),
+          const SizedBox(width: 4),
           _buildProgressDisplay(),
           const SizedBox(width: 4),
           Expanded(
               flex: 2,
               child: _buildButton(
-                  isComplete ? '已完成' : '下一步',
-                  isComplete
+                  isComplete || isReplay ? '已完成' : '下一步',
+                  shouldDisableActions
                       ? () {}
                       : () {
                           _hasShownTrainingCompleteDialog = false;
                           ref.read(battleProvider.notifier).handleNextStep();
                         },
-                  isComplete ? Colors.grey : AppTheme.accent,
+                  shouldDisableActions ? Colors.grey : AppTheme.accent,
                   Colors.white)),
         ],
       ),

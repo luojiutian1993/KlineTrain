@@ -26,6 +26,12 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen>
     _loadTrainingSessions();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadTrainingSessions();
+  }
+
   Future<void> _loadTrainingSessions() async {
     setState(() => _isLoading = true);
     try {
