@@ -12,6 +12,8 @@ class KlineModel {
   final double close;
   final double volume;
   final double turnover;
+  final double? turnoverRate;
+  final double? amount;
 
   KlineModel({
     required this.symbol,
@@ -22,6 +24,8 @@ class KlineModel {
     required this.close,
     required this.volume,
     required this.turnover,
+    this.turnoverRate,
+    this.amount,
   });
 
   factory KlineModel.fromJson(Map<String, dynamic> json) =>
@@ -56,12 +60,52 @@ class KlineResponse {
   Map<String, dynamic> toJson() => _$KlineResponseToJson(this);
 }
 
+class KlineData {
+  final DateTime date;
+  final double open;
+  final double high;
+  final double low;
+  final double close;
+  final double volume;
+
+  KlineData({
+    required this.date,
+    required this.open,
+    required this.high,
+    required this.low,
+    required this.close,
+    required this.volume,
+  });
+}
+
+class VolumeData {
+  final double volume;
+  final bool isUp;
+
+  VolumeData({
+    required this.volume,
+    required this.isUp,
+  });
+}
+
+class MacdData {
+  final double macd;
+  final double diff;
+  final double dea;
+
+  MacdData({
+    required this.macd,
+    required this.diff,
+    required this.dea,
+  });
+}
+
 class KdjData {
   final double k;
   final double d;
   final double j;
 
-  const KdjData({
+  KdjData({
     required this.k,
     required this.d,
     required this.j,
@@ -75,25 +119,25 @@ class RsiData {
 }
 
 class BollData {
-  final double upper;
-  final double mid;
-  final double lower;
+  final double mb;
+  final double up;
+  final double dn;
 
   BollData({
-    required this.upper,
-    required this.mid,
-    required this.lower,
+    required this.mb,
+    required this.up,
+    required this.dn,
   });
 }
 
 class DmiData {
-  final double plusDI;
-  final double minusDI;
+  final double plusDi;
+  final double minusDi;
   final double adx;
 
   DmiData({
-    required this.plusDI,
-    required this.minusDI,
+    required this.plusDi,
+    required this.minusDi,
     required this.adx,
   });
 }

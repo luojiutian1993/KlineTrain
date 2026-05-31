@@ -84,7 +84,6 @@ class StockService {
       endTime: finalEnd,
     );
   }
-
 }
 
 class StockInfo {

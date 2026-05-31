@@ -13,6 +13,7 @@ class BattleState {
   final DateTime? trainingStartDate;
   final int trainingDays;
   final int historyDays;
+  final int initialStartIndex; // 新增：保存训练起始索引
   final TrainingPhase phase;
   final bool isReplayMode;
   final bool hasAvailableData;
@@ -45,6 +46,7 @@ class BattleState {
     this.trainingStartDate,
     this.trainingDays = 150,
     this.historyDays = 100,
+    this.initialStartIndex = 100, // 默认值
     this.phase = TrainingPhase.opening,
     this.isReplayMode = false,
     this.hasAvailableData = true,
@@ -73,6 +75,7 @@ class BattleState {
     DateTime? trainingStartDate,
     int? trainingDays,
     int? historyDays,
+    int? initialStartIndex,
     TrainingPhase? phase,
     bool? isReplayMode,
     bool? hasAvailableData,
@@ -100,6 +103,7 @@ class BattleState {
       trainingStartDate: trainingStartDate ?? this.trainingStartDate,
       trainingDays: trainingDays ?? this.trainingDays,
       historyDays: historyDays ?? this.historyDays,
+      initialStartIndex: initialStartIndex ?? this.initialStartIndex,
       phase: phase ?? this.phase,
       isReplayMode: isReplayMode ?? this.isReplayMode,
       hasAvailableData: hasAvailableData ?? this.hasAvailableData,
@@ -153,7 +157,7 @@ class BattleState {
   }
 
   int get trainingProgress {
-    final day = currentDayIndex - historyDays + 1;
+    final day = currentDayIndex - initialStartIndex + 1;
     if (day < 1) return 1;
     if (day > trainingDays) return trainingDays;
     return day;
@@ -168,5 +172,8 @@ class BattleState {
     return accountBalance + positionValue;
   }
 
-  bool get canTrade => !isReplayMode && hasAvailableData && phase == TrainingPhase.closing;
+  bool get canTrade =>
+      !isReplayMode && hasAvailableData && phase == TrainingPhase.closing;
+
+  double get marketValue => positionValue;
 }

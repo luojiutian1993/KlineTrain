@@ -1,28 +1,14 @@
-import 'dart:async';
-import 'dart:math';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:kline_trainer/features/battle/providers/battle_provider.dart';
+import 'package:kline_trainer/features/battle/models/battle_state.dart';
+import 'package:kline_trainer/features/battle/widgets/stock_info_bar.dart';
+import 'package:kline_trainer/features/battle/widgets/control_buttons.dart';
+import 'package:kline_trainer/features/battle/widgets/asset_panel.dart';
+import 'package:kline_trainer/features/battle/widgets/indicator_panel.dart';
+import 'package:kline_trainer/features/battle/widgets/kline_chart_container.dart';
+import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
-import 'package:kline_trainer/features/training/widgets/kline_chart.dart'
-    show KlineData, VolumeData, MacdData, KlineChart;
-import 'package:kline_trainer/data/repositories/kline_repository.dart';
-import 'package:kline_trainer/data/models/kline_model.dart'
-    show KlineModel, KdjData, RsiData, BollData, DmiData, DmaData;
-import 'package:kline_trainer/data/models/trade_point_model.dart'
-    show TradePoint;
-import 'package:kline_trainer/data/utils/indicator_calculator.dart';
-import 'package:kline_trainer/data/database/database_service.dart';
-import 'package:kline_trainer/data/database/app_database.dart';
-import 'package:kline_trainer/data/services/kline_data_sync_service.dart';
-import 'package:kline_trainer/providers/battle_stock_provider.dart';
-import 'package:kline_trainer/providers/auth_provider.dart';
-import 'package:kline_trainer/core/enums/stock_filter_condition.dart';
-import 'package:drift/drift.dart' show Value;
-import 'package:logger/logger.dart';
-import 'package:kline_trainer/shared/notifiers/training_notifier.dart';
-import 'package:kline_trainer/routes/app_routes.dart';
 
 class BattleScreen extends ConsumerStatefulWidget {
   final String? initialSymbol;
@@ -46,1431 +32,72 @@ class BattleScreen extends ConsumerStatefulWidget {
   ConsumerState<BattleScreen> createState() => _BattleScreenState();
 }
 
-enum TrainingPhase {
-  opening, // 开盘阶段（第一次进入）
-  closing, // 收盘阶段（第一次点击下一步后）
-}
-
-class _BattleScreenState extends ConsumerState<BattleScreen>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  static const String _DEFAULT_SYMBOL = 'SZ000021';
-  static const String _DEFAULT_MARKET_CODE = 'XSHE';
-  static final DateTime _DEFAULT_START_DATE = DateTime(2023, 3, 31);
-
-  String _selectedPeriod = '日K';
-  String _selectedTopIndicator = '成交量';
-  String _selectedBottomIndicator = 'MACD';
-  int _currentDayIndex = 0;
-  int _trainingDays = 150;
-  final int _historyDays = 100; // 从30改为100，确保指标有足够预热期
-  DateTime? _trainingStartDate;
-  DateTime? _lastEdgeAlertTime;
-  TrainingPhase _trainingPhase = TrainingPhase.opening;
-  bool _isReplayMode = false;
-  bool _hasAvailableData = true;
-  String _errorMessage = '';
-
-  final List<String> _periods = ['日K', '周K', '月K', '季K', '年K'];
-  final List<String> _indicators = [
-    '成交量',
-    'MACD',
-    'KDJ',
-    'RSI',
-    'BOLL',
-    'WR',
-    'CCI',
-    'OBV',
-    'DMI',
-    'DMA',
-    'BBI'
-  ];
-
-  String _currentSymbol = 'SH600000';
-  String _currentSymbolName = '';
-  String _currentMarketCode = '';
-  List<KlineModel> _allKlineData = [];
-  List<TradePoint> _tradePoints = [];
-
-  double _accountBalance = 100000.0;
-  double _positionQuantity = 0.0;
-  double _positionCost = 0.0;
-  double _totalProfitLoss = 0.0;
-  double _initialBalance = 100000.0;
-
-  int _visibleStartIndex = 0;
-  int _visibleKlineCount = 20;
-  double _zoomScale = 1.0;
-
+class _BattleScreenState extends ConsumerState<BattleScreen> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeData();
+      _initialize();
     });
   }
 
-  Future<void> _initializeData() async {
-    final logger = Logger();
+  void _initialize() {
+    final notifier = ref.read(battleProvider.notifier);
 
-    print('🟡🟡🟡 [3.实战页面初始化] 开始');
-    print('🟡🟡🟡 [3.实战页面初始化] widget.initialSymbol: ${widget.initialSymbol}');
-    print('🟡🟡🟡 [3.实战页面初始化] widget.initialName: ${widget.initialName}');
-    print(
-        '🟡🟡🟡 [3.实战页面初始化] widget.initialMarketCode: ${widget.initialMarketCode}');
-    print(
-        '🟡🟡🟡 [3.实战页面初始化] widget.initialTrainingStartDate: ${widget.initialTrainingStartDate}');
-
-    if (widget.initialSymbol != null && widget.initialSymbol!.isNotEmpty) {
-      logger.d(
-          '📋 使用构造参数: symbol=${widget.initialSymbol}, name=${widget.initialName}, market=${widget.initialMarketCode}, date=${widget.initialTrainingStartDate}');
-      setState(() {
-        _currentSymbol = widget.initialSymbol!;
-        _currentMarketCode = widget.initialMarketCode ?? '';
-        _trainingStartDate = widget.initialTrainingStartDate;
-        _currentSymbolName = widget.initialName ?? '';
-        _isReplayMode = widget.isReplayMode;
-      });
-      print('🟡🟡🟡 [3.实战页面初始化] 状态已更新，准备调用_loadKlineData');
-      print('🟡🟡🟡   - _currentSymbol: $_currentSymbol');
-      print('🟡🟡🟡   - _trainingStartDate: $_trainingStartDate');
-      print('🟡🟡🟡   - _isReplayMode: $_isReplayMode');
-
-      if (_isReplayMode) {
-        print('🟡🟡🟡 [3.实战页面初始化] 复盘模式，加载历史数据');
-        await _loadReplayModeFromWidget();
-      } else {
-        await _loadKlineData();
-      }
-    } else {
-      final routerState = GoRouterState.of(context);
-      final extra = routerState.extra as Map<String, dynamic>?;
-
-      if (extra != null && extra['symbol'] != null) {
-        logger
-            .d('⚠️ widget.initialSymbol 为空，但extra有symbol，使用_handleRouteExtra');
-        await _handleRouteExtra();
-
-        if (mounted) {
-          _loadKlineData();
-        }
-      } else {
-        logger.d('📋 无任何路由参数，执行随机选股初始化');
-        await _initializeRandomStock();
-      }
-    }
-  }
-
-  Future<void> _initializeRandomStock() async {
-    final logger = Logger();
-    final dbService = DatabaseService.instance;
-
-    try {
-      logger.d('📋 随机选股：查询有完整数据的股票');
-
-      // 使用新的直接从 kline_data 表查询的方法
-      final stockMaps = await dbService.klineDao.getSymbolsWithMinKlineData(
-        minDays: 210,
+    if (widget.replaySessionId != null) {
+      notifier.loadReplayMode(widget.replaySessionId!);
+    } else if (widget.initialSymbol != null &&
+        widget.initialSymbol!.isNotEmpty) {
+      notifier.initializeWithSymbol(
+        symbol: widget.initialSymbol!,
+        name: widget.initialName,
+        marketCode: widget.initialMarketCode,
+        startDate: widget.initialTrainingStartDate,
       );
-
-      logger.d('📋 随机选股：找到 ${stockMaps.length} 只符合条件的股票');
-
-      if (stockMaps.isNotEmpty) {
-        final randomIndex = Random().nextInt(stockMaps.length);
-        final selectedStock = stockMaps[randomIndex];
-        final symbol = selectedStock['symbol'] ?? '';
-        final marketCode = selectedStock['marketCode'] ?? '';
-
-        logger.d('📋 随机选股：选中 $symbol - $marketCode');
-
-        setState(() {
-          _currentSymbol = symbol;
-          _currentMarketCode = marketCode;
-          _currentSymbolName = symbol;
-          _trainingStartDate = _DEFAULT_START_DATE;
-          _trainingDays = 150;
-          _initialBalance = 100000.0;
-          _accountBalance = _initialBalance;
-          _hasAvailableData = true;
-          _errorMessage = '';
-        });
-      } else {
-        logger.w('📋 随机选股：无符合条件股票，显示空状态');
-        setState(() {
-          _hasAvailableData = false;
-          _errorMessage = '暂无可训练股票';
-        });
-      }
-
-      await _loadKlineData();
-    } catch (e) {
-      logger.e('📋 随机选股失败: $e');
-      setState(() {
-        _hasAvailableData = false;
-        _errorMessage = '数据加载失败';
-      });
-      await _loadKlineData();
-    }
-  }
-
-  Future<void> _handleRouteExtra() async {
-    final routerState = GoRouterState.of(context);
-    final extra = routerState.extra as Map<String, dynamic>?;
-    final logger = Logger();
-    logger.d(
-        '📋 _handleRouteExtra: location=${routerState.uri}, extra=${extra?.keys}');
-    logger.d('📋 extra内容: $extra');
-
-    if (extra != null) {
-      final mode = extra['mode'] as String?;
-
-      final symbol = extra['symbol'] as String? ??
-          extra['stockCode'] as String? ??
-          _currentSymbol;
-      final marketCode = extra['marketCode'] as String? ?? '';
-
-      logger.d('📋 解析到的symbol=$symbol, marketCode=$marketCode');
-
-      if (mounted) {
-        setState(() {
-          _currentSymbol = symbol;
-          _currentMarketCode = marketCode;
-          _trainingStartDate = extra['startDate'] as DateTime? ??
-              extra['trainingStartDate'] as DateTime?;
-          _initialBalance = extra['initialCapital'] as double? ?? 100000.0;
-          _accountBalance = _initialBalance;
-        });
-      }
-
-      if (mode == 'replay') {
-        await _loadReplayMode(extra);
-      } else if (mode == 'retrain') {
-        await _loadRetrainMode(extra);
-      } else {
-        _trainingDays = extra['trainingDays'] as int? ?? 150;
-      }
+    } else if (widget.isReplayMode) {
+      notifier.loadReplayMode(0);
     } else {
-      logger.w('📋 extra为null，无法获取路由参数');
+      notifier.initializeRandom();
     }
-  }
-
-  Future<void> _loadReplayMode(Map<String, dynamic> extra) async {
-    setState(() {
-      _isReplayMode = true;
-    });
-    final sessionId = extra['sessionId'] as int?;
-    if (sessionId == null) {
-      _loadKlineData();
-      return;
-    }
-
-    final dbService = DatabaseService.instance;
-    final session = await dbService.trainingDao.getSession(sessionId);
-    final trades = await dbService.trainingDao.getSessionTrades(sessionId);
-
-    if (session != null) {
-      setState(() {
-        _currentSymbol = session.symbol;
-        _currentMarketCode = session.marketCode;
-        _trainingStartDate = session.startDate;
-        _trainingDays =
-            session.endDate.difference(session.startDate).inDays + 1;
-        _initialBalance = session.initialCapital;
-        _accountBalance = session.currentCapital;
-        _totalProfitLoss = session.totalProfit ?? 0;
-      });
-
-      await _loadStockName(session.symbol);
-      await _loadKlineData();
-
-      if (_allKlineData.isNotEmpty && trades.isNotEmpty) {
-        final tradePoints = <TradePoint>[];
-        double positionQuantity = 0;
-        double positionCost = 0;
-
-        for (final trade in trades) {
-          final tradeDate = DateTime.parse(trade.tradeDate ?? '');
-          for (int i = 0; i < _allKlineData.length; i++) {
-            final klineDate =
-                DateTime.fromMillisecondsSinceEpoch(_allKlineData[i].timestamp);
-            if (klineDate.year == tradeDate.year &&
-                klineDate.month == tradeDate.month &&
-                klineDate.day == tradeDate.day) {
-              if (trade.type == 'buy') {
-                positionQuantity += trade.quantity ?? 0;
-                final totalCost = (trade.price ?? 0) * (trade.quantity ?? 0);
-                positionCost = ((positionCost *
-                            (positionQuantity - (trade.quantity ?? 0)) +
-                        totalCost) /
-                    positionQuantity);
-                tradePoints.add(TradePoint(
-                  index: i,
-                  price: trade.price ?? 0,
-                  isBuy: true,
-                  label: 'B',
-                  date: _allKlineData[i].dateTime,
-                  tradeId: trade.id,
-                  quantity: trade.quantity ?? 0,
-                ));
-              } else {
-                positionQuantity -= trade.quantity ?? 0;
-                tradePoints.add(TradePoint(
-                  index: i,
-                  price: trade.price ?? 0,
-                  isBuy: false,
-                  label: 'S',
-                  date: _allKlineData[i].dateTime,
-                  tradeId: trade.id,
-                  quantity: trade.quantity ?? 0,
-                ));
-              }
-              break;
-            }
-          }
-        }
-
-        setState(() {
-          _tradePoints = tradePoints;
-          _positionQuantity = positionQuantity;
-          _positionCost = positionCost;
-          _currentDayIndex = _allKlineData.length - 1;
-          _trainingPhase = TrainingPhase.closing;
-          _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
-              .clamp(0, _currentDayIndex);
-        });
-      }
-    } else {
-      _loadKlineData();
-    }
-  }
-
-  Future<void> _loadRetrainMode(Map<String, dynamic> extra) async {
-    final sessionId = extra['sessionId'] as int?;
-    if (sessionId != null) {
-      final dbService = DatabaseService.instance;
-      final session = await dbService.trainingDao.getSession(sessionId);
-      if (session != null) {
-        setState(() {
-          _currentSymbol = session.symbol;
-          _currentMarketCode = session.marketCode;
-          _trainingStartDate = session.startDate;
-          _trainingDays =
-              session.endDate.difference(session.startDate).inDays + 1;
-          _initialBalance = session.initialCapital;
-          _accountBalance = session.initialCapital;
-          _totalProfitLoss = 0;
-          _positionQuantity = 0;
-          _positionCost = 0;
-          _tradePoints = [];
-        });
-      }
-    }
-    _loadKlineData();
-  }
-
-  Future<void> _loadReplayModeFromWidget() async {
-    final logger = Logger();
-    logger.d('🔄 [_loadReplayMode] 开始加载复盘数据');
-    logger.d('🔄 widget.replaySessionId = ${widget.replaySessionId}');
-
-    if (widget.replaySessionId == null) {
-      logger.e('🔄 [_loadReplayMode] sessionId 为空，无法加载复盘数据');
-      await _loadKlineData();
-      return;
-    }
-
-    final dbService = DatabaseService.instance;
-
-    try {
-      logger.d('🔄 [_loadReplayMode] 步骤1: 获取训练会话');
-      final session =
-          await dbService.trainingDao.getSession(widget.replaySessionId!);
-
-      if (session == null) {
-        logger.e('🔄 [_loadReplayMode] 未找到训练记录: ${widget.replaySessionId}');
-        await _loadKlineData();
-        return;
-      }
-
-      logger.d('🔄 [_loadReplayMode] 找到训练记录: ${session.symbol}, '
-          '起始: ${session.startDate}, 结束: ${session.endDate}');
-
-      setState(() {
-        _currentSymbol = session.symbol;
-        _currentMarketCode = session.marketCode;
-        _currentSymbolName = session.symbol;
-        _trainingStartDate = session.startDate;
-        _trainingDays = session.endDate.difference(session.startDate).inDays;
-        _initialBalance = session.initialCapital;
-        _accountBalance = session.currentCapital;
-        _totalProfitLoss = session.totalProfit;
-        _isReplayMode = true;
-        _trainingPhase = TrainingPhase.closing;
-      });
-
-      logger.d('🔄 [_loadReplayMode] 步骤2: 加载K线数据');
-      await _loadKlineData();
-
-      logger.d(
-          '🔄 [_loadReplayMode] 步骤3: 设置显示位置, _allKlineData.length=${_allKlineData.length}');
-
-      if (mounted) {
-        setState(() {
-          _currentDayIndex = _allKlineData.length - 1;
-          _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
-              .clamp(0, _currentDayIndex);
-        });
-        logger.d('🔄 [_loadReplayMode] 锁定到最后一天: $_currentDayIndex');
-      }
-
-      logger.d('🔄 [_loadReplayMode] 步骤4: 加载交易记录');
-      final trades =
-          await dbService.trainingDao.getSessionTrades(widget.replaySessionId!);
-      logger.d('🔄 [_loadReplayMode] 加载到 ${trades.length} 笔交易记录');
-
-      logger.d('🔄 [_loadReplayMode] 步骤5: 构建买卖点');
-      _buildTradePoints(trades);
-      logger.d(
-          '🔄 [_loadReplayMode] 完成, _tradePoints.length=${_tradePoints.length}');
-    } catch (e, stackTrace) {
-      logger.e('🔄 [_loadReplayMode] 加载失败: $e',
-          error: e, stackTrace: stackTrace);
-      await _loadKlineData();
-    }
-  }
-
-  void _buildTradePoints(List<Trade> trades) {
-    _tradePoints = [];
-
-    for (final trade in trades) {
-      DateTime tradeDate;
-      try {
-        tradeDate = DateTime.parse(trade.tradeDate);
-      } catch (e) {
-        continue;
-      }
-
-      final tradeIndex = _allKlineData.indexWhere((k) {
-        final kDate = k.dateTime;
-        return kDate.year == tradeDate.year &&
-            kDate.month == tradeDate.month &&
-            kDate.day == tradeDate.day;
-      });
-
-      if (tradeIndex >= 0) {
-        _tradePoints.add(TradePoint(
-          index: tradeIndex,
-          price: trade.price ?? 0,
-          isBuy: trade.type == 'buy',
-          label: trade.type == 'buy' ? 'B' : 'S',
-          date: tradeDate,
-          tradeId: trade.id,
-          quantity: trade.quantity ?? 0,
-        ));
-      }
-    }
-    print('🔄 [_buildTradePoints] 构建了 ${_tradePoints.length} 个买卖点');
-  }
-
-  void _showReplayDisabledDialog(String action) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('无法$action'),
-        content: Text('复盘模式无法进行$action操作。\n请返回训练页面进行真实交易。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void didUpdateWidget(BattleScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    print('🔄 [BattleScreen] didUpdateWidget 被调用');
-    print('🔄   - oldWidget.initialSymbol: ${oldWidget.initialSymbol}');
-    print('🔄   - widget.initialSymbol: ${widget.initialSymbol}');
-    print('🔄   - oldWidget.replaySessionId: ${oldWidget.replaySessionId}');
-    print('🔄   - widget.replaySessionId: ${widget.replaySessionId}');
-    print('🔄   - oldWidget.isReplayMode: ${oldWidget.isReplayMode}');
-    print('🔄   - widget.isReplayMode: ${widget.isReplayMode}');
-
-    print('🔄 [BattleScreen] 强制重新初始化数据');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeData();
-    });
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  Future<void> _loadKlineData() async {
-    final repository = KlineRepository();
-
-    String symbolToLoad;
-    String marketCodeToLoad;
-    DateTime startDateToLoad;
-
-    // 判断是否有路由参数（从首页选股跳转）
-    // 如果训练日期不为空且股票代码不是默认值，说明有路由参数
-    final bool hasRouteParams = _trainingStartDate != null &&
-        _currentSymbol.isNotEmpty &&
-        _currentSymbol != _DEFAULT_SYMBOL;
-
-    if (hasRouteParams) {
-      // 有路由参数，使用传入的值（从首页选股跳转）
-      symbolToLoad = _currentSymbol;
-      marketCodeToLoad = _currentMarketCode;
-      startDateToLoad = _trainingStartDate!;
-    } else {
-      // 没有路由参数，使用默认配置（直接进入实战页面）
-      // 深科技（SZ000021）+ 2023年3月31日
-      symbolToLoad = _DEFAULT_SYMBOL;
-      marketCodeToLoad = _DEFAULT_MARKET_CODE;
-      startDateToLoad = _DEFAULT_START_DATE;
-    }
-
-    final logger = Logger();
-    print('🟠🟠🟠 [4.加载K线数据] 开始');
-    print('🟠🟠🟠 [4.加载K线数据] symbolToLoad: $symbolToLoad');
-    print('🟠🟠🟠 [4.加载K线数据] startDateToLoad: $startDateToLoad');
-    print('🟠🟠🟠 [4.加载K线数据] hasRouteParams: $hasRouteParams');
-
-    logger.d(
-        '📊 _loadKlineData: symbolToLoad=$symbolToLoad, startDateToLoad=$startDateToLoad, hasRouteParams=$hasRouteParams');
-
-    final totalDays = _trainingDays + _historyDays;
-
-    // 计算数据查询范围
-    final startTime = startDateToLoad.subtract(Duration(days: _historyDays));
-    final endTime = startDateToLoad.add(Duration(days: _trainingDays));
-
-    print('🟠🟠🟠 [4.加载K线数据] 计算的查询范围:');
-    print(
-        '🟠🟠🟠 [4.加载K线数据]   - startTime: $startTime (往前_historyDays=${_historyDays}天)');
-    print(
-        '🟠🟠🟠 [4.加载K线数据]   - endTime: $endTime (往后_trainingDays=${_trainingDays}天)');
-    print('🟠🟠🟠 [4.加载K线数据]   - totalDays: $totalDays');
-
-    // 优先从数据库加载真实数据（日期范围查询）
-    print('🟠🟠🟠 [4.加载K线数据] 调用 repository.fetchKlineDataFromDbWithDateRange');
-    List<KlineModel> data = await repository.fetchKlineDataFromDbWithDateRange(
-      symbol: symbolToLoad,
-      period: 'day',
-      startTime: startTime,
-      endTime: endTime,
-    );
-
-    print('🟠🟠🟠 [4.加载K线数据] 查询结果: ${data.length} 条');
-    logger.d('📊 日期范围查询结果: ${data.length} 条');
-
-    if (data.isNotEmpty) {
-      final firstItem = data.first;
-      final lastItem = data.last;
-      final firstDate =
-          DateTime.fromMillisecondsSinceEpoch(firstItem.timestamp);
-      final lastDate = DateTime.fromMillisecondsSinceEpoch(lastItem.timestamp);
-      logger.d(
-          '📊 第一条数据: date=$firstDate, open=${firstItem.open}, close=${firstItem.close}');
-      logger.d(
-          '📊 最后一条数据: date=$lastDate, open=${lastItem.open}, close=${lastItem.close}');
-    }
-
-    // 如果数据库没有数据，尝试从数据库查询该股票的所有数据
-    if (data.isEmpty) {
-      data = await repository.fetchKlineDataFromDb(
-        symbol: symbolToLoad,
-        period: 'day',
-        limit: totalDays + 50,
-      );
-    }
-
-    // 如果还是没有数据，再使用模拟数据（仅作为后备方案）
-    if (data.isEmpty) {
-      data = await repository.fetchKlineData(
-        symbol: symbolToLoad,
-        timeframe: 'day',
-        limit: totalDays,
-      );
-    }
-
-    // 限制数据量，避免内存溢出
-    // 只保留：历史数据(_historyDays) + 训练数据(_trainingDays) + 额外10天缓冲
-    final maxDataSize = _historyDays + _trainingDays + 10;
-    if (data.length > maxDataSize) {
-      // 保留最新的数据（训练数据优先）
-      data = data.sublist(data.length - maxDataSize);
-    }
-
-    print('🟠🟠🟠 [4.加载K线数据] 数据处理后: ${data.length} 条');
-    print('🟠🟠🟠 [4.加载K线数据] 历史天数: $_historyDays, 训练天数: $_trainingDays');
-    print('🟠🟠🟠 [4.加载K线数据] 预期最大索引: ${_historyDays + _trainingDays - 1}');
-
-    // 验证数据是否足够
-    final expectedSize = _historyDays + _trainingDays;
-    if (data.length < expectedSize) {
-      print('🟠🟠🟠 [4.加载K线数据] ⚠️ 数据不足! 期望: $expectedSize, 实际: ${data.length}');
-    }
-
-    print('🟢🟢🟢 [7.数据反显] 更新UI');
-    print('🟢🟢🟢 [7.数据反显] 数据量: ${data.length} 条');
-    print('🟢🟢🟢 [7.数据反显] symbolToLoad: $symbolToLoad');
-    print('🟢🟢🟢 [7.数据反显] marketCodeToLoad: $marketCodeToLoad');
-    print('🟢🟢🟢 [7.数据反显] startDateToLoad: $startDateToLoad');
-
-    // 更新股票信息
-    setState(() {
-      _currentSymbol = symbolToLoad;
-      _currentMarketCode = marketCodeToLoad;
-      _trainingStartDate = startDateToLoad;
-      _allKlineData = data;
-      print('🟢🟢🟢 [7.数据反显] setState 已调用');
-
-      // 从数据库获取股票名称
-      _loadStockName(symbolToLoad);
-
-      // 找到训练开始日期对应的索引
-      // 数据结构：前_historyDays天是历史数据，之后是训练数据
-      // _currentDayIndex 应该指向训练开始的那一天（索引 >= _historyDays）
-      final startDayIndex = _findStartDayIndex(data, startDateToLoad);
-
-      // 如果找到了训练开始日期，但位置在历史数据范围内（< _historyDays），需要调整
-      // 确保 _currentDayIndex 至少为 _historyDays，这样训练进度才从1开始
-      if (startDayIndex >= 0 && startDayIndex < data.length) {
-        _currentDayIndex = startDayIndex;
-        // 如果找到的日期在历史数据范围内，调整到历史数据结束位置
-        if (_currentDayIndex < _historyDays) {
-          _currentDayIndex = _historyDays.clamp(0, data.length - 1);
-        }
-      } else {
-        // 如果没找到训练开始日期，默认从 _historyDays 开始（训练第一天）
-        _currentDayIndex = _historyDays.clamp(0, data.length - 1);
-      }
-
-      _tradePoints = [];
-      // 确保 _visibleStartIndex 正确初始化，显示训练开始那天
-      _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
-          .clamp(0, _currentDayIndex);
-    });
-  }
-
-  Future<void> _loadStockName(String symbol) async {
-    final repository = KlineRepository();
-    final stockName = await repository.getStockName(symbol);
-    if (mounted) {
-      setState(() {
-        _currentSymbolName = stockName;
-      });
-    }
-  }
-
-  /// 根据日期找到对应的K线索引
-  int _findStartDayIndex(List<KlineModel> data, DateTime targetDate) {
-    for (int i = 0; i < data.length; i++) {
-      final klineDate = DateTime.fromMillisecondsSinceEpoch(data[i].timestamp);
-      // 检查是否是同一天
-      if (klineDate.year == targetDate.year &&
-          klineDate.month == targetDate.month &&
-          klineDate.day == targetDate.day) {
-        return i;
-      }
-    }
-    // 如果没找到精确匹配，找最近的日期
-    if (data.isNotEmpty) {
-      for (int i = 0; i < data.length; i++) {
-        final klineDate =
-            DateTime.fromMillisecondsSinceEpoch(data[i].timestamp);
-        if (klineDate.isAfter(targetDate) ||
-            klineDate.isAtSameMomentAs(targetDate)) {
-          return i;
-        }
-      }
-      return data.length - 1; // 返回最后一天
-    }
-    return -1;
-  }
-
-  Future<void> _nextDay() async {
-    final maxTrainingIndex = _historyDays + _trainingDays - 1;
-
-    if (_isReplayMode) {
-      // 复盘模式：显示训练已结束提醒
-      if (_trainingPhase == TrainingPhase.opening) {
-        setState(() {
-          _trainingPhase = TrainingPhase.closing;
-        });
-      } else {
-        if (_currentDayIndex < maxTrainingIndex &&
-            _currentDayIndex < _allKlineData.length - 1) {
-          setState(() {
-            _currentDayIndex++;
-            _trainingPhase = TrainingPhase.opening;
-            _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
-                .clamp(0, _currentDayIndex);
-            _checkConditionalOrders();
-            _updateAccount();
-          });
-        } else {
-          _showReplayEndDialog();
-        }
-      }
-      return;
-    }
-
-    if (_trainingPhase == TrainingPhase.opening) {
-      setState(() {
-        _trainingPhase = TrainingPhase.closing;
-      });
-    } else {
-      if (_currentDayIndex < maxTrainingIndex &&
-          _currentDayIndex < _allKlineData.length - 1) {
-        setState(() {
-          _currentDayIndex++;
-          _trainingPhase = TrainingPhase.opening;
-          _visibleStartIndex = (_currentDayIndex - _visibleKlineCount + 1)
-              .clamp(0, _currentDayIndex);
-          _checkConditionalOrders();
-          _updateAccount();
-        });
-      } else {
-        await _showTrainingCompleteDialog();
-      }
-    }
-  }
-
-  void _showReplayEndDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('训练已结束',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: const SingleChildScrollView(
-            child: Column(
-              children: [
-                SizedBox(height: 16),
-                Text('本次训练周期已结束，您可以：', style: TextStyle(fontSize: 16)),
-                SizedBox(height: 16),
-                Text('- 点击"返回"回到记录页面查看更多训练记录'),
-                Text('- 重新开始复盘或进行重训'),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                context.go('/records');
-              },
-              child: const Text('返回记录'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('关闭'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _checkConditionalOrders() {}
-
-  void _updateAccount() {
-    if (_positionQuantity > 0 && _allKlineData.isNotEmpty) {}
-  }
-
-  void _zoomIn() {
-    setState(() {
-      _zoomScale = (_zoomScale * 1.2).clamp(0.0286, 3.0);
-      _updateVisibleRange();
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      _zoomScale = (_zoomScale / 1.2).clamp(0.0286, 3.0);
-      _updateVisibleRange();
-    });
-  }
-
-  void _updateVisibleRange() {
-    final baseCount = 20;
-    _visibleKlineCount = (baseCount / _zoomScale).round().clamp(10, 700);
-
-    // 确保可见范围不超过当前训练天数，不显示未训练的数据
-    // 可见K线数量不能超过当前训练天数+1（从0到_currentDayIndex）
-    final maxVisibleCount = _currentDayIndex + 1;
-    if (_visibleKlineCount > maxVisibleCount) {
-      _visibleKlineCount = maxVisibleCount;
-    }
-
-    // 确保最右边的K线（当前训练天数）始终在视图最右侧
-    // 计算新的起始索引，使当前训练天数对应的K线在最右边
-    final maxStartIndex =
-        (_currentDayIndex + 1 - _visibleKlineCount).clamp(0, _currentDayIndex);
-    _visibleStartIndex = maxStartIndex;
-  }
-
-  void _slideLeft() {
-    if (_visibleStartIndex <= 0) {
-      _showEdgeAlert('已经到达最左边');
-      return;
-    }
-    setState(() {
-      _visibleStartIndex -= 5;
-      if (_visibleStartIndex < 0) {
-        _visibleStartIndex = 0;
-      }
-    });
-  }
-
-  void _slideRight() {
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    if (_visibleStartIndex >= maxStart) {
-      _showEdgeAlert('已经到达最右边');
-      return;
-    }
-    setState(() {
-      _visibleStartIndex += 5;
-      if (_visibleStartIndex > maxStart) {
-        _visibleStartIndex = maxStart;
-      }
-      if (_visibleStartIndex < 0) {
-        _visibleStartIndex = 0;
-      }
-    });
-  }
-
-  void _showEdgeAlert(String message) {
-    final now = DateTime.now();
-    if (_lastEdgeAlertTime != null) {
-      final diff = now.difference(_lastEdgeAlertTime!);
-      if (diff.inMilliseconds < 1500) {
-        return;
-      }
-    }
-    _lastEdgeAlertTime = now;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(milliseconds: 1500),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  void _showBuyDialog() {
-    if (_allKlineData.isEmpty) return;
-
-    final currentData = _allKlineData[_currentDayIndex];
-    double currentPrice;
-    bool priceFixed;
-    double? minPrice;
-    double? maxPrice;
-
-    if (_trainingPhase == TrainingPhase.opening) {
-      currentPrice = currentData.open;
-      priceFixed = false;
-      minPrice = currentData.low;
-      maxPrice = currentData.high;
-    } else {
-      currentPrice = currentData.close;
-      priceFixed = true;
-      minPrice = null;
-      maxPrice = null;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _TradeDialog(
-        title: '买入',
-        currentPrice: currentPrice,
-        maxQuantity: (_accountBalance / currentPrice / 100).floor() * 100,
-        accountBalance: _accountBalance,
-        priceFixed: priceFixed,
-        minPrice: minPrice,
-        maxPrice: maxPrice,
-        onConfirm: (price, quantity) {
-          Navigator.pop(context);
-          _executeBuy(price, quantity);
-        },
-      ),
-    );
-  }
-
-  void _executeBuy(double price, double quantity) {
-    if (quantity <= 0) return;
-
-    setState(() {
-      if (_positionQuantity > 0) {
-        final totalOldCost = _positionCost * _positionQuantity;
-        final totalNewCost = price * quantity;
-        final totalQuantity = _positionQuantity + quantity;
-        _positionCost = totalQuantity > 0
-            ? (totalOldCost + totalNewCost) / totalQuantity
-            : price;
-        _positionQuantity = totalQuantity;
-      } else {
-        _positionQuantity = quantity;
-        _positionCost = price;
-      }
-      _accountBalance -= quantity * price;
-
-      _tradePoints.add(TradePoint(
-        index: _currentDayIndex,
-        price: price,
-        isBuy: true,
-        label: 'B',
-        date: _allKlineData[_currentDayIndex].dateTime,
-        tradeId: 0,
-        quantity: quantity.toInt(),
-      ));
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('以 $price 买入 ${quantity.toInt()} 股')),
-    );
-  }
-
-  void _showSellDialog() {
-    if (_positionQuantity <= 0 || _allKlineData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('没有持仓')),
-      );
-      return;
-    }
-
-    final currentData = _allKlineData[_currentDayIndex];
-    double currentPrice;
-    bool priceFixed;
-    double? minPrice;
-    double? maxPrice;
-
-    if (_trainingPhase == TrainingPhase.opening) {
-      currentPrice = currentData.open;
-      priceFixed = false;
-      minPrice = currentData.low;
-      maxPrice = currentData.high;
-    } else {
-      currentPrice = currentData.close;
-      priceFixed = true;
-      minPrice = null;
-      maxPrice = null;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _TradeDialog(
-        title: '卖出',
-        currentPrice: currentPrice,
-        maxQuantity: _positionQuantity,
-        accountBalance: _accountBalance,
-        positionQuantity: _positionQuantity,
-        positionCost: _positionCost,
-        priceFixed: priceFixed,
-        minPrice: minPrice,
-        maxPrice: maxPrice,
-        onConfirm: (price, quantity) {
-          Navigator.pop(context);
-          _executeSell(price, quantity);
-        },
-      ),
-    );
-  }
-
-  void _executeSell(double price, double quantity) {
-    if (quantity <= 0) return;
-
-    setState(() {
-      _tradePoints.add(TradePoint(
-        index: _currentDayIndex,
-        price: price,
-        isBuy: false,
-        label: 'S',
-        date: _allKlineData[_currentDayIndex].dateTime,
-        tradeId: 0,
-        quantity: quantity.toInt(),
-      ));
-
-      final sellProfit = (price - _positionCost) * quantity;
-      _totalProfitLoss += sellProfit;
-
-      _accountBalance += quantity * price;
-      _positionQuantity -= quantity;
-      if (_positionQuantity <= 0) {
-        _positionQuantity = 0;
-        _positionCost = 0;
-      }
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('以 $price 卖出 ${quantity.toInt()} 股')),
-    );
-  }
-
-  void _showStockSelectionDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => _StockSelectionSheet(
-        onSelect: (symbol) {
-          setState(() {
-            _currentSymbol = symbol;
-          });
-          _loadKlineData();
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  void _showConditionalOrderDialog() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => _ConditionalOrderSheet(
-        currentPrice: _allKlineData.isNotEmpty
-            ? _allKlineData[_currentDayIndex].close
-            : 0,
-        onConfirm: (type, params) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('条件单已设置: $type')),
-          );
-        },
-      ),
-    );
-  }
-
-  List<KlineData> get _displayKlineData {
-    if (_allKlineData.isEmpty) return [];
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    return _allKlineData
-        .skip(startIndex)
-        .take(_visibleKlineCount)
-        .map((e) => KlineData(
-              date: e.dateTime,
-              open: e.open,
-              high: e.high,
-              low: e.low,
-              close: e.close,
-              volume: e.volume,
-            ))
-        .toList();
-  }
-
-  List<TradePoint> get _visibleTradePoints {
-    if (_tradePoints.isEmpty) return [];
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    return _tradePoints
-        .where((point) =>
-            point.index >= startIndex &&
-            point.index < startIndex + _visibleKlineCount)
-        .map((point) => TradePoint(
-              index: point.index - startIndex,
-              price: point.price,
-              isBuy: point.isBuy,
-              label: point.label,
-              date: point.date,
-              tradeId: point.tradeId,
-              quantity: point.quantity,
-            ))
-        .toList();
-  }
-
-  List<VolumeData> get _displayVolumes {
-    if (_allKlineData.isEmpty) return [];
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-    return _allKlineData
-        .skip(startIndex)
-        .take(_visibleKlineCount)
-        .map((e) => VolumeData(volume: e.volume, isUp: e.isUp))
-        .toList();
-  }
-
-  List<MacdData> get _displayMacdData {
-    if (_allKlineData.isEmpty) return [];
-
-    // 计算可视范围
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标，确保训练期指标有效
-    final fullData = _allKlineData.take(endIndex).toList();
-    final macdResult = IndicatorCalculator.calculateMACD(fullData);
-
-    // 构建完整结果（包含预热期的padding和真实指标值）
-    final macdOffset = fullData.length - macdResult.macd.length;
-    final result = <MacdData>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final macdIndex = i - macdOffset;
-      if (macdIndex >= 0 && macdIndex < macdResult.macd.length) {
-        result.add(MacdData(
-          macd: macdResult.macd[macdIndex],
-          diff: macdResult.dif[macdIndex],
-          dea: macdResult.dea[macdIndex],
-        ));
-      } else {
-        // 预热期：使用0值（技术指标的固有局限）
-        result.add(MacdData(macd: 0, diff: 0, dea: 0));
-      }
-    }
-
-    // 返回可视范围的指标
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<KdjData> get _displayKdjData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final kdjResult = IndicatorCalculator.calculateKDJ(fullData);
-
-    // 构建完整结果
-    final kdjOffset = fullData.length - kdjResult.k.length;
-    final result = <KdjData>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final kdjIndex = i - kdjOffset;
-      if (kdjIndex >= 0 && kdjIndex < kdjResult.k.length) {
-        result.add(KdjData(
-          k: kdjResult.k[kdjIndex],
-          d: kdjResult.d[kdjIndex],
-          j: kdjResult.j[kdjIndex],
-        ));
-      } else {
-        // 预热期：使用默认值50
-        result.add(KdjData(k: 50, d: 50, j: 50));
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<RsiData> get _displayRsiData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final rsiResult = IndicatorCalculator.calculateRSI(fullData);
-
-    // 构建完整结果
-    final rsiOffset = fullData.length - rsiResult.values.length;
-    final result = <RsiData>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final rsiIndex = i - rsiOffset;
-      if (rsiIndex >= 0 && rsiIndex < rsiResult.values.length) {
-        result.add(RsiData(rsi: rsiResult.values[rsiIndex]));
-      } else {
-        // 预热期：使用默认值50
-        result.add(RsiData(rsi: 50));
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<BollData> get _displayBollData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final bollResult = IndicatorCalculator.calculateBoll(fullData);
-
-    // 构建完整结果
-    final bollOffset = fullData.length - bollResult.mb.length;
-    final result = <BollData>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final bollIndex = i - bollOffset;
-      if (bollIndex >= 0 && bollIndex < bollResult.mb.length) {
-        result.add(BollData(
-          upper: bollResult.up[bollIndex],
-          mid: bollResult.mb[bollIndex],
-          lower: bollResult.dn[bollIndex],
-        ));
-      } else {
-        // 预热期：使用收盘价近似值
-        final currentData = fullData[i];
-        result.add(BollData(
-          upper: currentData.close * 1.02,
-          mid: currentData.close,
-          lower: currentData.close * 0.98,
-        ));
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<double> get _displayWrData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final wrResult = IndicatorCalculator.calculateWR(fullData);
-
-    // 构建完整结果
-    final wrOffset = fullData.length - wrResult.values.length;
-    final result = <double>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final wrIndex = i - wrOffset;
-      if (wrIndex >= 0 && wrIndex < wrResult.values.length) {
-        result.add(wrResult.values[wrIndex]);
-      } else {
-        // 预热期：使用默认值50
-        result.add(50.0);
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<double> get _displayCciData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final cciResult = IndicatorCalculator.calculateCCI(fullData);
-
-    // 构建完整结果
-    final cciOffset = fullData.length - cciResult.values.length;
-    final result = <double>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final cciIndex = i - cciOffset;
-      if (cciIndex >= 0 && cciIndex < cciResult.values.length) {
-        result.add(cciResult.values[cciIndex]);
-      } else {
-        // 预热期：使用默认值0
-        result.add(0.0);
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<double> get _displayObvData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标（OBV无预热期，从第一天就有值）
-    final fullData = _allKlineData.take(endIndex).toList();
-    final obvResult = IndicatorCalculator.calculateOBV(fullData);
-    final result = obvResult.values;
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<DmiData> get _displayDmiData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final dmiResult = IndicatorCalculator.calculateDMI(fullData);
-
-    // 构建完整结果
-    final dmiOffset = fullData.length - dmiResult.plusDI.length;
-    final result = <DmiData>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final dmiIndex = i - dmiOffset;
-      if (dmiIndex >= 0 && dmiIndex < dmiResult.plusDI.length) {
-        final double adxValue =
-            dmiIndex < dmiResult.adx.length ? dmiResult.adx[dmiIndex] : 0.0;
-        result.add(DmiData(
-          plusDI: dmiResult.plusDI[dmiIndex],
-          minusDI: dmiResult.minusDI[dmiIndex],
-          adx: adxValue,
-        ));
-      } else {
-        // 预热期：使用默认值0
-        result.add(DmiData(plusDI: 0, minusDI: 0, adx: 0));
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<DmaData> get _displayDmaData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final dmaResult = IndicatorCalculator.calculateDMA(fullData);
-
-    // 构建完整结果
-    final dmaOffset = fullData.length - dmaResult.dma.length;
-    final result = <DmaData>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final dmaIndex = i - dmaOffset;
-      if (dmaIndex >= 0 && dmaIndex < dmaResult.dma.length) {
-        final double amaValue =
-            dmaIndex < dmaResult.ama.length ? dmaResult.ama[dmaIndex] : 0.0;
-        result.add(DmaData(dma: dmaResult.dma[dmaIndex], ama: amaValue));
-      } else {
-        // 预热期：使用默认值0
-        result.add(DmaData(dma: 0, ama: 0));
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
-  }
-
-  List<double> get _displayBbiData {
-    if (_allKlineData.isEmpty) return [];
-
-    final endIndex = (_currentDayIndex + 1).clamp(0, _allKlineData.length);
-    final maxStart = (endIndex - _visibleKlineCount).clamp(0, endIndex);
-    final startIndex = _visibleStartIndex.clamp(0, maxStart);
-
-    // 从历史起点计算完整指标
-    final fullData = _allKlineData.take(endIndex).toList();
-    final bbiResult = IndicatorCalculator.calculateBBI(fullData);
-
-    // 构建完整结果
-    final bbiOffset = fullData.length - bbiResult.values.length;
-    final result = <double>[];
-
-    for (int i = 0; i < fullData.length; i++) {
-      final bbiIndex = i - bbiOffset;
-      if (bbiIndex >= 0 && bbiIndex < bbiResult.values.length) {
-        result.add(bbiResult.values[bbiIndex]);
-      } else {
-        // 预热期：使用默认值0
-        result.add(0.0);
-      }
-    }
-
-    if (result.length > startIndex) {
-      final end = startIndex + _visibleKlineCount;
-      return result.sublist(startIndex, end.clamp(startIndex, result.length));
-    }
-    return result;
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasAvailableData) {
+    final state = ref.watch(battleProvider);
+
+    if (state.isLoading) {
       return Scaffold(
         body: SafeArea(
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
+                const CircularProgressIndicator(),
                 const SizedBox(height: 16),
-                Text(
-                  _errorMessage.isNotEmpty ? _errorMessage : '暂无可训练股票',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '请确保K线数据已加载',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[400],
-                  ),
+                Text('加载中...', style: TextStyle(color: AppTheme.muted)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!state.hasAvailableData) {
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.info_outline, size: 64, color: Colors.grey[400]),
+                const SizedBox(height: 16),
+                Text(state.errorMessage ?? '暂无可训练股票',
+                    style: TextStyle(fontSize: 18, color: Colors.grey[600])),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () =>
+                      ref.read(battleProvider.notifier).initializeRandom(),
+                  child: const Text('重新加载'),
                 ),
               ],
             ),
@@ -1483,1395 +110,90 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
       body: SafeArea(
         child: Column(
           children: [
-            _buildStockInfo(),
-            _buildMarketData(),
-            _buildPeriodSelector(),
-            Expanded(
-              flex: 2,
-              child: ClipRect(
-                child: _buildKlineChartWithoutControls(),
-              ),
-            ),
-            _buildControlButtons(),
-            Expanded(
-              flex: 1,
-              child: ClipRect(
-                child: _buildIndicatorWithSelector(_selectedTopIndicator, true),
-              ),
-            ),
-            Expanded(
-              flex: 1,
-              child: ClipRect(
-                child: _buildIndicatorWithSelector(
-                    _selectedBottomIndicator, false),
-              ),
-            ),
+            const StockInfoBar(),
+            _buildPeriodSelector(state),
+            Expanded(flex: 3, child: KlineChartContainer()),
+            const ControlButtons(),
+            const IndicatorPanel(),
             _buildTradeButtons(),
-            _buildAssetInfo(),
+            const AssetPanel(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStockInfo() {
-    final currentData =
-        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-            ? _allKlineData[_currentDayIndex]
-            : null;
-
-    final prevClose = _getPrevDayClose();
-    final (displayPrice, priceLabel, change, changePercent) =
-        _calculateChangeInfo(currentData, prevClose);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                  _currentSymbolName.isNotEmpty
-                      ? _currentSymbolName
-                      : _currentSymbol,
-                  style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 第一列：价格和涨跌
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        displayPrice,
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: change >= 0 ? Colors.red : Colors.green),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        priceLabel,
-                        style: TextStyle(fontSize: 10, color: AppTheme.muted),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        change != double.infinity
-                            ? '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}'
-                            : '--',
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: change >= 0 ? Colors.red : Colors.green),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        changePercent != double.infinity
-                            ? '${changePercent >= 0 ? '+' : ''}${changePercent.toStringAsFixed(2)}%'
-                            : '--',
-                        style: TextStyle(
-                            fontSize: 10,
-                            color:
-                                changePercent >= 0 ? Colors.red : Colors.green),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(width: 12),
-              // 第二列：高/低
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoItem(
-                      '高',
-                      _trainingPhase == TrainingPhase.opening
-                          ? '--'
-                          : (currentData?.high.toStringAsFixed(2) ?? '--')),
-                  const SizedBox(height: 4),
-                  _buildInfoItem(
-                      '低',
-                      _trainingPhase == TrainingPhase.opening
-                          ? '--'
-                          : (currentData?.low.toStringAsFixed(2) ?? '--')),
-                ],
-              ),
-              const SizedBox(width: 12),
-              // 第三列：开/换手
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoItem(
-                      '开', currentData?.open.toStringAsFixed(2) ?? '--'),
-                  const SizedBox(height: 4),
-                  _buildInfoItem('换手',
-                      _trainingPhase == TrainingPhase.opening ? '--' : '待更新'),
-                ],
-              ),
-              const SizedBox(width: 12),
-              // 第四列：流通/上证
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoItem('流通', '待更新'),
-                  const SizedBox(height: 4),
-                  _buildInfoItem('上证', '待更新'),
-                ],
-              ),
-              const SizedBox(width: 12),
-              // 第五列：量/金额
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildInfoItem(
-                      '量',
-                      _trainingPhase == TrainingPhase.opening
-                          ? '--'
-                          : (currentData != null
-                              ? _formatVolume(currentData.volume)
-                              : '--')),
-                  const SizedBox(height: 4),
-                  _buildInfoItem('金额',
-                      _trainingPhase == TrainingPhase.opening ? '--' : '待更新'),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  double _getPrevDayClose() {
-    if (_currentDayIndex > 0 && _currentDayIndex < _allKlineData.length) {
-      return _allKlineData[_currentDayIndex - 1].close;
-    }
-    return 0.0;
-  }
-
-  (String, String, double, double) _calculateChangeInfo(
-      KlineModel? currentData, double prevClose) {
-    if (currentData == null || prevClose <= 0) {
-      return ('--', '', double.infinity, double.infinity);
-    }
-
-    double basePrice;
-    String priceLabel;
-
-    if (_trainingPhase == TrainingPhase.opening) {
-      basePrice = currentData.open;
-      priceLabel = '开';
-    } else {
-      basePrice = currentData.close;
-      priceLabel = '收';
-    }
-
-    final change = basePrice - prevClose;
-    final changePercent = (change / prevClose) * 100;
-
-    return (basePrice.toStringAsFixed(2), priceLabel, change, changePercent);
-  }
-
-  Widget _buildInfoItem(String label, String value) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 10, color: AppTheme.muted),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 11),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMarketData() {
-    return const SizedBox.shrink();
-  }
-
-  String _formatVolume(double volume) {
-    if (volume >= 100000000) {
-      return '${(volume / 100000000).toStringAsFixed(2)}亿';
-    } else if (volume >= 10000) {
-      return '${(volume / 10000).toStringAsFixed(2)}万';
-    }
-    return volume.toStringAsFixed(2);
-  }
-
-  String _formatAmount(double amount) {
-    if (amount >= 100000000) {
-      return '${(amount / 100000000).toStringAsFixed(2)}亿';
-    } else if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(2)}万';
-    }
-    return amount.toStringAsFixed(2);
-  }
-
-  Widget _buildPeriodSelector() {
+  Widget _buildPeriodSelector(BattleState state) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
+      decoration: BoxDecoration(
+          border:
+              Border(bottom: BorderSide(color: AppTheme.border, width: 0.5))),
       child: Row(
         children: [
-          _buildPeriodDropdown(),
-          const SizedBox(width: 16),
-          _buildMaSelector(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPeriodDropdown() {
-    return DropdownButton<String>(
-      value: _selectedPeriod,
-      items: _periods.map((period) {
-        return DropdownMenuItem<String>(
-          value: period,
-          child: Text(period, style: const TextStyle(fontSize: 11)),
-        );
-      }).toList(),
-      onChanged: (value) {
-        if (value != null) {
-          setState(() {
-            _selectedPeriod = value;
-            _loadKlineDataForPeriod(value);
-          });
-        }
-      },
-      underline: const SizedBox(),
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.bold,
-        color: AppTheme.accent,
-      ),
-      icon: const Icon(Icons.arrow_drop_down, size: 14, color: AppTheme.accent),
-    );
-  }
-
-  Widget _buildMaSelector() {
-    final maValues = _getCurrentMaValues();
-
-    return Expanded(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          _MaDisplay(label: 'MA5', value: maValues[5], color: Colors.yellow),
-          const SizedBox(width: 12),
-          _MaDisplay(label: 'MA10', value: maValues[10], color: Colors.purple),
-          const SizedBox(width: 12),
-          _MaDisplay(label: 'MA20', value: maValues[20], color: Colors.orange),
-          const SizedBox(width: 12),
-          _MaDisplay(label: 'MA30', value: maValues[30], color: Colors.blue),
-        ],
-      ),
-    );
-  }
-
-  Map<int, double> _getCurrentMaValues() {
-    final displayData = _displayKlineData;
-    final values = <int, double>{};
-
-    for (final ma in [5, 10, 20, 30]) {
-      final maData = _calculateMA(displayData, ma);
-      values[ma] = maData.isNotEmpty ? maData.last : 0.0;
-    }
-
-    return values;
-  }
-
-  void _loadKlineDataForPeriod(String period) {
-    final timeframe = _getPeriodTimeframe(period);
-    setState(() {
-      _allKlineData = [];
-      _currentDayIndex = 0;
-    });
-    _loadKlineDataWithTimeframe(timeframe);
-  }
-
-  String _getPeriodTimeframe(String period) {
-    switch (period) {
-      case '日K':
-        return 'day';
-      case '周K':
-        return 'week';
-      case '月K':
-        return 'month';
-      case '季K':
-        return 'quarter';
-      case '年K':
-        return 'year';
-      default:
-        return 'day';
-    }
-  }
-
-  Future<void> _loadKlineDataWithTimeframe(String timeframe) async {
-    final repository = KlineRepository();
-    final data = await repository.fetchKlineData(
-      symbol: _currentSymbol,
-      timeframe: timeframe,
-      limit: _trainingDays,
-    );
-
-    setState(() {
-      _allKlineData = data;
-      _currentDayIndex = 0;
-    });
-  }
-
-  Widget _buildKlineChart() {
-    final displayData = _displayKlineData;
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.remove, size: 14),
-                onPressed: _zoomOut,
-                padding: EdgeInsets.zero,
-              ),
-              IconButton(
-                icon: const Icon(Icons.add, size: 14),
-                onPressed: _zoomIn,
-                padding: EdgeInsets.zero,
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios, size: 10),
-                onPressed: _slideLeft,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 20),
-              ),
-              IconButton(
-                icon: const Icon(Icons.arrow_forward_ios, size: 10),
-                onPressed: _slideRight,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 20),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Expanded(
-            child: ClipRect(
-              child: displayData.isNotEmpty
-                  ? KlineChart(
-                      klineData: displayData,
-                      ma5: _calculateMA(displayData, 5),
-                      ma10: _calculateMA(displayData, 10),
-                      ma20: _calculateMA(displayData, 20),
-                      ma30: _calculateMA(displayData, 30),
-                      volumes: _displayVolumes,
-                      macdData: _displayMacdData,
-                      tradePoints: _visibleTradePoints,
-                      currentOpenPrice:
-                          displayData.isNotEmpty ? displayData.last.open : null,
-                      positionCost:
-                          _positionQuantity > 0 ? _positionCost : null,
-                    )
-                  : const Center(child: Text('加载中...')),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKlineChartWithoutControls() {
-    final displayData = _displayKlineData;
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: ClipRect(
-        child: displayData.isNotEmpty
-            ? KlineChart(
-                klineData: displayData,
-                ma5: _calculateMA(displayData, 5),
-                ma10: _calculateMA(displayData, 10),
-                ma20: _calculateMA(displayData, 20),
-                ma30: _calculateMA(displayData, 30),
-                volumes: _displayVolumes,
-                macdData: _displayMacdData,
-                tradePoints: _visibleTradePoints,
-                currentOpenPrice:
-                    displayData.isNotEmpty ? displayData.last.open : null,
-                positionCost: _positionQuantity > 0 ? _positionCost : null,
-              )
-            : const Center(child: Text('加载中...')),
-      ),
-    );
-  }
-
-  Widget _buildControlButtons() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.remove, size: 16),
-            onPressed: _zoomOut,
-            padding: EdgeInsets.zero,
-          ),
-          IconButton(
-            icon: const Icon(Icons.add, size: 16),
-            onPressed: _zoomIn,
-            padding: EdgeInsets.zero,
-          ),
-          const SizedBox(width: 12),
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, size: 12),
-            onPressed: _slideLeft,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24),
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios, size: 12),
-            onPressed: _slideRight,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 24),
+          DropdownButton<String>(
+            value: state.selectedPeriod,
+            items: ['日K', '周K', '月K', '季K', '年K']
+                .map((p) => DropdownMenuItem(
+                    value: p,
+                    child: Text(p, style: const TextStyle(fontSize: 11))))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) ref.read(battleProvider.notifier).updatePeriod(v);
+            },
+            underline: const SizedBox(),
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.accent),
           ),
           const Spacer(),
+          _buildMaDisplays(state),
         ],
       ),
     );
   }
 
-  Widget _buildIndicatorWithSelector(String indicator, bool isTop) {
-    return Column(
+  Widget _buildMaDisplays(BattleState state) {
+    final notifier = ref.read(battleProvider.notifier);
+    final ma5 = notifier.ma5Data;
+    final ma10 = notifier.ma10Data;
+    final ma30 = notifier.ma30Data;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: const BoxDecoration(
-            border:
-                Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButton<String>(
-                  value: indicator,
-                  items: _indicators.map((ind) {
-                    return DropdownMenuItem<String>(
-                      value: ind,
-                      child: Text(ind,
-                          style: const TextStyle(
-                              fontSize: 10, color: Colors.black)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        if (isTop) {
-                          _selectedTopIndicator = value;
-                        } else {
-                          _selectedBottomIndicator = value;
-                        }
-                      });
-                    }
-                  },
-                  underline: const SizedBox(),
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black),
-                  iconSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(2),
-            child: indicator == '成交量'
-                ? _buildVolumeChart()
-                : indicator == 'MACD'
-                    ? _buildMacdChart()
-                    : indicator == 'KDJ'
-                        ? _buildKdjChart()
-                        : indicator == 'RSI'
-                            ? _buildRsiChart()
-                            : indicator == 'BOLL'
-                                ? _buildBollChart()
-                                : indicator == 'WR'
-                                    ? _buildWrChart()
-                                    : indicator == 'CCI'
-                                        ? _buildCciChart()
-                                        : indicator == 'OBV'
-                                            ? _buildObvChart()
-                                            : indicator == 'DMI'
-                                                ? _buildDmiChart()
-                                                : indicator == 'DMA'
-                                                    ? _buildDmaChart()
-                                                    : indicator == 'BBI'
-                                                        ? _buildBbiChart()
-                                                        : const Center(
-                                                            child: Text('指标')),
-          ),
-        ),
+        if (ma5.isNotEmpty) _buildMaItem('MA5', ma5.last, Colors.yellow),
+        if (ma10.isNotEmpty) _buildMaItem('MA10', ma10.last, Colors.purple),
+        if (ma30.isNotEmpty) _buildMaItem('MA30', ma30.last, Colors.blue),
       ],
     );
   }
 
-  Widget _buildIndicatorSelector() {
-    return Column(
-      children: [
-        _buildIndicatorSection(_selectedTopIndicator, (value) {
-          setState(() {
-            _selectedTopIndicator = value;
-          });
-        }),
-        _buildIndicatorSection(_selectedBottomIndicator, (value) {
-          setState(() {
-            _selectedBottomIndicator = value;
-          });
-        }),
-      ],
-    );
+  Widget _buildMaItem(String label, double value, Color color) {
+    return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Text('$label:${value > 0 ? value.toStringAsFixed(2) : '--'}',
+            style: TextStyle(fontSize: 10, color: color)));
   }
 
-  Widget _buildIndicatorSelectorForSingleScreen() {
-    return SizedBox(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  const Text('副图1:', style: TextStyle(fontSize: 9)),
-                  const SizedBox(width: 3),
-                  DropdownButton<String>(
-                    value: _selectedTopIndicator,
-                    items: _indicators.map((indicator) {
-                      return DropdownMenuItem<String>(
-                        value: indicator,
-                        child: Text(indicator,
-                            style: const TextStyle(fontSize: 8)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedTopIndicator = value;
-                        });
-                      }
-                    },
-                    underline: const SizedBox(),
-                    style: const TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.bold),
-                    iconSize: 10,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Row(
-                children: [
-                  const Text('副图2:', style: TextStyle(fontSize: 9)),
-                  const SizedBox(width: 3),
-                  DropdownButton<String>(
-                    value: _selectedBottomIndicator,
-                    items: _indicators.map((indicator) {
-                      return DropdownMenuItem<String>(
-                        value: indicator,
-                        child: Text(indicator,
-                            style: const TextStyle(fontSize: 8)),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedBottomIndicator = value;
-                        });
-                      }
-                    },
-                    underline: const SizedBox(),
-                    style: const TextStyle(
-                        fontSize: 9, fontWeight: FontWeight.bold),
-                    iconSize: 10,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIndicatorSection(String selected, Function(String) onChanged) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: const BoxDecoration(
-            border:
-                Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-          ),
-          child: Row(
-            children: [
-              DropdownButton<String>(
-                value: selected,
-                items: _indicators.map((indicator) {
-                  return DropdownMenuItem<String>(
-                    value: indicator,
-                    child:
-                        Text(indicator, style: const TextStyle(fontSize: 14)),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    onChanged(value);
-                  }
-                },
-                underline: const SizedBox(),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const Spacer(),
-              if (selected == '成交量')
-                Text('量', style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'MACD')
-                Text('(12,26,9)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'KDJ')
-                Text('(9,3,3)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'RSI')
-                Text('(14)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'BOLL')
-                Text('(20)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'WR')
-                Text('(14)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'CCI')
-                Text('(14)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'OBV')
-                Text('(14)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'DMI')
-                Text('(14)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'DMA')
-                Text('(10,50,10)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted))
-              else if (selected == 'BBI')
-                Text('(3,6,12,20)',
-                    style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-            ],
-          ),
-        ),
-        _buildSingleIndicatorChart(selected),
-      ],
-    );
-  }
-
-  Widget _buildSingleIndicatorChart(String indicator) {
-    return SizedBox(
-      child: Container(
-        padding: const EdgeInsets.all(2),
-        decoration: const BoxDecoration(
+  Widget _buildKlineChart(BattleState state) {
+    final notifier = ref.read(battleProvider.notifier);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
           border:
-              Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-        ),
-        child: indicator == '成交量'
-            ? _buildVolumeChart()
-            : indicator == 'MACD'
-                ? _buildMacdChart()
-                : indicator == 'KDJ'
-                    ? _buildKdjChart()
-                    : indicator == 'RSI'
-                        ? _buildRsiChart()
-                        : indicator == 'BOLL'
-                            ? _buildBollChart()
-                            : indicator == 'WR'
-                                ? _buildWrChart()
-                                : indicator == 'CCI'
-                                    ? _buildCciChart()
-                                    : indicator == 'OBV'
-                                        ? _buildObvChart()
-                                        : indicator == 'DMI'
-                                            ? _buildDmiChart()
-                                            : indicator == 'DMA'
-                                                ? _buildDmaChart()
-                                                : indicator == 'BBI'
-                                                    ? _buildBbiChart()
-                                                    : const Center(
-                                                        child: Text('指标'),
-                                                      ),
-      ),
-    );
-  }
-
-  Widget _buildVolumeChart() {
-    if (_displayVolumes.isEmpty) return const SizedBox.expand();
-    final maxVolume =
-        _displayVolumes.map((v) => v.volume).reduce((a, b) => a > b ? a : b);
-    final safeMax = maxVolume > 0 ? maxVolume : 1.0;
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: safeMax * 1.2,
-        barTouchData: BarTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: safeMax / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        barGroups: _displayVolumes
-            .asMap()
-            .entries
-            .map(
-              (entry) => BarChartGroupData(
-                x: entry.key,
-                barRods: [
-                  BarChartRodData(
-                    toY: entry.value.volume,
-                    color: entry.value.isUp ? Colors.red : Colors.green,
-                    width: 3,
-                  ),
-                ],
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-
-  Widget _buildMacdChart() {
-    if (_displayMacdData.isEmpty) return const SizedBox.expand();
-
-    final values =
-        _displayMacdData.expand((m) => [m.macd, m.diff, m.dea]).toList();
-    double maxValue =
-        values.map((v) => v.abs()).reduce((a, b) => a > b ? a : b);
-    final safeMax = maxValue > 0 ? maxValue : 1.0;
-
-    return Stack(
-      children: [
-        BarChart(
-          BarChartData(
-            alignment: BarChartAlignment.spaceAround,
-            maxY: safeMax * 1.2,
-            minY: -safeMax * 1.2,
-            barTouchData: BarTouchData(enabled: false),
-            titlesData: const FlTitlesData(show: false),
-            borderData: FlBorderData(show: false),
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: false,
-              horizontalInterval: safeMax / 2,
-              getDrawingHorizontalLine: (value) {
-                return FlLine(
-                  color: Colors.grey.withOpacity(0.2),
-                  strokeWidth: 0.5,
-                );
-              },
-            ),
-            barGroups: _displayMacdData
-                .asMap()
-                .entries
-                .map(
-                  (entry) => BarChartGroupData(
-                    x: entry.key,
-                    barRods: [
-                      BarChartRodData(
-                        toY: entry.value.macd,
-                        color: entry.value.macd > 0 ? Colors.red : Colors.green,
-                        width: 2,
-                      ),
-                    ],
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-        LineChart(
-          LineChartData(
-            minY: -safeMax * 1.2,
-            maxY: safeMax * 1.2,
-            lineTouchData: LineTouchData(enabled: false),
-            titlesData: const FlTitlesData(show: false),
-            borderData: FlBorderData(show: false),
-            gridData: const FlGridData(show: false),
-            lineBarsData: [
-              LineChartBarData(
-                spots: _displayMacdData
-                    .asMap()
-                    .entries
-                    .map((e) => FlSpot(e.key.toDouble(), e.value.diff))
-                    .toList(),
-                isCurved: true,
-                color: Colors.blue,
-                dotData: const FlDotData(show: false),
-                barWidth: 1,
-              ),
-              LineChartBarData(
-                spots: _displayMacdData
-                    .asMap()
-                    .entries
-                    .map((e) => FlSpot(e.key.toDouble(), e.value.dea))
-                    .toList(),
-                isCurved: true,
-                color: Colors.orange,
-                dotData: const FlDotData(show: false),
-                barWidth: 1,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildKdjChart() {
-    if (_displayKdjData.isEmpty) return const SizedBox.expand();
-
-    return LineChart(
-      LineChartData(
-        minY: 0,
-        maxY: 100,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 25,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: _displayKdjData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.k))
-                .toList(),
-            isCurved: true,
-            color: Colors.yellow,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-          LineChartBarData(
-            spots: _displayKdjData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.d))
-                .toList(),
-            isCurved: true,
-            color: Colors.purple,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-          LineChartBarData(
-            spots: _displayKdjData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.j))
-                .toList(),
-            isCurved: true,
-            color: Colors.red,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRsiChart() {
-    if (_displayRsiData.isEmpty) return const SizedBox.expand();
-
-    return LineChart(
-      LineChartData(
-        minY: 0,
-        maxY: 100,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 25,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: _displayRsiData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.rsi))
-                .toList(),
-            isCurved: true,
-            color: Colors.blue,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBollChart() {
-    if (_displayBollData.isEmpty) return const SizedBox.expand();
-    final prices = _displayBollData
-        .map((e) => [e.upper, e.mid, e.lower])
-        .expand((x) => x)
-        .toList();
-    final minPrice = prices.reduce((a, b) => a < b ? a : b);
-    final maxPrice = prices.reduce((a, b) => a > b ? a : b);
-    final safeMin = minPrice - (maxPrice - minPrice) * 0.1;
-    final safeMax = maxPrice + (maxPrice - minPrice) * 0.1;
-
-    return LineChart(
-      LineChartData(
-        minY: safeMin,
-        maxY: safeMax,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: (safeMax - safeMin) / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: _displayBollData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.upper))
-                .toList(),
-            isCurved: true,
-            color: Colors.orange,
-            dotData: const FlDotData(show: false),
-            barWidth: 1,
-          ),
-          LineChartBarData(
-            spots: _displayBollData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.mid))
-                .toList(),
-            isCurved: true,
-            color: Colors.purple,
-            dotData: const FlDotData(show: false),
-            barWidth: 1,
-          ),
-          LineChartBarData(
-            spots: _displayBollData
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.lower))
-                .toList(),
-            isCurved: true,
-            color: Colors.green,
-            dotData: const FlDotData(show: false),
-            barWidth: 1,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWrChart() {
-    if (_displayWrData.isEmpty) return const SizedBox.expand();
-    final wrValues = _displayWrData;
-    final maxWr = 0.0;
-    final minWr = -100.0;
-
-    return LineChart(
-      LineChartData(
-        minY: minWr,
-        maxY: maxWr,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 25,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        extraLinesData: ExtraLinesData(
-          horizontalLines: [
-            HorizontalLine(
-              y: -20,
-              color: Colors.red.withOpacity(0.5),
-              strokeWidth: 0.5,
-              dashArray: [5, 5],
-            ),
-            HorizontalLine(
-              y: -80,
-              color: Colors.green.withOpacity(0.5),
-              strokeWidth: 0.5,
-              dashArray: [5, 5],
-            ),
-          ],
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: wrValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), -e.value))
-                .toList(),
-            isCurved: true,
-            color: Colors.blue,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCciChart() {
-    if (_displayCciData.isEmpty) return const SizedBox.expand();
-    final cciValues = _displayCciData;
-    final maxCci = 200.0;
-    final minCci = -200.0;
-
-    return LineChart(
-      LineChartData(
-        minY: minCci,
-        maxY: maxCci,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 100,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        extraLinesData: ExtraLinesData(
-          horizontalLines: [
-            HorizontalLine(
-              y: 100,
-              color: Colors.red.withOpacity(0.5),
-              strokeWidth: 0.5,
-              dashArray: [5, 5],
-            ),
-            HorizontalLine(
-              y: -100,
-              color: Colors.green.withOpacity(0.5),
-              strokeWidth: 0.5,
-              dashArray: [5, 5],
-            ),
-          ],
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: cciValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value))
-                .toList(),
-            isCurved: true,
-            color: Colors.purple,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildObvChart() {
-    if (_displayObvData.isEmpty) return const SizedBox.expand();
-    final obvValues = _displayObvData;
-    final maxObv = obvValues.length == 1
-        ? obvValues[0]
-        : obvValues.reduce((a, b) => a > b ? a : b);
-    final minObv = obvValues.length == 1
-        ? obvValues[0]
-        : obvValues.reduce((a, b) => a < b ? a : b);
-    final range = maxObv - minObv;
-    final hasRange = range.abs() > 0.0001;
-    final safeMin = hasRange ? minObv - range * 0.1 : minObv - 1;
-    final safeMax = hasRange ? maxObv + range * 0.1 : maxObv + 1;
-
-    return LineChart(
-      LineChartData(
-        minY: safeMin,
-        maxY: safeMax,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: (safeMax - safeMin) / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: obvValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value))
-                .toList(),
-            isCurved: true,
-            color: Colors.teal,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDmiChart() {
-    if (_displayDmiData.isEmpty) return const SizedBox.expand();
-    final dmiValues = _displayDmiData;
-    final maxDI = 100.0;
-    final minDI = 0.0;
-
-    return LineChart(
-      LineChartData(
-        minY: minDI,
-        maxY: maxDI,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: 25,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: dmiValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.plusDI))
-                .toList(),
-            isCurved: true,
-            color: Colors.blue,
-            dotData: const FlDotData(show: false),
-            barWidth: 1,
-          ),
-          LineChartBarData(
-            spots: dmiValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.minusDI))
-                .toList(),
-            isCurved: true,
-            color: Colors.red,
-            dotData: const FlDotData(show: false),
-            barWidth: 1,
-          ),
-          LineChartBarData(
-            spots: dmiValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.adx))
-                .toList(),
-            isCurved: true,
-            color: Colors.orange,
-            dotData: const FlDotData(show: false),
-            barWidth: 1,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDmaChart() {
-    if (_displayDmaData.isEmpty) return const SizedBox.expand();
-    final dmaValues = _displayDmaData;
-    final prices =
-        dmaValues.map((e) => [e.dma, e.ama]).expand((x) => x).toList();
-    if (prices.isEmpty) return const SizedBox.expand();
-    final minPrice =
-        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a < b ? a : b);
-    final maxPrice =
-        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a > b ? a : b);
-    final range = maxPrice - minPrice;
-    final hasRange = range.abs() > 0.0001;
-    final safeMin = hasRange ? minPrice - range * 0.1 : minPrice - 1;
-    final safeMax = hasRange ? maxPrice + range * 0.1 : maxPrice + 1;
-
-    return LineChart(
-      LineChartData(
-        minY: safeMin,
-        maxY: safeMax,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: (safeMax - safeMin) / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: dmaValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.dma))
-                .toList(),
-            isCurved: true,
-            color: Colors.indigo,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-          LineChartBarData(
-            spots: dmaValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value.ama))
-                .toList(),
-            isCurved: true,
-            color: Colors.amber,
-            dotData: const FlDotData(show: false),
-            barWidth: 1,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBbiChart() {
-    if (_displayBbiData.isEmpty) return const SizedBox.expand();
-    final bbiValues = _displayBbiData;
-    final prices = bbiValues;
-    if (prices.isEmpty) return const SizedBox.expand();
-    final minPrice =
-        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a < b ? a : b);
-    final maxPrice =
-        prices.length == 1 ? prices[0] : prices.reduce((a, b) => a > b ? a : b);
-    final range = maxPrice - minPrice;
-    final hasRange = range.abs() > 0.0001;
-    final safeMin = hasRange ? minPrice - range * 0.1 : minPrice - 1;
-    final safeMax = hasRange ? maxPrice + range * 0.1 : maxPrice + 1;
-
-    return LineChart(
-      LineChartData(
-        minY: safeMin,
-        maxY: safeMax,
-        lineTouchData: LineTouchData(enabled: false),
-        titlesData: const FlTitlesData(show: false),
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: (safeMax - safeMin) / 4,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withOpacity(0.2),
-              strokeWidth: 0.5,
-            );
-          },
-        ),
-        lineBarsData: [
-          LineChartBarData(
-            spots: bbiValues
-                .asMap()
-                .entries
-                .map((e) => FlSpot(e.key.toDouble(), e.value))
-                .toList(),
-            isCurved: true,
-            color: Colors.deepOrange,
-            dotData: const FlDotData(show: false),
-            barWidth: 1.5,
-          ),
-        ],
+              Border(bottom: BorderSide(color: AppTheme.border, width: 0.5))),
+      child: KlineChart(
+        klineData: notifier.displayKlineData,
+        ma5: notifier.ma5Data,
+        ma10: notifier.ma10Data,
+        ma30: notifier.ma30Data,
+        volumes: notifier.displayVolumes,
+        macdData: notifier.displayMacdData,
+        tradePoints: notifier.visibleTradePoints,
+        currentOpenPrice: state.currentKline?.open,
+        positionCost: state.hasPosition ? state.positionCost : null,
       ),
     );
   }
@@ -2879,997 +201,172 @@ class _BattleScreenState extends ConsumerState<BattleScreen>
   Widget _buildTradeButtons() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
+      decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: AppTheme.border, width: 0.5))),
       child: Row(
         children: [
           Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _showStockSelectionDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surface,
-                foregroundColor: AppTheme.muted,
-                side: const BorderSide(color: AppTheme.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-              ),
-              child: const Text('换股', style: TextStyle(fontSize: 10)),
-            ),
-          ),
+              flex: 2,
+              child: _buildButton(
+                  '换股',
+                  () => ref.read(battleProvider.notifier).initializeRandom(),
+                  AppTheme.surface,
+                  AppTheme.muted)),
           const SizedBox(width: 4),
           Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _showConditionalOrderDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.surface,
-                foregroundColor: AppTheme.muted,
-                side: const BorderSide(color: AppTheme.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-              ),
-              child: const Text('条件单', style: TextStyle(fontSize: 10)),
-            ),
-          ),
+              flex: 2,
+              child: _buildButton('条件单', _showConditionalOrderDialog,
+                  AppTheme.surface, AppTheme.muted)),
           const SizedBox(width: 4),
           Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _isReplayMode
-                  ? () => _showReplayDisabledDialog('买入')
-                  : _showBuyDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isReplayMode ? Colors.grey : Colors.red,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-              ),
-              child: Text(_isReplayMode ? '已结束' : '买入',
-                  style: const TextStyle(fontSize: 10)),
-            ),
-          ),
+              flex: 2,
+              child:
+                  _buildButton('买入', _showBuyDialog, Colors.red, Colors.white)),
           const SizedBox(width: 4),
           Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed: _isReplayMode
-                  ? () => _showReplayDisabledDialog('卖出')
-                  : _showSellDialog,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isReplayMode ? Colors.grey : Colors.green,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-              ),
-              child: Text(_isReplayMode ? '已结束' : '卖出',
-                  style: const TextStyle(fontSize: 10)),
-            ),
-          ),
+              flex: 2,
+              child: _buildButton(
+                  '卖出', _showSellDialog, Colors.green, Colors.white)),
           const SizedBox(width: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.bg,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              _isReplayMode
-                  ? '$_trainingDays/$_trainingDays'
-                  : () {
-                      final day = _currentDayIndex - _historyDays + 1;
-                      if (day < 1) return '1/$_trainingDays';
-                      if (day > _trainingDays)
-                        return '$_trainingDays/$_trainingDays';
-                      return '$day/$_trainingDays';
-                    }(),
-              style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.accent),
-            ),
-          ),
+          _buildProgressDisplay(),
           const SizedBox(width: 4),
           Expanded(
-            flex: 2,
-            child: ElevatedButton(
-              onPressed:
-                  _isReplayMode ? () => _showReplayEndDialog() : _nextDay,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isReplayMode ? Colors.grey : AppTheme.accent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 6),
-              ),
-              child: Text(_isReplayMode ? '已结束' : '下一步',
-                  style: const TextStyle(fontSize: 10)),
-            ),
-          ),
+              flex: 2,
+              child: _buildButton(
+                  '下一步',
+                  () => ref.read(battleProvider.notifier).handleNextStep(),
+                  AppTheme.accent,
+                  Colors.white)),
         ],
       ),
     );
   }
 
-  Widget _buildAssetInfo() {
-    final currentData =
-        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-            ? _allKlineData[_currentDayIndex]
-            : null;
+  Widget _buildButton(
+      String label, VoidCallback onPressed, Color bgColor, Color textColor) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+          backgroundColor: bgColor,
+          foregroundColor: textColor,
+          side: BorderSide(color: AppTheme.border),
+          padding: const EdgeInsets.symmetric(vertical: 6)),
+      child: Text(label, style: const TextStyle(fontSize: 10)),
+    );
+  }
 
-    final currentPrice = currentData?.close ?? 0;
-    final positionValue = _positionQuantity * currentPrice;
-    final currentProfit = _positionQuantity > 0
-        ? positionValue - (_positionQuantity * _positionCost)
-        : 0.0;
-    final currentProfitRatio = _positionQuantity > 0 && _positionCost > 0
-        ? (currentProfit / (_positionQuantity * _positionCost)) * 100
-        : 0.0;
-
-    final totalAssets = _accountBalance + positionValue;
-    final availableAssets = _accountBalance;
-
-    final totalProfitLossRatio = _initialBalance > 0
-        ? ((totalAssets - _initialBalance) / _initialBalance) * 100
-        : 0.0;
-
+  Widget _buildProgressDisplay() {
+    final state = ref.watch(battleProvider);
     return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: const [
-              Expanded(
-                  child: Center(
-                      child: Text('市值',
-                          style:
-                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
-              Expanded(
-                  child: Center(
-                      child: Text('盈亏',
-                          style:
-                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
-              Expanded(
-                  child: Center(
-                      child: Text('持仓/可用',
-                          style:
-                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
-              Expanded(
-                  child: Center(
-                      child: Text('成本/现价',
-                          style:
-                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
-              Expanded(
-                  child: Center(
-                      child: Text('总资产/可用',
-                          style:
-                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
-              Expanded(
-                  child: Center(
-                      child: Text('总盈亏',
-                          style:
-                              TextStyle(fontSize: 9, color: AppTheme.muted)))),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Expanded(
-                  child: Center(
-                      child: Text('${positionValue.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text(
-                          '${currentProfit >= 0 ? '+' : ''}${currentProfit.toStringAsFixed(2)}',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: currentProfit >= 0
-                                  ? Colors.red
-                                  : Colors.green)))),
-              Expanded(
-                  child: Center(
-                      child: Text('${_positionQuantity.toInt()}',
-                          style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text('${_positionCost.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text('${totalAssets.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text(
-                          '${_totalProfitLoss >= 0 ? '+' : ''}${_totalProfitLoss.toStringAsFixed(2)}',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: _totalProfitLoss >= 0
-                                  ? Colors.red
-                                  : Colors.green)))),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Expanded(
-                  child: Center(
-                      child: Text('', style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text(
-                          '${currentProfitRatio >= 0 ? '+' : ''}${currentProfitRatio.toStringAsFixed(2)}%',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: currentProfitRatio >= 0
-                                  ? Colors.red
-                                  : Colors.green)))),
-              Expanded(
-                  child: Center(
-                      child: Text('', style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text('${currentPrice.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text('${availableAssets.toStringAsFixed(2)}',
-                          style: const TextStyle(fontSize: 10)))),
-              Expanded(
-                  child: Center(
-                      child: Text(
-                          '${totalProfitLossRatio >= 0 ? '+' : ''}${totalProfitLossRatio.toStringAsFixed(2)}%',
-                          style: TextStyle(
-                              fontSize: 10,
-                              color: totalProfitLossRatio >= 0
-                                  ? Colors.red
-                                  : Colors.green)))),
-            ],
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: BoxDecoration(
+          color: AppTheme.bg, borderRadius: BorderRadius.circular(4)),
+      child: Text('${state.trainingProgress}/${state.trainingDays}',
+          style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.accent)),
     );
   }
 
-  Widget _buildNextStepButton() {
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildAccountInfo() {
-    final currentData =
-        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-            ? _allKlineData[_currentDayIndex]
-            : null;
-
-    final positionValue = _positionQuantity * (currentData?.close ?? 0);
-    final profit = _positionQuantity > 0
-        ? positionValue - (_positionQuantity * _positionCost)
-        : 0.0;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: AppTheme.border, width: 0.5)),
-      ),
-      child: Column(
-        children: [
-          _AccountRow(
-              label: '持仓/可用',
-              value:
-                  '${_positionQuantity.toInt()}股 / ¥${_accountBalance.toStringAsFixed(2)}'),
-          _AccountRow(
-              label: '成本/现价',
-              value:
-                  '¥${_positionCost.toStringAsFixed(2)} / ¥${currentData?.close.toStringAsFixed(2) ?? "--"}'),
-          _AccountRow(
-            label: '市值/盈亏',
-            value: '¥${positionValue.toStringAsFixed(2)}',
-            highlight: profit >= 0
-                ? '+¥${profit.toStringAsFixed(2)}'
-                : '-¥${profit.abs().toStringAsFixed(2)}',
-            color: profit >= 0 ? Colors.red : Colors.green,
-          ),
-          _AccountRow(
-              label: '总资产',
-              value:
-                  '¥${(_accountBalance + positionValue).toStringAsFixed(2)}'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryCards() {
-    final currentData =
-        _allKlineData.isNotEmpty && _currentDayIndex < _allKlineData.length
-            ? _allKlineData[_currentDayIndex]
-            : null;
-    final positionValue = _positionQuantity * (currentData?.close ?? 0);
-    final profit = _positionQuantity > 0
-        ? positionValue - (_positionQuantity * _positionCost)
-        : 0.0;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: GridView(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.5,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        children: [
-          _SummaryCard(
-              title: '持仓市值', value: '¥${positionValue.toStringAsFixed(2)}'),
-          _SummaryCard(
-              title: '持仓盈亏',
-              value: profit >= 0
-                  ? '+¥${profit.toStringAsFixed(2)}'
-                  : '-¥${profit.abs().toStringAsFixed(2)}',
-              color: profit >= 0 ? Colors.red : Colors.green),
-          _SummaryCard(
-              title: '总资产',
-              value:
-                  '¥${(_accountBalance + positionValue).toStringAsFixed(2)}'),
-          _SummaryCard(title: '交易次数', value: '${_tradePoints.length ~/ 2}'),
-        ],
-      ),
-    );
-  }
-
-  List<double> _calculateMA(List<KlineData> data, int period) {
-    final ma = <double>[];
-    for (int i = 0; i < data.length; i++) {
-      if (i < period - 1) {
-        ma.add(0);
-      } else {
-        double sum = 0;
-        for (int j = 0; j < period; j++) {
-          sum += data[i - j].close;
-        }
-        ma.add(sum / period);
-      }
-    }
-    return ma;
-  }
-
-  Future<void> _showTrainingCompleteDialog() async {
-    final initialBalance = 100000.0;
-    final currentData =
-        _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
-    final positionValue = _positionQuantity * (currentData?.close ?? 0);
-    final totalAssets = _accountBalance + positionValue;
-    final profit = totalAssets - initialBalance;
-    final profitRate = (profit / initialBalance) * 100;
-
-    final firstData =
-        _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
-    final lastData = currentData;
-    final stockIncrease = firstData != null && lastData != null
-        ? ((lastData.close - firstData.open) / firstData.open * 100)
-        : 0.0;
-
-    await _saveTrainingToDatabase(
-        initialBalance, totalAssets, profit, profitRate, stockIncrease);
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('结束训练',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                const Text('本股总收益', style: TextStyle(fontSize: 16)),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      profit >= 0 ? '收益 +' : '亏损 ',
-                      style: TextStyle(
-                        color: profit >= 0 ? Colors.red : Colors.green,
-                        fontSize: 16,
-                      ),
-                    ),
-                    Text(
-                      '${profit.abs().toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: profit >= 0 ? Colors.red : Colors.green,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      ' (${profitRate >= 0 ? '+' : ''}${profitRate.toStringAsFixed(2)}%)',
-                      style: TextStyle(
-                        color: profitRate >= 0 ? Colors.red : Colors.green,
-                        fontSize: 16,
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => _showTradeDetailDialog(),
-                      child: const Text('详情',
-                          style: TextStyle(color: Colors.blue, fontSize: 14)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('$_currentSymbolName $_currentSymbol'),
-                    const SizedBox(width: 16),
-                    TextButton(
-                      onPressed: () => _restartTraining(),
-                      child: const Text('重新训练',
-                          style: TextStyle(color: Colors.blue, fontSize: 14)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '区间涨幅 ${stockIncrease >= 0 ? '+' : ''}${stockIncrease.toStringAsFixed(2)}%',
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '训练周期: ${_trainingDays}天',
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await Future.delayed(const Duration(milliseconds: 300));
-                context.pushReplacement(
-                    '${AppRoutes.trainingHistory}?refresh=${DateTime.now().millisecondsSinceEpoch}');
-              },
-              child: const Text('复盘'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _showStockSelectionDialog();
-              },
-              child: const Text('换股'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showTradeDetailDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('交易详情',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                const Text('训练周期内交易记录:', style: TextStyle(fontSize: 14)),
-                const SizedBox(height: 8),
-                _tradePoints.isEmpty
-                    ? const Text('暂无交易记录')
-                    : Column(
-                        children: _tradePoints.map((point) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  point.isBuy ? '买入' : '卖出',
-                                  style: TextStyle(
-                                    color:
-                                        point.isBuy ? Colors.red : Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text('${point.date.month}/${point.date.day}'),
-                                Text('¥${point.price.toStringAsFixed(2)}'),
-                                Text('${point.label}'),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                const SizedBox(height: 16),
-                const Text('股票区间涨幅:', style: TextStyle(fontSize: 14)),
-                const SizedBox(height: 8),
-                _buildStockIncreaseInfo(),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('关闭'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _restartTraining() {
-    Navigator.of(context).pop();
-    setState(() {
-      _currentDayIndex = _historyDays;
-      _tradePoints = [];
-      _accountBalance = 100000.0;
-      _positionQuantity = 0.0;
-      _positionCost = 0.0;
-    });
-    _loadKlineData();
-  }
-
-  Widget _buildStockIncreaseInfo() {
-    final firstData =
-        _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
-    final lastData =
-        _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
-    final stockIncrease = firstData != null && lastData != null
-        ? ((lastData.close - firstData.open) / firstData.open * 100)
-        : 0.0;
-    return Text(
-      '$_currentSymbolName 区间涨幅: ${stockIncrease >= 0 ? '+' : ''}${stockIncrease.toStringAsFixed(2)}%',
-      style: const TextStyle(fontSize: 14),
-    );
-  }
-
-  Future<void> _saveTrainingToDatabase(
-    double initialBalance,
-    double totalAssets,
-    double profit,
-    double profitRate,
-    double stockIncrease,
-  ) async {
-    final logger = Logger();
-    try {
-      logger.d('开始保存训练会话到数据库');
-      final dbService = DatabaseService.instance;
-      final klineSyncService = KlineDataSyncService();
-
-      final currentUser = ref.read(currentUserNotifierProvider);
-      final userId =
-          currentUser != null ? int.tryParse(currentUser.userId) ?? 1 : 1;
-
-      final firstData =
-          _allKlineData.isNotEmpty ? _allKlineData[_historyDays] : null;
-      final lastData =
-          _allKlineData.isNotEmpty ? _allKlineData[_currentDayIndex] : null;
-
-      logger.d('准备创建训练会话: symbol=$_currentSymbol, '
-          'klineCount=${_allKlineData.length}, tradeCount=${_tradePoints.length}');
-
-      final sessionId =
-          await dbService.trainingDao.createSession(TrainingSessionsCompanion(
-        userId: Value(userId),
-        symbol: Value(_currentSymbol),
-        marketCode: Value(_currentSymbol.startsWith('SH') ? 'SH' : 'SZ'),
-        period: Value('day'),
-        startDate:
-            Value(firstData != null ? firstData.dateTime : DateTime.now()),
-        endDate: Value(lastData != null ? lastData.dateTime : DateTime.now()),
-        initialCapital: Value(initialBalance),
-        currentCapital: Value(totalAssets),
-        totalProfit: Value(profit),
-        profitRate: Value(profitRate),
-        tradeCount: Value(_tradePoints.length),
-        winCount: Value(_calculateWinCount()),
-        winRate: Value(_calculateWinRate()),
-        status: const Value('finished'),
-        startTime:
-            firstData != null ? Value(firstData.dateTime) : Value.absent(),
-        endTime: lastData != null ? Value(lastData.dateTime) : Value.absent(),
-      ));
-
-      logger.d('训练会话创建成功: sessionId=$sessionId');
-
-      // 直接把内存中的K线数据保存到数据库（不从API获取）
-      if (_allKlineData.isNotEmpty) {
-        logger.d('开始保存K线数据: count=${_allKlineData.length}');
-        final saveSuccess = await klineSyncService.saveKlineDataToDatabase(
-          symbol: _currentSymbol,
-          marketCode: _currentSymbol.startsWith('SH') ? 'SH' : 'SZ',
-          period: 'day',
-          klineData: _allKlineData,
-        );
-        logger.d('K线数据保存结果: success=$saveSuccess');
-      } else {
-        logger.w('⚠️ _allKlineData 为空，无法保存K线数据！');
-      }
-
-      logger.d('开始保存交易记录: count=${_tradePoints.length}');
-      for (final point in _tradePoints) {
-        final tradeQuantity = point.quantity;
-        await dbService.trainingDao.addTrade(TradesCompanion(
-          sessionId: Value(sessionId),
-          userId: const Value(1),
-          symbol: Value(_currentSymbol),
-          marketCode: Value(_currentSymbol.startsWith('SH') ? 'SH' : 'SZ'),
-          type: Value(point.isBuy ? 'buy' : 'sell'),
-          price: Value(point.price),
-          quantity: Value(tradeQuantity),
-          amount: Value(point.price * tradeQuantity),
-          tradeDate: Value(point.date.toIso8601String()),
-          triggerSource: const Value('manual'),
-        ));
-      }
-      logger.d('交易记录保存完成');
-      logger.d('发送训练保存通知...');
-      TrainingNotifier.instance.notifyTrainingSaved();
-      logger.d('训练保存通知已发送');
-    } catch (e, stackTrace) {
-      logger.e('⛔ 保存训练会话失败: $e', error: e, stackTrace: stackTrace);
-    }
-  }
-
-  int _calculateWinCount() {
-    int winCount = 0;
-    double cost = 0;
-    double position = 0;
-
-    for (final point in _tradePoints) {
-      if (point.isBuy) {
-        cost = point.price;
-        position = point.quantity.toDouble();
-      } else {
-        if (position > 0 && point.price > cost) {
-          winCount++;
-        }
-        position = 0;
-      }
-    }
-    return winCount;
-  }
-
-  double _calculateWinRate() {
-    if (_tradePoints.isEmpty) return 0.0;
-    final sellCount = _tradePoints.where((p) => !p.isBuy).length;
-    if (sellCount == 0) return 0.0;
-    return (_calculateWinCount() / sellCount) * 100;
-  }
-}
-
-class _MarketDataItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _MarketDataItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-          const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 13)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final String? highlight;
-  final Color? color;
-
-  const _AccountRow({
-    required this.label,
-    required this.value,
-    this.highlight,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(
-              width: 100,
-              child: Text(label, style: TextStyle(color: AppTheme.muted))),
-          const SizedBox(width: 16),
-          Expanded(child: Text(value, style: TextStyle(color: color))),
-          if (highlight != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: (color ?? Colors.red).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(highlight!,
-                  style: TextStyle(color: color ?? Colors.red, fontSize: 12)),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final Color? color;
-
-  const _SummaryCard({required this.title, required this.value, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-            const SizedBox(height: 8),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StockSelectionSheet extends ConsumerStatefulWidget {
-  final Function(String) onSelect;
-
-  const _StockSelectionSheet({required this.onSelect});
-
-  @override
-  ConsumerState<_StockSelectionSheet> createState() =>
-      _StockSelectionSheetState();
-}
-
-class _StockSelectionSheetState extends ConsumerState<_StockSelectionSheet> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadStocks();
-    });
-  }
-
-  Future<void> _loadStocks() async {
-    final now = DateTime.now();
-    final oneYearAgo = DateTime(now.year - 1, now.month, now.day);
-
-    await ref.read(battleStockProvider.notifier).loadStocks(
-          condition: StockFilterCondition.random,
-          startDate: oneYearAgo,
-          endDate: now,
-        );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final stockState = ref.watch(battleStockProvider);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('选择股票',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          if (stockState.isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (stockState.error != null)
-            Center(
+  void _showConditionalOrderDialog() {
+    showModalBottomSheet(
+        context: context,
+        builder: (context) => Container(
+              padding: const EdgeInsets.all(16),
               child: Column(
-                children: [
-                  Text(stockState.error!,
-                      style: const TextStyle(color: Colors.red)),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _loadStocks,
-                    child: const Text('重试'),
-                  ),
-                ],
-              ),
-            )
-          else if (stockState.stocks.isEmpty)
-            const Center(child: Text('暂无股票数据'))
-          else
-            ...stockState.stocks.map((stock) => ListTile(
-                  title: Text(stock.symbolName),
-                  subtitle: Text('${stock.marketCode}${stock.symbol}'),
-                  trailing: Text(
-                    '¥${stock.closePrice.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  onTap: () {
-                    widget.onSelect(stock.symbol);
-                    ref.read(battleStockProvider.notifier).selectStock(stock);
-                  },
-                )),
-        ],
-      ),
-    );
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('条件单设置',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    const Text('功能开发中...'),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('关闭'))),
+                  ]),
+            ));
+  }
+
+  void _showBuyDialog() {
+    final price = ref.read(battleProvider).currentPrice;
+    showModalBottomSheet(
+        context: context,
+        isDismissible: true,
+        builder: (context) => _TradeAmountSheet(
+            title: '买入',
+            currentPrice: price,
+            onConfirm: (price, quantity) {
+              Navigator.pop(context);
+              ref.read(battleProvider.notifier).buy(price, quantity);
+            }));
+  }
+
+  void _showSellDialog() {
+    final state = ref.read(battleProvider);
+    if (!state.hasPosition) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('没有持仓')));
+      return;
+    }
+    final price = state.currentPrice;
+    showModalBottomSheet(
+        context: context,
+        isDismissible: true,
+        builder: (context) => _TradeAmountSheet(
+            title: '卖出',
+            currentPrice: price,
+            maxQuantity: state.positionQuantity,
+            onConfirm: (price, quantity) {
+              Navigator.pop(context);
+              ref.read(battleProvider.notifier).sell(price, quantity);
+            }));
   }
 }
 
-class _ConditionalOrderSheet extends StatefulWidget {
-  final double currentPrice;
-  final Function(String type, Map<String, dynamic> params) onConfirm;
-
-  const _ConditionalOrderSheet({
-    required this.currentPrice,
-    required this.onConfirm,
-  });
-
-  @override
-  State<_ConditionalOrderSheet> createState() => _ConditionalOrderSheetState();
-}
-
-class _ConditionalOrderSheetState extends State<_ConditionalOrderSheet> {
-  String _orderType = '止盈止损';
-  final _stopProfitController = TextEditingController();
-  final _stopLossController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _stopProfitController.text = (widget.currentPrice * 1.1).toStringAsFixed(2);
-    _stopLossController.text = (widget.currentPrice * 0.9).toStringAsFixed(2);
-  }
-
-  @override
-  void dispose() {
-    _stopProfitController.dispose();
-    _stopLossController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('条件单设置',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            children: ['止盈止损', '价格条件', '技术指标']
-                .map(
-                  (type) => ChoiceChip(
-                    label: Text(type),
-                    selected: _orderType == type,
-                    onSelected: (selected) {
-                      setState(() {
-                        _orderType = type;
-                      });
-                    },
-                  ),
-                )
-                .toList(),
-          ),
-          const SizedBox(height: 16),
-          if (_orderType == '止盈止损') ...[
-            TextField(
-              controller: _stopProfitController,
-              decoration: const InputDecoration(
-                labelText: '止盈价格',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _stopLossController,
-              decoration: const InputDecoration(
-                labelText: '止损价格',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                widget.onConfirm(_orderType, {
-                  'stopProfit': double.tryParse(_stopProfitController.text),
-                  'stopLoss': double.tryParse(_stopLossController.text),
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accent,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: const Text('确认设置'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TradeDialog extends StatefulWidget {
+class _TradeAmountSheet extends ConsumerStatefulWidget {
   final String title;
   final double currentPrice;
-  final double maxQuantity;
-  final double accountBalance;
-  final double? positionQuantity;
-  final double? positionCost;
-  final bool priceFixed;
-  final double? minPrice;
-  final double? maxPrice;
-  final Function(double price, double quantity) onConfirm;
+  final double? maxQuantity;
+  final Function(double, double) onConfirm;
 
-  const _TradeDialog({
-    required this.title,
-    required this.currentPrice,
-    required this.maxQuantity,
-    required this.accountBalance,
-    this.positionQuantity,
-    this.positionCost,
-    this.priceFixed = false,
-    this.minPrice,
-    this.maxPrice,
-    required this.onConfirm,
-  });
+  const _TradeAmountSheet(
+      {required this.title,
+      required this.currentPrice,
+      this.maxQuantity,
+      required this.onConfirm});
 
   @override
-  State<_TradeDialog> createState() => _TradeDialogState();
+  ConsumerState<_TradeAmountSheet> createState() => _TradeAmountSheetState();
 }
 
-class _TradeDialogState extends State<_TradeDialog> {
-  final _priceController = TextEditingController();
-  final _quantityController = TextEditingController();
-  double _selectedQuantity = 0;
+class _TradeAmountSheetState extends ConsumerState<_TradeAmountSheet> {
+  late TextEditingController _priceController;
+  late TextEditingController _quantityController;
+  double _totalAmount = 0;
 
   @override
   void initState() {
     super.initState();
-    _priceController.text = widget.currentPrice.toStringAsFixed(2);
-    _quantityController.text = widget.maxQuantity.toString();
-    _selectedQuantity = widget.maxQuantity;
+    _priceController =
+        TextEditingController(text: widget.currentPrice.toStringAsFixed(2));
+    final maxQty = widget.maxQuantity ??
+        (100000 / widget.currentPrice / 100).floor() * 100;
+    _quantityController = TextEditingController(text: maxQty.toString());
+    _updateTotalAmount();
+  }
+
+  void _updateTotalAmount() {
+    final price = double.tryParse(_priceController.text) ?? 0;
+    final quantity = double.tryParse(_quantityController.text) ?? 0;
+    setState(() {
+      _totalAmount = price * quantity;
+    });
   }
 
   @override
@@ -3879,694 +376,192 @@ class _TradeDialogState extends State<_TradeDialog> {
     super.dispose();
   }
 
-  void _setPositionRatio(double ratio) {
-    double quantity;
+  void _setQuantityPercent(double percent) {
+    final state = ref.read(battleProvider);
+    double maxQty;
+
     if (widget.title == '买入') {
-      final maxBuy =
-          (widget.accountBalance / widget.currentPrice / 100).floor() * 100;
-      quantity = (maxBuy * ratio).floorToDouble();
+      final maxBuyQty = (state.accountBalance /
+                  (double.tryParse(_priceController.text) ??
+                      widget.currentPrice) /
+                  100)
+              .floor() *
+          100;
+      maxQty = maxBuyQty * percent;
     } else {
-      quantity = ((widget.positionQuantity ?? 0) * ratio).floorToDouble();
-    }
-    quantity = (quantity / 100).floor() * 100;
-    setState(() {
-      _selectedQuantity = quantity.clamp(0, widget.maxQuantity);
-      _quantityController.text = _selectedQuantity.toString();
-    });
-  }
-
-  void _showPositionSettingDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => _PositionSettingDialog(tradeType: widget.title),
-    );
-  }
-
-  void _onConfirm() {
-    final price = double.tryParse(_priceController.text) ?? widget.currentPrice;
-    final quantity =
-        double.tryParse(_quantityController.text) ?? _selectedQuantity;
-
-    if (quantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入有效的数量')),
-      );
-      return;
+      maxQty = (state.positionQuantity * percent / 100).floor() * 100;
     }
 
-    if (!widget.priceFixed) {
-      if (widget.minPrice != null && price < widget.minPrice!) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('价格不能低于最低价 ${widget.minPrice!.toStringAsFixed(2)}')),
-        );
-        return;
-      }
-      if (widget.maxPrice != null && price > widget.maxPrice!) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text('价格不能高于最高价 ${widget.maxPrice!.toStringAsFixed(2)}')),
-        );
-        return;
-      }
-    }
-
-    widget.onConfirm(price, quantity);
+    _quantityController.text = maxQty.toString();
+    _updateTotalAmount();
   }
 
   @override
   Widget build(BuildContext context) {
-    final price = double.tryParse(_priceController.text) ?? widget.currentPrice;
-    final quantity = double.tryParse(_quantityController.text) ?? 0;
-    final total = price * quantity;
+    final state = ref.watch(battleProvider);
+    final isBuy = widget.title == '买入';
 
     return Container(
-      padding: EdgeInsets.fromLTRB(
-          16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(widget.title,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _priceController,
-            decoration: InputDecoration(
-              labelText: '${widget.title}价格',
-              border: const OutlineInputBorder(),
-              suffixText: widget.priceFixed
-                  ? '收盘价固定'
-                  : '当前价: ${widget.currentPrice.toStringAsFixed(2)}',
-            ),
-            keyboardType: TextInputType.number,
-            enabled: !widget.priceFixed,
-            readOnly: widget.priceFixed,
-            onChanged: (value) {
-              setState(() {});
-            },
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _quantityController,
-            decoration: InputDecoration(
-              labelText: '${widget.title}数量',
-              border: const OutlineInputBorder(),
-              suffixText: '最大: ${widget.maxQuantity.toInt()}股',
-            ),
-            keyboardType: TextInputType.number,
-            onChanged: (value) {
-              setState(() {
-                _selectedQuantity = double.tryParse(value) ?? 0;
-              });
-            },
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              TextButton(
-                onPressed: () => _setPositionRatio(1),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.accent,
-                  side: const BorderSide(color: AppTheme.accent),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: const Text('全仓'),
-              ),
-              TextButton(
-                onPressed: () => _setPositionRatio(1 / 2),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.accent,
-                  side: const BorderSide(color: AppTheme.accent),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: const Text('1/2仓'),
-              ),
-              TextButton(
-                onPressed: () => _setPositionRatio(1 / 3),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.accent,
-                  side: const BorderSide(color: AppTheme.accent),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: const Text('1/3仓'),
-              ),
-              TextButton(
-                onPressed: () => _setPositionRatio(1 / 4),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.accent,
-                  side: const BorderSide(color: AppTheme.accent),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: const Text('1/4仓'),
-              ),
-              TextButton(
-                onPressed: () => _setPositionRatio(2 / 3),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.accent,
-                  side: const BorderSide(color: AppTheme.accent),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: const Text('2/3仓'),
-              ),
-              TextButton(
-                onPressed: () => _showPositionSettingDialog(),
-                style: TextButton.styleFrom(
-                  foregroundColor: AppTheme.accent,
-                  side: const BorderSide(color: AppTheme.accent),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                child: const Text('编辑'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Text('${widget.title}金额:'),
-                const SizedBox(width: 16),
-                Text(
-                  '¥${total.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red),
-                ),
-              ],
-            ),
-          ),
-          if (widget.title == '卖出' && widget.positionCost != null)
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.title,
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+
+            // 资产信息
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              margin: const EdgeInsets.only(top: 4),
-              child: Row(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('预计盈亏:'),
-                  const SizedBox(width: 16),
-                  Text(
-                    total >= (widget.positionCost! * quantity)
-                        ? '+¥${(total - widget.positionCost! * quantity).toStringAsFixed(2)}'
-                        : '-¥${((widget.positionCost! * quantity) - total).toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: total >= (widget.positionCost! * quantity)
-                          ? Colors.red
-                          : Colors.green,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('账户余额', style: TextStyle(fontSize: 12)),
+                      Text('${state.accountBalance.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
                   ),
+                  if (isBuy) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('可买数量', style: TextStyle(fontSize: 12)),
+                        _buildBuyableQuantity(state.accountBalance),
+                      ],
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('持仓数量', style: TextStyle(fontSize: 12)),
+                        Text('${state.positionQuantity}股',
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('持仓成本', style: TextStyle(fontSize: 12)),
+                        Text('${state.positionCost.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.surface,
-                    foregroundColor: AppTheme.muted,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('取消'),
-                ),
+            const SizedBox(height: 16),
+
+            // 价格输入
+            TextField(
+              controller: _priceController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: '价格',
+                border: const OutlineInputBorder(),
+                suffixText: '当前: ${widget.currentPrice.toStringAsFixed(2)}',
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _onConfirm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        widget.title == '买入' ? Colors.red : Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: const Text('确认'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class PositionItem {
-  final String id;
-  final String label;
-  final double ratio;
-
-  PositionItem({
-    required this.id,
-    required this.label,
-    required this.ratio,
-  });
-
-  PositionItem copyWith({
-    String? id,
-    String? label,
-    double? ratio,
-  }) {
-    return PositionItem(
-      id: id ?? this.id,
-      label: label ?? this.label,
-      ratio: ratio ?? this.ratio,
-    );
-  }
-}
-
-class _PositionSettingDialog extends StatefulWidget {
-  final String tradeType;
-
-  const _PositionSettingDialog({required this.tradeType});
-
-  @override
-  State<_PositionSettingDialog> createState() => _PositionSettingDialogState();
-}
-
-class _PositionSettingDialogState extends State<_PositionSettingDialog> {
-  bool _isBuyTab = true;
-  List<PositionItem> _buyPositions = [
-    PositionItem(id: '1', label: '全仓', ratio: 1.0),
-    PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
-    PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
-    PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
-    PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
-  ];
-  List<PositionItem> _sellPositions = [
-    PositionItem(id: '1', label: '全仓', ratio: 1.0),
-    PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
-    PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
-    PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
-    PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
-  ];
-  bool _skipConfirm = false;
-  int _dragIndex = -1;
-
-  List<PositionItem> get _currentPositions =>
-      _isBuyTab ? _buyPositions : _sellPositions;
-
-  set _currentPositions(List<PositionItem> value) {
-    if (_isBuyTab) {
-      _buyPositions = value;
-    } else {
-      _sellPositions = value;
-    }
-  }
-
-  void _removePosition(int index) {
-    if (_currentPositions.length > 1) {
-      setState(() {
-        _currentPositions = List.from(_currentPositions)..removeAt(index);
-      });
-    }
-  }
-
-  void _addPosition() {
-    if (_currentPositions.length < 12) {
-      final newRatio = 1.0 / (_currentPositions.length + 1);
-      final newLabel = '1/${_currentPositions.length + 1}仓';
-      setState(() {
-        _currentPositions = List.from(_currentPositions)
-          ..add(PositionItem(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            label: newLabel,
-            ratio: newRatio,
-          ));
-      });
-    }
-  }
-
-  void _movePosition(int fromIndex, int toIndex) {
-    setState(() {
-      final List<PositionItem> positions = List.from(_currentPositions);
-      final item = positions.removeAt(fromIndex);
-      positions.insert(toIndex, item);
-      _currentPositions = positions;
-    });
-  }
-
-  void _resetToDefault() {
-    setState(() {
-      _buyPositions = [
-        PositionItem(id: '1', label: '全仓', ratio: 1.0),
-        PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
-        PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
-        PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
-        PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
-      ];
-      _sellPositions = [
-        PositionItem(id: '1', label: '全仓', ratio: 1.0),
-        PositionItem(id: '2', label: '1/2仓', ratio: 1 / 2),
-        PositionItem(id: '3', label: '1/3仓', ratio: 1 / 3),
-        PositionItem(id: '4', label: '1/4仓', ratio: 1 / 4),
-        PositionItem(id: '5', label: '2/3仓', ratio: 2 / 3),
-      ];
-      _skipConfirm = false;
-    });
-  }
-
-  void _savePositions() {
-    Navigator.pop(context);
-  }
-
-  void _handleDragStart(int index) {
-    setState(() {
-      _dragIndex = index;
-    });
-  }
-
-  void _handleDragEnd() {
-    setState(() {
-      _dragIndex = -1;
-    });
-  }
-
-  void _handleDragCancel() {
-    setState(() {
-      _dragIndex = -1;
-    });
-  }
-
-  void _handleDragUpdate(int oldIndex, int newIndex) {
-    if (oldIndex != newIndex) {
-      _movePosition(oldIndex, newIndex);
-    }
-  }
-
-  Widget _buildPositionChip(int index) {
-    final item = _currentPositions[index];
-    return Draggable<int>(
-      data: index,
-      feedback: Material(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppTheme.accent,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            item.label,
-            style: const TextStyle(color: Colors.white),
-          ),
-        ),
-      ),
-      childWhenDragging: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.accent),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: const Text(''),
-      ),
-      onDragStarted: () => _handleDragStart(index),
-      onDragEnd: (_) => _handleDragEnd(),
-      onDraggableCanceled: (_, __) => _handleDragCancel(),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.accent),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(item.label),
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.close, size: 14),
-              onPressed: () => _removePosition(index),
-              padding: EdgeInsets.zero,
+              onChanged: (_) => _updateTotalAmount(),
             ),
-          ],
-        ),
-      ),
-    );
-  }
+            const SizedBox(height: 12),
 
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: 360,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+            // 数量输入
+            TextField(
+              controller: _quantityController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '数量(股)',
+                border: OutlineInputBorder(),
+                helperText: '1手=100股',
+              ),
+              onChanged: (_) => _updateTotalAmount(),
+            ),
+            const SizedBox(height: 12),
+
+            // 快捷选择按钮
+            Row(
+              children: [
+                Expanded(
+                    child: _buildQuickButton(
+                        '1/3', () => _setQuantityPercent(1 / 3))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _buildQuickButton(
+                        '1/2', () => _setQuantityPercent(1 / 2))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child:
+                        _buildQuickButton('全仓', () => _setQuantityPercent(1))),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 交易金额
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  '仓位设置',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
+                const Text('交易金额', style: TextStyle(fontSize: 14)),
+                Text('${_totalAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppTheme.border),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isBuyTab = true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color:
-                              _isBuyTab ? AppTheme.accent : Colors.transparent,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(8),
-                            bottomLeft: Radius.circular(8),
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '买入仓位',
-                          style: TextStyle(
-                            color: _isBuyTab ? Colors.white : AppTheme.muted,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isBuyTab = false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color:
-                              !_isBuyTab ? AppTheme.accent : Colors.transparent,
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '卖出仓位',
-                          style: TextStyle(
-                            color: !_isBuyTab ? Colors.white : AppTheme.muted,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '拖动按钮可以排序，最多可拥有12个仓位，默认按第1个仓位买入',
-              style: TextStyle(fontSize: 12, color: AppTheme.muted),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: List.generate(_currentPositions.length, (index) {
-                return DragTarget<int>(
-                  onAccept: (data) {
-                    if (data != index) {
-                      _handleDragUpdate(data, index);
+
+            // 确认按钮
+            SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final price = double.tryParse(_priceController.text) ??
+                        widget.currentPrice;
+                    final quantity =
+                        double.tryParse(_quantityController.text) ?? 0;
+                    if (quantity > 0) {
+                      widget.onConfirm(price, quantity);
                     }
                   },
-                  builder: (context, candidateData, rejectedData) {
-                    return _buildPositionChip(index);
-                  },
-                );
-              }),
-            ),
-            const SizedBox(height: 8),
-            if (_currentPositions.length < 12)
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppTheme.accent),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: _addPosition,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            const SizedBox(height: 20),
-            CheckboxListTile(
-              title: const Text('买入时不弹确认框'),
-              value: _skipConfirm,
-              onChanged: (value) => setState(() => _skipConfirm = value!),
-              controlAffinity: ListTileControlAffinity.leading,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _resetToDefault,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.surface,
-                      foregroundColor: AppTheme.muted,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('默认值'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _savePositions,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('保存买入仓位'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          widget.title == '买入' ? Colors.red : Colors.green,
+                      padding: const EdgeInsets.symmetric(vertical: 16)),
+                  child: Text(widget.title),
+                )),
+          ]),
+    );
+  }
+
+  Widget _buildQuickButton(String label, VoidCallback onPressed) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        backgroundColor: Colors.grey[200],
+        padding: const EdgeInsets.symmetric(vertical: 8),
       ),
+      child: Text(label, style: const TextStyle(fontSize: 12)),
     );
   }
-}
 
-class _MaDisplay extends StatelessWidget {
-  final String label;
-  final double? value;
-  final Color color;
-
-  const _MaDisplay({
-    required this.label,
-    this.value,
-    this.color = Colors.blue,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        if (value != null && value! > 0)
-          Row(
-            children: [
-              const SizedBox(width: 3),
-              Text(
-                '${value!.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
+  Widget _buildBuyableQuantity(double accountBalance) {
+    final price = double.tryParse(_priceController.text) ?? widget.currentPrice;
+    final buyableQty = (accountBalance / price / 100).floor() * 100;
+    return Text('${buyableQty}股',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold));
   }
-}
-
-class KdjData {
-  final double k;
-  final double d;
-  final double j;
-
-  KdjData({required this.k, required this.d, required this.j});
-}
-
-class RsiData {
-  final double rsi;
-
-  RsiData({required this.rsi});
-}
-
-class BollData {
-  final double upper;
-  final double mid;
-  final double lower;
-
-  BollData({required this.upper, required this.mid, required this.lower});
 }

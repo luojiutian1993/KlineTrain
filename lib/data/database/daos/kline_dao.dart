@@ -39,6 +39,7 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
   }
 
   /// 获取指定标的的K线数据
+  /// 使用自定义SQL避免drift自动解析DateTime时的格式问题
   Future<List<KlineDataData>> getKlineData(
     String symbol,
     String period, {
@@ -46,20 +47,65 @@ class KlineDao extends DatabaseAccessor<AppDatabase> with _$KlineDaoMixin {
     DateTime? endDate,
     int limit = 1000,
   }) async {
-    final query = select(klineData)
-      ..where((t) => t.symbol.equals(symbol))
-      ..where((t) => t.period.equals(period))
-      ..orderBy([(t) => OrderingTerm.asc(t.tradeDate)])
-      ..limit(limit);
+    String sql = '''
+      SELECT 
+        symbol,
+        market_code,
+        period,
+        trade_date,
+        open,
+        high,
+        low,
+        close,
+        volume,
+        amount,
+        turnover_rate,
+        pe,
+        pb,
+        created_at
+      FROM kline_data
+      WHERE symbol = ? AND period = ?
+      ORDER BY trade_date ASC
+      LIMIT ?
+    ''';
+
+    final variables = [
+      Variable.withString(symbol),
+      Variable.withString(period),
+      Variable.withInt(limit),
+    ];
 
     if (startDate != null) {
-      query.where((t) => t.tradeDate.isBiggerOrEqualValue(startDate));
+      sql = sql.replaceFirst('WHERE', 'WHERE trade_date >= ? AND');
+      variables.insert(0, Variable.withString(_dateTimeToString(startDate)));
     }
     if (endDate != null) {
-      query.where((t) => t.tradeDate.isSmallerOrEqualValue(endDate));
+      sql = sql.replaceFirst('WHERE', 'WHERE trade_date <= ? AND');
+      variables.insert(0, Variable.withString(_dateTimeToString(endDate)));
     }
 
-    return query.get();
+    final query = customSelect(sql, variables: variables);
+    final results = await query.get();
+
+    return results.map((row) {
+      final rowData = row.data;
+      return KlineDataData(
+        symbol: rowData['symbol']?.toString() ?? '',
+        marketCode: rowData['market_code']?.toString() ?? '',
+        period: rowData['period']?.toString() ?? '',
+        tradeDate: _parseDateTimeFromString(rowData['trade_date']?.toString() ?? ''),
+        open: (rowData['open'] as num?)?.toDouble() ?? 0.0,
+        high: (rowData['high'] as num?)?.toDouble() ?? 0.0,
+        low: (rowData['low'] as num?)?.toDouble() ?? 0.0,
+        close: (rowData['close'] as num?)?.toDouble() ?? 0.0,
+        volume: (rowData['volume'] as num?)?.toDouble() ?? 0.0,
+        amount: (rowData['amount'] as num?)?.toDouble() ?? 0.0,
+        turnoverRate: (rowData['turnover_rate'] as num?)?.toDouble(),
+        pe: (rowData['pe'] as num?)?.toDouble(),
+        pb: (rowData['pb'] as num?)?.toDouble(),
+        createdAt: _parseDateTimeFromString(rowData['created_at']?.toString() ?? ''),
+      );
+    }).toList();
   }
 
   /// 从日线数据聚合周线数据

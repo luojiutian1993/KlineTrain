@@ -4,14 +4,7 @@ import 'package:kline_trainer/features/battle/models/battle_state.dart';
 import 'package:kline_trainer/features/battle/providers/battle_provider.dart';
 
 class TradingPanel extends ConsumerWidget {
-  final VoidCallback? onBuy;
-  final VoidCallback? onSell;
-
-  const TradingPanel({
-    super.key,
-    this.onBuy,
-    this.onSell,
-  });
+  const TradingPanel({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,212 +18,125 @@ class TradingPanel extends ConsumerWidget {
     final progress = state.trainingProgress;
     final totalDays = state.trainingDays;
 
-    return Row(
-      children: [
-        _buildChangeStockButton(context, notifier),
-        const SizedBox(width: 4),
-        _buildConditionalOrderButton(context),
-        const SizedBox(width: 4),
-        Expanded(
-          child: _buildBuyButton(
-            context,
-            state,
-            notifier,
-            canTrade,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Expanded(
-          child: _buildSellButton(
-            context,
-            state,
-            notifier,
-            canTrade && hasPosition,
-          ),
-        ),
-        const SizedBox(width: 4),
-        _buildProgressIndicator(progress, totalDays),
-        const SizedBox(width: 4),
-        _buildNextDayButton(state, notifier, context),
-      ],
-    );
-  }
-
-  Widget _buildChangeStockButton(BuildContext context, Battle notifier) {
-    return SizedBox(
-      width: 44,
-      height: 36,
-      child: TextButton(
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          backgroundColor: Colors.grey[200],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        onPressed: () {
-          notifier.reset();
-        },
-        child: const Text(
-          '换股',
-          style: TextStyle(fontSize: 10),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Color(0xFFE0E0E0), width: 0.5)),
       ),
-    );
-  }
-
-  Widget _buildConditionalOrderButton(BuildContext context) {
-    return SizedBox(
-      width: 44,
-      height: 36,
-      child: TextButton(
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          backgroundColor: Colors.grey[200],
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
+      child: Row(
+        children: [
+          _buildButton(context, '换股', () => notifier.initializeRandom()),
+          const SizedBox(width: 8),
+          _buildButton(context, '条件单', () => _showFeatureInDev(context)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildTradeButton('买入', Colors.red, canTrade, () {
+              notifier.buy(state.currentPrice, 100);
+            }),
           ),
-        ),
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('条件单功能开发中'),
-              duration: Duration(seconds: 1),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildTradeButton(
+              hasPosition ? '卖出' : '空仓',
+              hasPosition ? Colors.green : Colors.grey,
+              canTrade && hasPosition,
+              () => notifier.sell(state.currentPrice, state.positionQuantity),
             ),
-          );
-        },
-        child: const Text(
-          '条件',
-          style: TextStyle(fontSize: 10),
-        ),
+          ),
+          const SizedBox(width: 8),
+          _buildProgressDisplay(progress, totalDays),
+          const SizedBox(width: 8),
+          _buildNextButton(context, state, notifier),
+        ],
       ),
     );
   }
 
-  Widget _buildBuyButton(
-    BuildContext context,
-    BattleState state,
-    Battle notifier,
-    bool canTrade,
-  ) {
-    final buttonText = state.isReplayMode ? '已结束' : '买入';
-    final buttonColor = state.isReplayMode ? Colors.grey : Colors.red;
-
+  Widget _buildButton(
+      BuildContext context, String label, VoidCallback onPressed) {
     return SizedBox(
-      height: 36,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
-          foregroundColor: Colors.white,
+      width: 56,
+      height: 38,
+      child: TextButton(
+        style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
+          backgroundColor: Colors.grey[100],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(4),
+            side: const BorderSide(color: Color(0xFFE0E0E0)),
           ),
         ),
-        onPressed: canTrade ? () => notifier.buy(state.currentPrice, 100) : null,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            buttonText,
-            style: const TextStyle(fontSize: 12),
-          ),
-        ),
+        onPressed: onPressed,
+        child: Text(label,
+            style: const TextStyle(fontSize: 11, color: Colors.black)),
       ),
     );
   }
 
-  Widget _buildSellButton(
-    BuildContext context,
-    BattleState state,
-    Battle notifier,
-    bool canSell,
-  ) {
-    final buttonText = state.isReplayMode
+  Widget _buildTradeButton(
+      String label, Color color, bool enabled, VoidCallback onPressed) {
+    return SizedBox(
+      height: 38,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: enabled ? color : Colors.grey[300],
+          foregroundColor: Colors.white,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+        onPressed: enabled ? onPressed : null,
+        child: Text(label, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  Widget _buildProgressDisplay(int progress, int totalDays) {
+    return Container(
+      width: 60,
+      height: 38,
+      alignment: Alignment.center,
+      child: Text(
+        '$progress天',
+        style: const TextStyle(fontSize: 11),
+      ),
+    );
+  }
+
+  Widget _buildNextButton(
+      BuildContext context, BattleState state, Battle notifier) {
+    final label = state.isReplayMode
         ? '已结束'
-        : (state.hasPosition ? '卖出' : '空仓');
-    final buttonColor = state.isReplayMode
-        ? Colors.grey
-        : (state.hasPosition ? Colors.green : Colors.grey);
+        : state.phase == TrainingPhase.opening
+            ? '看盘'
+            : '下一步';
 
     return SizedBox(
-      height: 36,
+      width: 60,
+      height: 38,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
+          backgroundColor: state.isReplayMode ? Colors.grey[300] : Colors.blue,
           foregroundColor: Colors.white,
           padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
-        onPressed: canSell ? () => notifier.sell(state.currentPrice, state.positionQuantity) : null,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            buttonText,
-            style: const TextStyle(fontSize: 12),
-          ),
-        ),
+        onPressed: state.isReplayMode
+            ? null
+            : () {
+                if (state.phase == TrainingPhase.opening) {
+                  notifier.setPhase(TrainingPhase.closing);
+                } else {
+                  notifier.nextDay();
+                }
+              },
+        child: Text(label, style: const TextStyle(fontSize: 11)),
       ),
     );
   }
 
-  Widget _buildProgressIndicator(int progress, int totalDays) {
-    return SizedBox(
-      width: 50,
-      height: 36,
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Colors.blue[50],
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          '$progress/$totalDays',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.blue[700],
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNextDayButton(
-    BattleState state,
-    Battle notifier,
-    BuildContext context,
-  ) {
-    final phaseText = state.phase == TrainingPhase.opening ? '看盘' : '收盘';
-
-    return SizedBox(
-      width: 50,
-      height: 36,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        onPressed: () {
-          if (state.phase == TrainingPhase.opening) {
-            notifier.setPhase(TrainingPhase.closing);
-          } else {
-            notifier.nextDay();
-          }
-        },
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            phaseText,
-            style: const TextStyle(fontSize: 12),
-          ),
-        ),
-      ),
+  void _showFeatureInDev(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('条件单功能开发中'), duration: Duration(seconds: 1)),
     );
   }
 }

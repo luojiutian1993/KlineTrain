@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:kline_trainer/data/models/kline_model.dart';
 import 'package:kline_trainer/data/models/trade_point_model.dart'
     show TradePoint;
 
@@ -623,44 +624,4 @@ class _CandleStickPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CandleStickPainter oldDelegate) => true;
-}
-
-class KlineData {
-  final DateTime date;
-  final double open;
-  final double high;
-  final double low;
-  final double close;
-  final double volume;
-
-  KlineData({
-    required this.date,
-    required this.open,
-    required this.high,
-    required this.low,
-    required this.close,
-    required this.volume,
-  });
-}
-
-class VolumeData {
-  final double volume;
-  final bool isUp;
-
-  VolumeData({
-    required this.volume,
-    required this.isUp,
-  });
-}
-
-class MacdData {
-  final double macd;
-  final double diff;
-  final double dea;
-
-  MacdData({
-    required this.macd,
-    required this.diff,
-    required this.dea,
-  });
 }

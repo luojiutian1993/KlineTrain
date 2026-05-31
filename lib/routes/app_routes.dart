@@ -189,7 +189,9 @@ class AppRoutes {
             builder: (context, state) {
               final refreshKey = state.uri.queryParameters['refresh'];
               return TrainingHistoryScreen(
-                key: refreshKey != null ? ValueKey('training-history-$refreshKey') : null,
+                key: refreshKey != null
+                    ? ValueKey('training-history-$refreshKey')
+                    : null,
                 refreshKey: refreshKey,
               );
             },

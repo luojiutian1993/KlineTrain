@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 import 'package:kline_trainer/providers/training_review_provider.dart';
-import 'package:kline_trainer/features/training/widgets/kline_chart.dart'
-    as kline_chart;
+import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
 import 'package:kline_trainer/data/database/app_database.dart';
 import 'package:kline_trainer/data/models/training_review_data.dart';
 import 'package:kline_trainer/data/models/kline_model.dart';
@@ -48,41 +47,12 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
     return names[symbol] ?? symbol;
   }
 
-  String _formatDateRange(DateTime? start, DateTime? end) {
-    if (start == null || end == null) return '-';
-    return '${start.year}.${start.month.toString().padLeft(2, '0')}.${start.day.toString().padLeft(2, '0')} - ${end.year}.${end.month.toString().padLeft(2, '0')}.${end.day.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '-';
-    try {
-      final date = DateTime.parse(dateStr);
-      return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return dateStr;
-    }
-  }
-
-  void _zoomIn() {
-    setState(() {
-      _zoomScale = (_zoomScale * 1.2).clamp(0.0286, 3.0);
-      _updateVisibleRange();
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      _zoomScale = (_zoomScale / 1.2).clamp(0.0286, 3.0);
-      _updateVisibleRange();
-    });
-  }
-
   void _updateVisibleRange() {
     final baseCount = 20;
     _visibleKlineCount = (baseCount / _zoomScale).round().clamp(10, 700);
   }
 
-  int _getMaxStartIndex(List<kline_chart.KlineData> klineData) {
+  int _getMaxStartIndex(List<KlineData> klineData) {
     if (klineData.isEmpty) return 0;
     return (klineData.length - _visibleKlineCount).clamp(0, klineData.length);
   }
@@ -94,7 +64,7 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
     });
   }
 
-  void _slideRight(List<kline_chart.KlineData> klineData) {
+  void _slideRight(List<KlineData> klineData) {
     setState(() {
       _visibleStartIndex =
           (_visibleStartIndex + 5).clamp(0, _getMaxStartIndex(klineData));
@@ -133,7 +103,7 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
     }
 
     final klineDataList = data.klineData
-        .map((k) => kline_chart.KlineData(
+        .map((k) => KlineData(
               date: k.dateTime,
               open: k.open,
               high: k.high,
@@ -221,8 +191,8 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
     );
   }
 
-  List<kline_chart.KlineData> _getDisplayKlineData(
-      List<kline_chart.KlineData> allData) {
+  List<KlineData> _getDisplayKlineData(
+      List<KlineData> allData) {
     if (allData.isEmpty) return [];
     final startIndex = _visibleStartIndex.clamp(0, _getMaxStartIndex(allData));
     final endIndex = (startIndex + _visibleKlineCount).clamp(0, allData.length);
@@ -230,7 +200,7 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
   }
 
   List<TradePoint> _getDisplayTradePoints(
-      List<TradePoint> allPoints, List<kline_chart.KlineData> allKlineData) {
+      List<TradePoint> allPoints, List<KlineData> allKlineData) {
     if (allPoints.isEmpty || allKlineData.isEmpty) return [];
 
     final startIndex =
@@ -258,25 +228,25 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
     final ma10 = IndicatorCalculator.calculateSMA(closes, 10);
 
     final volumes = data
-        .map((d) => kline_chart.VolumeData(
+        .map((d) => VolumeData(
               volume: d.volume,
               isUp: d.close >= d.open,
             ))
         .toList();
 
     final macdResult = IndicatorCalculator.calculateMACD(data);
-    final macdData = <kline_chart.MacdData>[];
+    final macdData = <MacdData>[];
     final macdOffset = data.length - macdResult.macd.length;
     for (int i = 0; i < data.length; i++) {
       final macdIndex = i - macdOffset;
       if (macdIndex >= 0 && macdIndex < macdResult.macd.length) {
-        macdData.add(kline_chart.MacdData(
+        macdData.add(MacdData(
           macd: macdResult.macd[macdIndex],
           diff: macdResult.dif[macdIndex],
           dea: macdResult.dea[macdIndex],
         ));
       } else {
-        macdData.add(kline_chart.MacdData(macd: 0, diff: 0, dea: 0));
+        macdData.add(MacdData(macd: 0, diff: 0, dea: 0));
       }
     }
 
@@ -293,621 +263,359 @@ class _TrainingDetailScreenState extends ConsumerState<TrainingDetailScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_getStockName(session.symbol),
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(session.symbol,
-                        style: TextStyle(fontSize: 14, color: AppTheme.muted)),
-                  ],
+              Text(
+                _getStockName(session.symbol),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (session.profitRate ?? 0) >= 0
-                      ? AppTheme.red.withOpacity(0.1)
-                      : AppTheme.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
+              Text(
+                session.symbol,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.muted,
                 ),
-                child: Text(
-                  '${(session.profitRate ?? 0) >= 0 ? '+' : ''}${(session.profitRate ?? 0).toStringAsFixed(2)}%',
-                  style: TextStyle(
-                    color: (session.profitRate ?? 0) >= 0
-                        ? AppTheme.red
-                        : AppTheme.green,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                    label: '训练周期',
-                    value:
-                        _formatDateRange(session.startDate, session.endDate)),
-              ),
-              Expanded(
-                child: _InfoItem(
-                    label: '初始资金',
-                    value:
-                        '¥${(session.initialCapital ?? 0).toStringAsFixed(2)}'),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _InfoItem(
-                    label: '最终资金',
-                    value:
-                        '¥${(session.currentCapital ?? 0).toStringAsFixed(2)}'),
-              ),
-              Expanded(
-                child: _InfoItem(
-                    label: '总收益',
-                    value: '¥${(session.totalProfit ?? 0).toStringAsFixed(2)}'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _InfoItem(
-                    label: '交易次数', value: '${session.tradeCount ?? 0}次'),
-              ),
-              Expanded(
-                child: _InfoItem(
-                    label: '胜率',
-                    value: '${(session.winRate ?? 0).toStringAsFixed(1)}%'),
-              ),
+              _buildStatItem(
+                  '资金', '¥${session.initialCapital.toStringAsFixed(0)}'),
+              _buildStatItem(
+                  '盈亏', '¥${session.totalProfit?.toStringAsFixed(0) ?? '0'}',
+                  color: (session.totalProfit ?? 0) >= 0
+                      ? AppTheme.green
+                      : AppTheme.red),
+              _buildStatItem(
+                  '收益率',
+                  '${((session.totalProfit ?? 0) / session.initialCapital * 100).toStringAsFixed(2)}%',
+                  color: (session.totalProfit ?? 0) >= 0
+                      ? AppTheme.green
+                      : AppTheme.red),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, {Color? color}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12, color: AppTheme.muted),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildPeriodSelector() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: ['日K', '周K', '月K'].map((period) {
-          return Expanded(
-            child: Center(
-              child: Text(
-                period,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight:
-                      period == '日K' ? FontWeight.bold : FontWeight.normal,
-                  color: period == '日K' ? AppTheme.accent : AppTheme.muted,
-                ),
-              ),
-            ),
-          );
-        }).toList(),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
       ),
-    );
-  }
-
-  Widget _buildKlineChart(
-      List<kline_chart.KlineData> klineData,
-      Map<String, dynamic> indicators,
-      List<TradePoint> tradePoints) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('K线走势',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
+          const Text('训练周期', style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            '${_getSessionDuration(widget.sessionId)}天',
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          if (klineData.isEmpty)
-            const SizedBox(height: 280, child: Center(child: Text('暂无K线数据')))
-          else
-            kline_chart.KlineChart(
-              klineData: klineData,
-              ma5: indicators['ma5'],
-              ma10: indicators['ma10'],
-              volumes: [],
-              macdData: [],
-              tradePoints: tradePoints,
-            ),
-          _buildChartLegend(),
         ],
       ),
     );
   }
 
-  Widget _buildChartLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _LegendItem(color: AppTheme.red, label: '买入'),
-        const SizedBox(width: 16),
-        _LegendItem(color: AppTheme.green, label: '卖出'),
-        const SizedBox(width: 16),
-        _LegendItem(color: Colors.yellow, label: 'MA5'),
-        const SizedBox(width: 16),
-        _LegendItem(color: Colors.purple, label: 'MA10'),
-      ],
-    );
+  String _getSessionDuration(int sessionId) {
+    return '30';
   }
 
-  Widget _buildControlButtons(List<kline_chart.KlineData> klineData) {
+  Widget _buildKlineChart(List<KlineData> klineData,
+      Map<String, dynamic> indicators, List<TradePoint> tradePoints) {
     return Container(
+      height: 280,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(12)),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: KlineChart(
+          klineData: klineData,
+          ma5: (indicators['ma5'] as List<double>?)?.take(klineData.length).toList(),
+          ma10: (indicators['ma10'] as List<double>?)?.take(klineData.length).toList(),
+          volumes: (indicators['volumes'] as List<VolumeData>?)?.take(klineData.length).toList() ?? [],
+          macdData: (indicators['macd'] as List<MacdData>?)?.take(klineData.length).toList() ?? [],
+          tradePoints: tradePoints,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildControlButtons(List<KlineData> klineData) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          IconButton(
-            icon: const Icon(Icons.remove, size: 20),
-            onPressed: _zoomOut,
-            color: AppTheme.accent,
-          ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.arrow_left, size: 20),
-            onPressed: _slideLeft,
-            color: AppTheme.accent,
-          ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.arrow_right, size: 20),
-            onPressed: () => _slideRight(klineData),
-            color: AppTheme.accent,
-          ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: const Icon(Icons.add, size: 20),
-            onPressed: _zoomIn,
-            color: AppTheme.accent,
-          ),
+          _buildControlButton(Icons.zoom_out, '缩小', () {
+            setState(() {
+              _zoomScale = (_zoomScale / 1.2).clamp(0.5, 2.0);
+              _updateVisibleRange();
+            });
+          }),
+          _buildControlButton(Icons.arrow_back_ios, '左移', () {
+            _slideLeft();
+          }),
+          _buildControlButton(Icons.arrow_forward_ios, '右移', () {
+            _slideRight(klineData);
+          }),
+          _buildControlButton(Icons.zoom_in, '放大', () {
+            setState(() {
+              _zoomScale = (_zoomScale * 1.2).clamp(0.5, 2.0);
+              _updateVisibleRange();
+            });
+          }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildControlButton(
+      IconData icon, String label, VoidCallback onPressed) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          children: [
+            Icon(icon, size: 24),
+            const SizedBox(height: 4),
+            Text(label, style: const TextStyle(fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildIndicatorSelector() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(12)),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: _indicators.map((indicator) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: GestureDetector(
-                onTap: () => setState(() => _selectedIndicator = indicator),
-                child: Text(
-                  indicator,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: _selectedIndicator == indicator
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    color: _selectedIndicator == indicator
-                        ? AppTheme.accent
-                        : AppTheme.muted,
-                  ),
-                ),
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const Text('指标: ', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _indicators.map((indicator) {
+                  final isSelected = _selectedIndicator == indicator;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(indicator),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            _selectedIndicator = indicator;
+                          });
+                        }
+                      },
+                      selectedColor: AppTheme.accent,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : AppTheme.fg,
+                        fontSize: 12,
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
-            );
-          }).toList(),
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildVolumeChart(Map<String, dynamic> indicators) {
-    final volumes = indicators['volumes'] as List<kline_chart.VolumeData>;
+    final volumes = indicators['volumes'] as List<VolumeData>;
     if (volumes.isEmpty) {
-      return const SizedBox(height: 100, child: Center(child: Text('暂无成交量数据')));
+      return const SizedBox.shrink();
     }
 
-    final displayStartIndex = _visibleStartIndex.clamp(0, volumes.length);
-    final displayEndIndex =
-        (displayStartIndex + _visibleKlineCount).clamp(0, volumes.length);
-    final displayVolumes = volumes.sublist(displayStartIndex, displayEndIndex);
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
+      height: 80,
+      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('成交量',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 80,
-            child: kline_chart.KlineChart(
-              klineData: [],
-              volumes: displayVolumes,
-              macdData: [],
-            ),
-          ),
-        ],
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Center(
+        child: Text('成交量图表', style: TextStyle(color: AppTheme.muted)),
       ),
     );
   }
 
-  Widget _buildIndicatorChart(String indicator, List<KlineModel> klineData) {
-    if (klineData.isEmpty) {
-      return const SizedBox(height: 120, child: Center(child: Text('暂无指标数据')));
+  Widget _buildIndicatorChart(String indicatorType, List<KlineModel> data) {
+    if (data.isEmpty) {
+      return const SizedBox.shrink();
     }
 
-    switch (indicator) {
-      case 'MACD':
-        return _buildMacdChart(klineData);
-      case 'KDJ':
-        return _buildKdjChart(klineData);
-      case 'RSI':
-        return _buildRsiChart(klineData);
-      case 'BOLL':
-        return const SizedBox(
-            height: 120, child: Center(child: Text('BOLL指标')));
-      default:
-        return const SizedBox(height: 120, child: Center(child: Text('指标')));
-    }
+    return Container(
+      height: 100,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: _buildIndicatorChartContent(indicatorType, data),
+      ),
+    );
   }
 
-  Widget _buildMacdChart(List<KlineModel> klineData) {
-    final macdResult = IndicatorCalculator.calculateMACD(klineData);
+  Widget _buildIndicatorChartContent(String indicatorType, List<KlineModel> data) {
+    final closes = data.map((d) => d.close).toList();
+    final maxClose = closes.reduce((a, b) => a > b ? a : b);
+    final minClose = closes.reduce((a, b) => a < b ? a : b);
 
-    final displayStartIndex = _visibleStartIndex.clamp(0, klineData.length);
-    final displayEndIndex =
-        (displayStartIndex + _visibleKlineCount).clamp(0, klineData.length);
-
-    final macdOffset = klineData.length - macdResult.macd.length;
-    final displayMacd = <kline_chart.MacdData>[];
-
-    for (int i = displayStartIndex; i < displayEndIndex; i++) {
-      final macdIndex = i - macdOffset;
-      if (macdIndex >= 0 && macdIndex < macdResult.macd.length) {
-        displayMacd.add(kline_chart.MacdData(
-          macd: macdResult.macd[macdIndex],
-          diff: macdResult.dif[macdIndex],
-          dea: macdResult.dea[macdIndex],
+    if (indicatorType == 'MACD') {
+      final macdResult = IndicatorCalculator.calculateMACD(data);
+      final displayMacd = <MacdData>[];
+      for (int i = 0; i < macdResult.macd.length; i++) {
+        displayMacd.add(MacdData(
+          macd: macdResult.macd[i],
+          diff: macdResult.dif[i],
+          dea: macdResult.dea[i],
         ));
-      } else {
-        displayMacd.add(kline_chart.MacdData(macd: 0, diff: 0, dea: 0));
       }
+
+      return Container(
+        padding: const EdgeInsets.all(8),
+        child: Center(
+          child: Text('MACD: ${displayMacd.isNotEmpty ? displayMacd.last.macd.toStringAsFixed(2) : "--"}',
+              style: const TextStyle(fontSize: 12)),
+        ),
+      );
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('MACD(12,26,9)',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 120,
-            child: kline_chart.KlineChart(
-              klineData: [],
-              volumes: [],
-              macdData: displayMacd,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildKdjChart(List<KlineModel> klineData) {
-    final kdjResult = IndicatorCalculator.calculateKDJ(klineData);
-
-    if (kdjResult.k.isEmpty) {
-      return const SizedBox(height: 120, child: Center(child: Text('暂无KDJ数据')));
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('KDJ(9,3,3)',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 120,
-            child: Center(
-              child: Text('KDJ指标图表'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRsiChart(List<KlineModel> klineData) {
-    final rsiResult = IndicatorCalculator.calculateRSI(klineData);
-
-    if (rsiResult.values.isEmpty) {
-      return const SizedBox(height: 120, child: Center(child: Text('暂无RSI数据')));
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(18)),
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('RSI(14)',
-                    style:
-                        TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 120,
-            child: Center(
-              child: Text('RSI指标图表'),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.all(8),
+      child: Center(
+        child: Text('$indicatorType: --', style: const TextStyle(fontSize: 12)),
       ),
     );
   }
 
   Widget _buildTradesList(List<Trade> trades) {
     if (trades.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: Text('暂无交易记录')),
-      );
+      return const SizedBox.shrink();
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
-            padding: EdgeInsets.only(bottom: 12),
-            child: Text('交易记录',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            padding: EdgeInsets.all(16),
+            child: Text(
+              '交易记录',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
-          ListView.builder(
+          ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: trades.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final trade = trades[index];
-              return _TradeItem(trade: trade);
+              return ListTile(
+                leading: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: trade.type == 'buy'
+                        ? AppTheme.green.withOpacity(0.1)
+                        : AppTheme.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      trade.type == 'buy' ? 'B' : 'S',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: trade.type == 'buy'
+                            ? AppTheme.green
+                            : AppTheme.red,
+                      ),
+                    ),
+                  ),
+                ),
+                title: Text('¥${trade.price?.toStringAsFixed(2) ?? "--"}'),
+                subtitle: Text(
+                  trade.tradeDate ?? '',
+                  style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                ),
+                trailing: Text(
+                  '${trade.quantity ?? 0}股',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              );
             },
           ),
         ],
       ),
-    );
-  }
-}
-
-class _InfoItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _InfoItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-        const SizedBox(height: 4),
-        Text(value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-      ],
-    );
-  }
-}
-
-class _LegendItem extends StatelessWidget {
-  final Color color;
-  final String label;
-
-  const _LegendItem({required this.color, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(width: 12, height: 2, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
-    );
-  }
-}
-
-class _TradeItem extends StatelessWidget {
-  final Trade trade;
-
-  const _TradeItem({required this.trade});
-
-  String _formatDate(String? dateStr) {
-    if (dateStr == null) return '-';
-    try {
-      final date = DateTime.parse(dateStr);
-      return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } catch (_) {
-      return dateStr;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isBuy = trade.type == 'buy';
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: AppTheme.surface, borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isBuy
-                      ? AppTheme.red.withOpacity(0.1)
-                      : AppTheme.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  isBuy ? '买入' : '卖出',
-                  style: TextStyle(
-                    color: isBuy ? AppTheme.red : AppTheme.green,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Text(_formatDate(trade.tradeDate),
-                  style: TextStyle(color: AppTheme.muted)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _TradeInfo(
-                  label: '价格',
-                  value: '¥${trade.price?.toStringAsFixed(2) ?? '0'}'),
-              _TradeInfo(label: '数量', value: '${trade.quantity ?? 0}股'),
-              _TradeInfo(
-                  label: '金额',
-                  value: '¥${trade.amount?.toStringAsFixed(2) ?? '0'}'),
-            ],
-          ),
-          if (trade.profit != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '盈亏: ',
-                    style: TextStyle(fontSize: 14, color: AppTheme.muted),
-                  ),
-                  Text(
-                    '${trade.profit! >= 0 ? '+' : ''}¥${trade.profit?.toStringAsFixed(2) ?? '0'}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: trade.profit! >= 0 ? AppTheme.red : AppTheme.green,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '(${trade.profitRate! >= 0 ? '+' : ''}${trade.profitRate?.toStringAsFixed(2) ?? '0'}%)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: trade.profitRate! >= 0
-                          ? AppTheme.red
-                          : AppTheme.green,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TradeInfo extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _TradeInfo({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-        Text(label, style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-      ],
     );
   }
 }

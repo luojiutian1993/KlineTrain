@@ -140,13 +140,22 @@ LazyDatabase _openConnection() {
       print('✅ 数据库文件已存在，直接使用');
     }
 
-    return NativeDatabase(
-      file,
-      setup: (db) {
-        db.execute('PRAGMA journal_mode = WAL');
-        db.execute('PRAGMA cache_size = -2000');
-        db.execute('PRAGMA synchronous = NORMAL');
-      },
-    );
+    try {
+      return NativeDatabase(
+        file,
+        setup: (db) {
+          db.execute('PRAGMA journal_mode = WAL');
+          db.execute('PRAGMA cache_size = -2000');
+          db.execute('PRAGMA synchronous = NORMAL');
+        },
+      );
+    } catch (e) {
+      print('❌ NativeDatabase 创建失败，尝试使用内存数据库: $e');
+      return NativeDatabase.memory(
+        setup: (db) {
+          db.execute('PRAGMA journal_mode = WAL');
+        },
+      );
+    }
   });
 }

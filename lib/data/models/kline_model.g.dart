@@ -15,6 +15,8 @@ KlineModel _$KlineModelFromJson(Map<String, dynamic> json) => KlineModel(
       close: (json['close'] as num).toDouble(),
       volume: (json['volume'] as num).toDouble(),
       turnover: (json['turnover'] as num).toDouble(),
+      turnoverRate: (json['turnoverRate'] as num?)?.toDouble(),
+      amount: (json['amount'] as num?)?.toDouble(),
     );
 
 Map<String, dynamic> _$KlineModelToJson(KlineModel instance) =>
@@ -27,6 +29,8 @@ Map<String, dynamic> _$KlineModelToJson(KlineModel instance) =>
       'close': instance.close,
       'volume': instance.volume,
       'turnover': instance.turnover,
+      'turnoverRate': instance.turnoverRate,
+      'amount': instance.amount,
     };
 
 KlineResponse _$KlineResponseFromJson(Map<String, dynamic> json) =>
