@@ -78,13 +78,7 @@ class _RecordDetailScreenState extends ConsumerState<RecordDetailScreen> {
         backgroundColor: AppTheme.surface,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              context.go('/main?tab=2');
-            }
-          },
+          onPressed: () => context.pop(),
         ),
       ),
       body: _isLoading

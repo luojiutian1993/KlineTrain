@@ -98,14 +98,15 @@ class AppRoutes {
               isReplayMode: isReplayMode,
               sessionId: sessionId,
             );
+            final stableKey =
+                'main_${symbol}_${sessionId ?? 0}_${isReplayMode ? 'replay' : 'normal'}';
             return MainTabPage(
-              key: ValueKey(
-                  'main_${symbol}_${sessionId ?? 0}_${isReplayMode ? 'replay' : 'normal'}_${DateTime.now().millisecondsSinceEpoch}'),
+              key: ValueKey(stableKey),
               initialIndex: tabIndex,
               battleParams: battleParams,
             );
           }
-          return MainTabPage(initialIndex: tabIndex);
+          return const MainTabPage(initialIndex: 0);
         },
       ),
       GoRoute(

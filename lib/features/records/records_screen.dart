@@ -29,10 +29,10 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadTrainingSessions();
   }
 
   Future<void> _loadTrainingSessions() async {
+    if (_sessions.isNotEmpty) return;
     setState(() => _isLoading = true);
     try {
       final dbService = DatabaseService.instance;
@@ -67,7 +67,7 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen>
 
   void _handleDetail(int sessionId) {
     print('🔵 [_handleDetail] 跳转到详情: sessionId=$sessionId');
-    context.pushReplacement('/records/$sessionId/detail');
+    context.push('/records/$sessionId/detail');
   }
 
   void _handleReplay(TrainingSession session) {

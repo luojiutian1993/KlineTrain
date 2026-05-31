@@ -17,9 +17,13 @@ class TrainingHistoryScreen extends ConsumerStatefulWidget {
       _TrainingHistoryScreenState();
 }
 
-class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
+class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen>
+    with AutomaticKeepAliveClientMixin {
   List<TrainingSession> _sessions = [];
   bool _isLoading = true;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -32,8 +36,6 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    print('🐛 [TrainingHistoryScreen] didChangeDependencies - 刷新数据');
-    _loadTrainingSessions();
   }
 
   @override
@@ -75,6 +77,7 @@ class _TrainingHistoryScreenState extends ConsumerState<TrainingHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar:

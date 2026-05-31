@@ -12,9 +12,13 @@ class TrainingScreen extends ConsumerStatefulWidget {
   ConsumerState<TrainingScreen> createState() => _TrainingScreenState();
 }
 
-class _TrainingScreenState extends ConsumerState<TrainingScreen> {
+class _TrainingScreenState extends ConsumerState<TrainingScreen>
+    with AutomaticKeepAliveClientMixin {
   List<TrainingSession> _sessions = [];
   bool _isLoading = true;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -25,7 +29,6 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadTrainingSessions();
   }
 
   Future<void> _loadTrainingSessions() async {
@@ -86,6 +89,7 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的训练'),
