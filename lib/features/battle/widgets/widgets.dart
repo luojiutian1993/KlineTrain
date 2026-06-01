@@ -9,3 +9,5 @@ export 'obv_chart.dart';
 export 'dmi_chart.dart';
 export 'dma_chart.dart';
 export 'bbi_chart.dart';
+export 'trade_amount_sheet.dart';
+export 'position_setting_dialog.dart';

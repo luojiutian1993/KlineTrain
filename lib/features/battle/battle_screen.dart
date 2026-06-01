@@ -7,6 +7,7 @@ import 'package:kline_trainer/features/battle/widgets/control_buttons.dart';
 import 'package:kline_trainer/features/battle/widgets/asset_panel.dart';
 import 'package:kline_trainer/features/battle/widgets/indicator_panel.dart';
 import 'package:kline_trainer/features/battle/widgets/kline_chart_container.dart';
+import 'package:kline_trainer/features/battle/widgets/trade_amount_sheet.dart';
 import 'package:kline_trainer/features/training/widgets/kline_chart.dart';
 import 'package:kline_trainer/theme/app_theme.dart';
 
@@ -428,7 +429,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     showModalBottomSheet(
         context: context,
         isDismissible: true,
-        builder: (context) => _TradeAmountSheet(
+        builder: (context) => TradeAmountSheet(
             title: '买入',
             currentPrice: price,
             onConfirm: (price, quantity) {
@@ -448,7 +449,7 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
     showModalBottomSheet(
         context: context,
         isDismissible: true,
-        builder: (context) => _TradeAmountSheet(
+        builder: (context) => TradeAmountSheet(
             title: '卖出',
             currentPrice: price,
             maxQuantity: state.positionQuantity,
@@ -456,242 +457,5 @@ class _BattleScreenState extends ConsumerState<BattleScreen> {
               Navigator.pop(context);
               ref.read(battleProvider.notifier).sell(price, quantity);
             }));
-  }
-}
-
-class _TradeAmountSheet extends ConsumerStatefulWidget {
-  final String title;
-  final double currentPrice;
-  final double? maxQuantity;
-  final Function(double, double) onConfirm;
-
-  const _TradeAmountSheet(
-      {required this.title,
-      required this.currentPrice,
-      this.maxQuantity,
-      required this.onConfirm});
-
-  @override
-  ConsumerState<_TradeAmountSheet> createState() => _TradeAmountSheetState();
-}
-
-class _TradeAmountSheetState extends ConsumerState<_TradeAmountSheet> {
-  late TextEditingController _priceController;
-  late TextEditingController _quantityController;
-  double _totalAmount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _priceController =
-        TextEditingController(text: widget.currentPrice.toStringAsFixed(2));
-    final maxQty = widget.maxQuantity ??
-        (100000 / widget.currentPrice / 100).floor() * 100;
-    _quantityController = TextEditingController(text: maxQty.toString());
-    _updateTotalAmount();
-  }
-
-  void _updateTotalAmount() {
-    final price = double.tryParse(_priceController.text) ?? 0;
-    final quantity = double.tryParse(_quantityController.text) ?? 0;
-    setState(() {
-      _totalAmount = price * quantity;
-    });
-  }
-
-  @override
-  void dispose() {
-    _priceController.dispose();
-    _quantityController.dispose();
-    super.dispose();
-  }
-
-  void _setQuantityPercent(double percent) {
-    final state = ref.read(battleProvider);
-    double maxQty;
-
-    if (widget.title == '买入') {
-      final maxBuyQty = (state.accountBalance /
-                  (double.tryParse(_priceController.text) ??
-                      widget.currentPrice) /
-                  100)
-              .floor() *
-          100;
-      maxQty = maxBuyQty * percent;
-    } else {
-      maxQty = (state.positionQuantity * percent / 100).floor() * 100;
-    }
-
-    _quantityController.text = maxQty.toString();
-    _updateTotalAmount();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(battleProvider);
-    final isBuy = widget.title == '买入';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.title,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-
-            // 资产信息
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('账户余额', style: TextStyle(fontSize: 12)),
-                      Text('${state.accountBalance.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  if (isBuy) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('可买数量', style: TextStyle(fontSize: 12)),
-                        _buildBuyableQuantity(state.accountBalance),
-                      ],
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('持仓数量', style: TextStyle(fontSize: 12)),
-                        Text('${state.positionQuantity}股',
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('持仓成本', style: TextStyle(fontSize: 12)),
-                        Text('${state.positionCost.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // 价格输入
-            TextField(
-              controller: _priceController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: '价格',
-                border: const OutlineInputBorder(),
-                suffixText: '当前: ${widget.currentPrice.toStringAsFixed(2)}',
-              ),
-              onChanged: (_) => _updateTotalAmount(),
-            ),
-            const SizedBox(height: 12),
-
-            // 数量输入
-            TextField(
-              controller: _quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '数量(股)',
-                border: OutlineInputBorder(),
-                helperText: '1手=100股',
-              ),
-              onChanged: (_) => _updateTotalAmount(),
-            ),
-            const SizedBox(height: 12),
-
-            // 快捷选择按钮
-            Row(
-              children: [
-                Expanded(
-                    child: _buildQuickButton(
-                        '1/3', () => _setQuantityPercent(1 / 3))),
-                const SizedBox(width: 8),
-                Expanded(
-                    child: _buildQuickButton(
-                        '1/2', () => _setQuantityPercent(1 / 2))),
-                const SizedBox(width: 8),
-                Expanded(
-                    child:
-                        _buildQuickButton('全仓', () => _setQuantityPercent(1))),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // 交易金额
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('交易金额', style: TextStyle(fontSize: 14)),
-                Text('${_totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // 确认按钮
-            SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final price = double.tryParse(_priceController.text) ??
-                        widget.currentPrice;
-                    final quantity =
-                        double.tryParse(_quantityController.text) ?? 0;
-                    if (quantity > 0) {
-                      widget.onConfirm(price, quantity);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          widget.title == '买入' ? Colors.red : Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 16)),
-                  child: Text(widget.title),
-                )),
-          ]),
-    );
-  }
-
-  Widget _buildQuickButton(String label, VoidCallback onPressed) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(
-        backgroundColor: Colors.grey[200],
-        padding: const EdgeInsets.symmetric(vertical: 8),
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 12)),
-    );
-  }
-
-  Widget _buildBuyableQuantity(double accountBalance) {
-    final price = double.tryParse(_priceController.text) ?? widget.currentPrice;
-    final buyableQty = (accountBalance / price / 100).floor() * 100;
-    return Text('${buyableQty}股',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold));
   }
 }
